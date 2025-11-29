@@ -1,0 +1,20 @@
+(env
+ (_
+  (flags
+   (:standard -warn-error +5))))
+
+(library
+ (name lib1)
+ (modules lib)
+ (flags (-rectypes))
+ (libraries OCanren OCanren.tester)
+ (inline_tests)
+ (wrapped false)
+ (preprocess
+  (pps
+   OCanren-ppx.ppx_repr
+   OCanren-ppx.ppx_fresh
+   OCanren-ppx.ppx_distrib
+   GT.ppx
+   GT.ppx_all
+   ppx_inline_test)))

@@ -1,0 +1,2 @@
+(test
+ (name test_pass_strategy_synthesis))
