@@ -21,7 +21,7 @@
  (description "A longer description")
  (depends
   (ocaml
-   (= 4.14.2))
+   (= 5.3.0))
   GT
   (OCanren
    (>= 0.3.0~))

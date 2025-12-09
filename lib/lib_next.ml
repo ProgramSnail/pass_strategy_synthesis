@@ -69,7 +69,7 @@ let init_state prog = { s_func = prog.p_func |> List.to_seq |> M.of_seq;
                         (* s_value = UnitV; *)
                       };;
 
-let find_func name state = M.find_opt name state.s_func
+let find_func name state = M.find_opt name state.s_func;;
 
 let find_frame_var name frame = M.find_opt name frame.f_vars;;
 let rec find_frames_var name frames =
