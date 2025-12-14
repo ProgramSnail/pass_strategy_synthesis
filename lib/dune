@@ -19,9 +19,25 @@
    GT.ppx_all
    ppx_inline_test)))
 
+; (library
+;  (name lib2)
+;  (modules lib_next)
+;  (flags (-rectypes))
+;  (libraries OCanren OCanren.tester)
+;  (inline_tests)
+;  (wrapped false)
+;  (preprocess
+;   (pps
+;    OCanren-ppx.ppx_repr
+;    OCanren-ppx.ppx_fresh
+;    OCanren-ppx.ppx_distrib
+;    GT.ppx
+;    GT.ppx_all
+;    ppx_inline_test)))
+
 (library
- (name lib2)
- (modules lib_next)
+ (name semantic_interpreter)
+ (modules semantic_interpreter)
  (flags (-rectypes))
  (libraries OCanren OCanren.tester)
  (inline_tests)
@@ -33,4 +49,5 @@
    OCanren-ppx.ppx_distrib
    GT.ppx
    GT.ppx_all
+   ppx_expect
    ppx_inline_test)))

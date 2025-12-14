@@ -65,6 +65,19 @@ type l_prog  = (l_fun_decl, l_body) a_prog ilogic
 (* --- comments --- *)
 
 (*
+f 0:
+ WRITE(0)
+
+f' 0:
+ READ(0)
+
+main:
+ f(0)
+ READ(0)
+
+*)
+
+(*
 >> ref | const ref | copy:
 
 -> write into the arg => != const ref
@@ -90,7 +103,7 @@ call function with arg ref that modifies & write after any function call => !ref
 (* module Tree = struct *)
   (* ocanren type 'a tree = Leaf | Node of 'a * 'a tree * 'a tree *)
 
-  (* type inttree = GT.int tree [@@deriving gt ~options:{show}] *)
+  (* type int tree = GT.int tree [@@deriving gt ~options:{show}] *)
   (* A shortcut for "ground" tree we're going to work with in "functional" code *)
   (* type rtree = Std.Nat.ground tree [@@deriving gt ~options:{show}] *)
 

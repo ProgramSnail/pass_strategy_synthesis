@@ -17,7 +17,6 @@ correct_body_on_arg_borrow(ARGT, B, [Call(F, FARGT, ARGS)|XT], I) :-
   not_in_list(I, ARGS), correct_body_on_arg_borrow(ARGT, B, XT, I).
 /* func call only correct in all args are not I */
 
-/* TODO: correct_args_map(ARGT, B, FARGT, ARGS) */
 correct_args_map(ARGT, B, [], []).
 correct_args_map(ARGT, B, BT, [Ref|TS], [I|IS]) :-
   arg_tags_neq(ARGT, I, ConstRef),
