@@ -48,7 +48,7 @@ let mem_get state id = match state with
 
 let mem_set state id value= match state with
   (env, mem, mem_len, assignments) -> let mem_id = inv_id mem_len @@ env_get state id in
-                                      let mem = list_replace mem mem_id value in (env, mem, mem_len, mem_id :: assignments)
+                                      let mem = list_replace mem mem_id value in (env, mem, mem_len, id :: assignments)
 
 let mem_add state value = match state with
   (env, mem, mem_len, assignments) -> let mem = value :: mem in (env, mem, mem_len + 1, assignments)
@@ -75,7 +75,7 @@ let st_add_arg state state_before id arg_tag arg =
 let st_spoil_assignments state =
   match state with (env, mem, mem_len, assignments) ->
   (* TODO: use env var ids instead of mem_ids ?? *)
-  (env, List.fold_left (fun mem mem_id -> list_replace mem mem_id BotV) mem assignments, mem_len, [])
+  (env, List.fold_left (fun mem id -> list_replace mem (inv_id mem_len @@ env_get state id) BotV) mem assignments, mem_len, [])
 
 let rec eval_stmt state prog stmt =
   match stmt with
@@ -89,7 +89,6 @@ and eval_fun state prog decl args =
   match decl with (arg_tags, body) ->
   match state with (env_before, mem_before, len_before, assignments_before) as state_before ->
   let state = (M.empty, mem_before, len_before, []) in
-  (* TODO: right id order ? *)
   let (state, _) = List.fold_left2 (fun (state, id) arg_tag arg -> (st_add_arg state state_before id arg_tag arg, id + 1)) (state, 0) arg_tags args in
   let state = eval_body state prog body in
   let state = st_spoil_assignments state in
