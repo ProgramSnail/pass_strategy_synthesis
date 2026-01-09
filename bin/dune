@@ -8,6 +8,6 @@
  (modules main)
  (flags
   (:standard -rectypes))
- (libraries lib1)
+ ; (libraries ...)
  (preprocess
   (pps OCanren-ppx.ppx_repr OCanren-ppx.ppx_fresh GT.ppx GT.ppx_all)))

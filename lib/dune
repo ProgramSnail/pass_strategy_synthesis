@@ -4,38 +4,6 @@
    (:standard -warn-error +5))))
 
 (library
- (name lib1)
- (modules lib)
- (flags (-rectypes))
- (libraries OCanren OCanren.tester)
- (inline_tests)
- (wrapped false)
- (preprocess
-  (pps
-   OCanren-ppx.ppx_repr
-   OCanren-ppx.ppx_fresh
-   OCanren-ppx.ppx_distrib
-   GT.ppx
-   GT.ppx_all
-   ppx_inline_test)))
-
-; (library
-;  (name lib2)
-;  (modules lib_next)
-;  (flags (-rectypes))
-;  (libraries OCanren OCanren.tester)
-;  (inline_tests)
-;  (wrapped false)
-;  (preprocess
-;   (pps
-;    OCanren-ppx.ppx_repr
-;    OCanren-ppx.ppx_fresh
-;    OCanren-ppx.ppx_distrib
-;    GT.ppx
-;    GT.ppx_all
-;    ppx_inline_test)))
-
-(library
  (name semantic_interpreter)
  (modules semantic_interpreter)
  (flags (-rectypes))
@@ -51,3 +19,37 @@
    GT.ppx_all
    ppx_expect
    ppx_inline_test)))
+
+(library
+ (name relational_semantic_interpreter)
+ (modules relational_semantic_interpreter)
+ (flags
+  (:standard -rectypes))
+ (libraries OCanren OCanren.tester)
+ (preprocessor_deps %{project_root}/lib/pp5+gt+plugins+ocanren+dump.exe)
+ (inline_tests)
+ (wrapped false)
+ (preprocess
+   (pps
+   OCanren-ppx.ppx_repr
+   OCanren-ppx.ppx_distrib
+   OCanren-ppx.ppx_deriving_reify
+   OCanren-ppx.ppx_fresh
+   ppx_expect
+   ppx_inline_test
+   --
+   -pp
+   lib/pp5+gt+plugins+ocanren+dump.exe)
+  ))
+
+(rule
+ (targets pp5+gt+plugins+ocanren+dump.exe)
+ (action
+  (run
+   mkcamlp5.opt
+   -package
+   camlp5,camlp5.pa_o,camlp5.macro,camlp5.pr_dump,logger.syntax
+   -package
+   logger.syntax,GT.syntax,GT.syntax.all,OCanren.syntax
+   -o
+   %{targets})))
