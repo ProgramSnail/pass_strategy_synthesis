@@ -40,5 +40,14 @@ struct
   @type value_logic = value_ground logic with show, gmap
   type value_injected = value_ground ilogic
 
+  @type list_map_ground = (data_ground * data_ground) List.ground with show, gmap
+  @type list_map_logic = (data_logic * data_logic) List.logic with show, gmap
+  type list_map_injected = (data_injected * data_injected) List.injected ilogic
+
+  @type ('env, 'mem, 'last_mem, 'assignments) state_abs =  'env * 'mem * 'last_mem * 'assignments with show, gmap
+  @type state_ground = (list_map_ground, value_ground List.ground, data_ground, data_ground List.ground) state_abs with show, gmap
+  @type state_logic = (list_map_logic, value_logic List.logic, data_logic, data_logic List.logic) state_abs logic with show, gmap
+  type state_injected = (list_map_injected, value_injected List.injected, data_injected, data_injected List.injected) state_abs ilogic
+
   (* ocanren type 'a lst = Nil | Cons of 'a * 'a lst *)
 end
