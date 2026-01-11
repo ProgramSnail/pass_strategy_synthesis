@@ -23,7 +23,7 @@ struct
 
   (* --- static interpreter (no rec) --- *)
 
-  module M = Map.Make (Int);;
+  type env = (int * data) list
 
   (* TODO: allow data (rvalue) in calls ?? *)
   type arg = RValue | LValue of data
@@ -31,7 +31,7 @@ struct
 
   (* TODO: replace env map with pairs *)
   (* env * memory * last unused memory * assignments *) 
-  type state = data M.t * value list * int * data list
+  type state = env * value list * int * data list
 
   (* TODO: replace with pairs *)
   let rec list_replace xs id value = match (xs, id) with
@@ -41,10 +41,10 @@ struct
 
 
   let env_get state id = match state with
-    (env, _mem, _mem_len, _assignments) -> M.find id env
+    (env, _mem, _mem_len, _assignments) -> List.assoc id env
 
   let env_add state id mem_id = match state with
-    (env, mem, mem_len, assignments) -> let env = M.add id mem_id env in
+    (env, mem, mem_len, assignments) -> let env = (id, mem_id) :: env in
                                         (env, mem, mem_len, assignments)
 
   let inv_id mem_len id = mem_len - id - 1
@@ -93,7 +93,7 @@ struct
   and eval_fun state prog decl args =
     match decl with (arg_tags, body) ->
     match state with (env_before, mem_before, len_before, assignments_before) as state_before ->
-    let state = (M.empty, mem_before, len_before, []) in
+    let state = ([], mem_before, len_before, []) in
     let (state, _) = List.fold_left2 (fun (state, id) arg_tag arg -> (st_add_arg state state_before id arg_tag arg, id + 1)) (state, 0) arg_tags args in
     let state = eval_body state prog body in
     let state = st_spoil_assignments state in
@@ -105,7 +105,7 @@ struct
     let args = List.map (fun _ -> RValue) arg_tags in
     eval_fun state prog decl args
 
-  let empty_state = (M.empty, [], 0, [])
+  let empty_state = ([], [], 0, [])
 
   let eval_prog (prog, main_decl) = ignore @@ eval_fun_empty_args empty_state prog main_decl
 
