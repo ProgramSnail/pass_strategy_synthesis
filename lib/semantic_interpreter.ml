@@ -23,13 +23,12 @@ struct
 
   (* --- static interpreter (no rec) --- *)
 
-  type env = (int * data) list
-
   (* TODO: allow data (rvalue) in calls ?? *)
   type arg = RValue | LValue of data
   type value = UnitV | BotV (* NOTE: RefV of data - not needed for now *)
 
-  (* TODO: replace env map with pairs *)
+  type env = (int * data) list
+
   (* env * memory * last unused memory * assignments *) 
   type state = env * value list * int * data list
 
@@ -74,8 +73,7 @@ struct
       | (Ref, RValue) -> raise @@ Ref_rvalue_argument id (* TODO: allow later ?? *) 
       | (Ref, LValue arg) -> env_add state id (env_get state_before arg)
       | (Value, arg) -> let state = mem_add state (arg_to_value state_before arg) in
-                        let state = env_add state id (st_mem_len state - 1) in
-                        state
+                        env_add state id (st_mem_len state - 1)
 
   let st_spoil_assignments state =
     match state with (env, mem, mem_len, assignments) ->
@@ -88,7 +86,8 @@ struct
       | Read id -> mem_check state id
       | Write id -> mem_set state id UnitV
 
-  and eval_body state prog body = List.fold_left (fun state stmt -> eval_stmt state prog stmt) state body
+  and eval_body state prog body =
+    List.fold_left (fun state stmt -> eval_stmt state prog stmt) state body
 
   and eval_fun state prog decl args =
     match decl with (arg_tags, body) ->
