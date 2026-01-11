@@ -53,9 +53,9 @@ struct
 
   let rec list_replace xs id value ys =
     conde
-    [ (xs === Nil) (ys === Nil) (* TODO: error *)
-    ; fresh (x xs') (xs === x :: xs') (id === 0) (ys === value :: xs)
-    ; fresh (x xs' id' ys') (xs === x :: xs') (id === suc id') (ys === x :: ys')
+    [ (xs === List.nil) (ys === List.nil) (* TODO: error *)
+    ; fresh (x xs') (xs === List.cons x xs') (id === 0) (ys === List.cons value xs)
+    ; fresh (x xs' id' ys') (xs ===List. cons x xs') (id === Nat.succ id') (ys === List.cons x ys')
                             (list_replace xs' id' value ys')
     ]
 
@@ -63,26 +63,35 @@ struct
     fresh (env env' mem mem_len assignments)
     (state === (env, mem, mem_len, assignments))
     (state' === (env', mem,  mem_len, assignments))
-    (List.assoc id env env')
+    (List.assoco id env env')
 
   let env_add state id mem_id state' =
     fresh (env env' mem mem_len assignments)
     (state === (env, mem, mem_len, assignments))
     (state' === (env', mem,  mem_len, assignments))
-    (env' == (id, mem_id) :: env)
+    (env' == List.cons (id, mem_id) env)
 
-  let inv_id mem_len id id' = (id === mem_len - id - 1)
+  let inv_id mem_len id id' =
+    (fresh inv_id_inc)
+    (Nat.addo inv_id_inc id mem_len)
+    (Nat.addo id' 1 inv_id_inc)
 
   (* --- *)
+
+  let list_nth xs id x' =
+   conde
+   [ (xs === List.nil) (* TODO: error *)
+   ; (fresh y' xs') (id === 0) (List.cons y' xs' === xs) (x' === y')
+   ; (fresh id' y' xs') (Nat.succ id' === id) (List.cons y' xs' === xs) (list_nth xs' id' x')
+   ]
 
   let mem_get state id value' =
     (fresh mem mem_len)
     (state === (_, mem, mem_len, _))
-    (fresh mem_len_inv)
-    (inv_id mem_len mem_len_inv)
-    (fresh mem_id)
+    (fresh mem_id mem_id_inv)
     (env_get state id mem_id)
-    (List.nth mem mem_len_inv mem_id value')
+    (inv_id mem_len mem_id mem_len_inv)
+    (list_nth mem mem_id value')
 
   let mem_set state id value state'=
     (fresh env mem mem_len assignments)
@@ -90,13 +99,13 @@ struct
     (fresh mem_id) (env_get state id mem_id)
     (fresh inv_mem_id) (inv_id mem_len mem_id inv_mem_id)
     (fresh mem') (list_replace mem mem_id value mem')
-    (state' === (env, mem', mem_len, id :: assignments))
+    (state' === (env, mem', mem_len, List.cons id assignments))
 
   let mem_add state value state' =
     (fresh env mem mem_len assignments)
     (state === (env, mem, mem_len, assignments))
-    (fresh mem') (mem' === value :: mem)
-    (state' === (env, mem, suc mem_len, assignments))
+    (fresh mem') (mem' === List.cons value mem)
+    (state' === (env, mem, Nat.succ mem_len, assignments))
 
   let mem_check state id state' =
     conde
@@ -124,7 +133,7 @@ struct
       (fresh value' state' mem_len_dec')
       (arg_to_value state_before arg value')
       (mem_add state value' state')
-      (suc mem_len_dec' === st_mem_len state) (* or ... = ... - 1*)
+      (Nat.succ mem_len_dec' === st_mem_len state)
       (env_add state' id mem_len_dec' state'')
     ]
 
@@ -132,18 +141,20 @@ struct
     (fresh env mem mem' mem_len assignments)
     (state === (env, mem, mem_len, assignments))
     (List.fold_left (fun mem id -> list_replace mem (inv_id mem_len @@ env_get state id) BotV) mem assignments mem')
+    (* TODO: replace with foldlo (or foldro ?) *)
     (state') === (env, mem', mem_len, [])
 
   (* --- *)
+
+  let arg_to_lvalue arg arg' = (arg' === LValue arg)
 
   let rec eval_stmt state prog stmt state' =
     conde
     [ (fresh f_id args)
       (stmt === Call (f_id, args))
       (fresh f args')
-      (List.nth prog f_id f)
-      (List.map (fun arg -> LValue arg) args args')
-      (* TODO how, rewrite from scratch ??? *)
+      (list_nth prog f_id f)
+      (List.mapo arg_to_lvalue args args')
       (eval_fun state prog f args')
     ; (fresh id) (stmt === Read id) (mem_check state id state')
     ; (fresh id) (stmt === Write id) (mem_set state it UnitV state')
@@ -151,7 +162,7 @@ struct
 
   and eval_body state prog body state' =
     (List.fold_left (fun state stmt -> eval_stmt state prog stmt) state body)
-    (* TODO how, rewrite from scratch ??? *)
+    (* TODO: replace with foldlo (or foldro ?) *)
 
   and eval_fun state prog decl args state' =
     (fresh arg_tags body)
@@ -161,19 +172,20 @@ struct
     (fresh state_with_vars)
     (state_with_vars === List.fold_left2 (fun (state, id) arg_tag arg -> (st_add_arg state state id arg_tag arg, id + 1)) (state, 0) arg_tags args)
     (* TODO how, rewrite from scratch ??? *)
+    (* TODO: replace with foldlo (or foldro ?) ?? *)
     (fresh state_evaled)
     (eval_body state prog body state_evaled)
     (fresh state_spoiled)
     (st_spoil_assignments state_evaled state_spoiled)
     (fresh mem_updated len_to_drop)
-    (len_to_drop === len - len_before)
+    (Nat.addo len_to_drop len_before len)
     (List.drop len_to_drop mem mem_updated)
     (state' === (env_before, mem_updated, len_before, assignments_before))
 
   and eval_fun_empty_args state prog decl state' =
     (fresh arg_tags)
     (decl === (arg_tags, _))
-    (List.map (fun _ -> RValue) arg_tags args) (* TODO how, rewrite from scratch ??? *)
+    (List.mapo arg_to_rvalue arg_tags args) (* TODO how, rewrite from scratch ??? *)
     (eval_fun state prog decl args state')
 
   (* --- *)
