@@ -1,7 +1,7 @@
-(env
- (_
-  (flags
-   (:standard -warn-error +5))))
+; (env
+;  (_
+;   (flags
+;    (:standard -warn-error +5))))
 
 (library
  (name semantic_interpreter)
@@ -26,7 +26,7 @@
  (flags
   (:standard -rectypes))
  (libraries OCanren OCanren.tester)
- (preprocessor_deps %{project_root}/lib/pp5+gt+plugins+ocanren+dump.exe)
+ (preprocessor_deps ./pp5+gt+plugins+ocanren+dump.exe)
  (inline_tests)
  (wrapped false)
  (preprocess
