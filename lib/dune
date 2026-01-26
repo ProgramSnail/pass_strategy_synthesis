@@ -30,17 +30,18 @@
  (inline_tests)
  (wrapped false)
  (preprocess
-   (pps
+  (pps
    OCanren-ppx.ppx_repr
-   OCanren-ppx.ppx_distrib
    OCanren-ppx.ppx_deriving_reify
    OCanren-ppx.ppx_fresh
    ppx_expect
    ppx_inline_test
+   GT.ppx
+   GT.ppx_all
+   OCanren-ppx.ppx_distrib
    --
    -pp
-   lib/pp5+gt+plugins+ocanren+dump.exe)
-  ))
+   lib/pp5+gt+plugins+ocanren+dump.exe)))
 
 (rule
  (targets pp5+gt+plugins+ocanren+dump.exe)

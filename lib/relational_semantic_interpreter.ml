@@ -6,48 +6,80 @@ struct
   open OCanren
   open OCanren.Std
 
-  @type data_ground = Nat.ground with show, gmap
-  @type data_logic = Nat.logic with show, gmap
+  type data_ground = Nat.ground (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type data_logic = Nat.logic
+  [@@deriving gt ~options:{ show; gmap }]
   type data_injected = Nat.injected
 
-  @type tag_ground = Ref | Value with show, gmap
-  @type tag_logic = tag_ground logic with show, gmap
+  let prj_data = ()
+  let reify_data = ()
+  let prj_exn_tree = ()
+
+  type tag_ground = Ref | Value (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type tag_logic = tag_ground logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type tag_injected = tag_ground ilogic
 
-  @type ('d, 'dl) stmt_abs = Call of 'd * 'dl | Read of 'd | Write of 'd with show, gmap
-  @type stmt_ground = (data_ground, data_ground List.ground) stmt_abs with show, gmap
-  @type stmt_logic = (data_logic, data_logic List.logic) stmt_abs logic with show, gmap
+  type ('d, 'dl) stmt_abs = Call of 'd * 'dl | Read of 'd | Write of 'd (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type stmt_ground = (data_ground, data_ground List.ground) stmt_abs (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type stmt_logic = (data_logic, data_logic List.logic) stmt_abs logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type stmt_injected = (data_injected, data_injected List.injected) stmt_abs ilogic
 
-  @type body_ground = stmt_ground List.ground with show, gmap
-  @type body_logic = stmt_logic List.logic with show, gmap
+  type body_ground = stmt_ground List.ground (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type body_logic = stmt_logic List.logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type body_injected = stmt_injected List.injected
 
-  @type fun_decl_ground = tag_ground List.ground * body_ground with show, gmap
-  @type fun_decl_logic = (tag_logic List.logic * body_logic) logic with show, gmap
+  type fun_decl_ground = tag_ground List.ground * body_ground (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type fun_decl_logic = (tag_logic List.logic * body_logic) logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type fun_decl_injected = (tag_injected List.injected * body_injected) ilogic
 
-  @type prog_ground = fun_decl_ground List.ground * fun_decl_ground with show, gmap
-  @type prog_logic = (fun_decl_logic List.logic * fun_decl_logic) logic with show, gmap
+  type prog_ground = fun_decl_ground List.ground * fun_decl_ground (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type prog_logic = (fun_decl_logic List.logic * fun_decl_logic) logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type prog_injected = (fun_decl_injected List.injected * fun_decl_injected) ilogic
 
-  @type 'd arg_abs = RValue | LValue of 'd with show, gmap
-  @type arg_ground = data_ground arg_abs with show, gmap
-  @type arg_logic = data_logic arg_abs logic with show, gmap
+  type 'd arg_abs = RValue | LValue of 'd (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type arg_ground = data_ground arg_abs (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type arg_logic = data_logic arg_abs logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type arg_injected = data_injected arg_abs ilogic
 
-  @type value_ground = UnitV | BotV with show, gmap
-  @type value_logic = value_ground logic with show, gmap
+  type value_ground = UnitV | BotV (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type value_logic = value_ground logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type value_injected = value_ground ilogic
 
-  @type env_ground = (data_ground * data_ground) List.ground with show, gmap
-  @type env_logic = (data_logic * data_logic) List.logic with show, gmap
+  type env_ground = (data_ground * data_ground) List.ground (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type env_logic = (data_logic * data_logic) List.logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type env_injected = (data_injected * data_injected) List.injected ilogic
 
-  @type ('env, 'mem, 'last_mem, 'assignments) state_abs =  'env * 'mem * 'last_mem * 'assignments with show, gmap
-  @type state_ground = (env_ground, value_ground List.ground, data_ground, data_ground List.ground) state_abs with show, gmap
-  @type state_logic = (env_logic, value_logic List.logic, data_logic, data_logic List.logic) state_abs logic with show, gmap
+  type ('env, 'mem, 'last_mem, 'assignments) state_abs =  'env * 'mem * 'last_mem * 'assignments (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type state_ground = (env_ground, value_ground List.ground, data_ground, data_ground List.ground) state_abs (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
+  type state_logic = (env_logic, value_logic List.logic, data_logic, data_logic List.logic) state_abs logic (* with show, gmap *)
+  [@@deriving gt ~options:{ show; gmap }]
   type state_injected = (env_injected, value_injected List.injected, data_injected, data_injected List.injected) state_abs ilogic
+
+  (* TODO *)
+  let inj_state = ()
+  let reify_state = ()
+  let prj_exn_state = ()
 
   (* ocanren type 'a lst = Nil | Cons of 'a * 'a lst *)
 
@@ -70,7 +102,7 @@ struct
       (a === a')
       (v' === b')
     ]
-  (* TODO: dofference from List.assoco ?? *)
+  (* TODO: difference from List.assoco ?? *)
 
   let env_get state id mem_id' =
     fresh (env mem mem_len assignments)
@@ -270,4 +302,14 @@ struct
     (all_prog === inj (prog, main_decl))
     (empty_state state)
     (eval_fun_empty_args state prog main_decl state')
+
+  (* let eval_prog_fwd all_prog = *)
+    (* run q (fun q -> eval_prog (inj_state all_prog) q) *)
+          (* (fun _ -> ()) *)
+
+  (* let%expect_test "empty" = *)
+    (* eval_prog_fwd ([], ([], [])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
 end
