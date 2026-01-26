@@ -19,6 +19,9 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = t
     ]
+
+    let ref = inj Ref
+    let value = inj Value
   end
 
   module Stmt = struct
@@ -28,33 +31,43 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (Nat.ground, Nat.ground List.ground) t
     ]
+
+    let call f args = inj (Call (f, args))
+    let read id = inj (Read id)
+    let write id = inj (Write id)
   end
 
   module Body = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%distrib
-      type nonrec ('stmt, 'l) t = Body of ('stmt, 'l) List.t
+      type nonrec ('stmt, 'l) t = T of ('stmt, 'l) List.t
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (Stmt.ground, Stmt.ground List.ground) t
     ]
+
+    let make stmts = inj (T stmts)
   end
 
   module FunDecl = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%distrib
-      type nonrec ('tag, 'lt, 'stmt, 'ls) t = FunDecl of ('tag, 'lt) List.t * ('stmt, 'ls) Body.t
+      type nonrec ('l, 'b) t = T of 'l * 'b
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Tag.ground, Tag.ground List.ground, Stmt.ground, Stmt.ground List.ground) t
+      type nonrec ground = (Tag.ground List.ground, Body.ground) t
     ]
+
+    let make args body = inj (T (args, body))
   end
 
   module Prog = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%distrib
-      type nonrec ('fd, 'lf, 'tag, 'lt, 'stmt, 'ls) t = Prog of ('fd, 'lf) List.t * ('tag, 'lt, 'stmt, 'ls) FunDecl.t
+      type nonrec ('l, 'f) t = T of 'l * 'f
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (FunDecl.ground, FunDecl.ground List.ground, Tag.ground, Tag.ground List.ground, Stmt.ground, Stmt.ground List.ground) t
+      type nonrec ground = (FunDecl.ground List.ground, FunDecl.ground) t
     ]
+
+    let make decls main_decl = inj (T (decls, main_decl))
   end
 
   module Arg = struct
@@ -64,6 +77,9 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = Nat.ground t
     ]
+
+    let rvalue = inj RValue
+    let lvalue x = inj (LValue x) 
   end
 
   module Value = struct
@@ -73,24 +89,32 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = t
     ]
+
+    let unit = inj Unit
+    let bot = inj Bot
   end
 
-  module Envr = struct
-    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
-      type nonrec ('d, 'l) t = Envr of ('d * 'd, 'l) List.t
-      [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Nat.ground, Nat.ground List.ground) t
-    ]
-  end
+  (* module Envr = struct *)
+    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
+    (* [%%distrib *)
+      (* type nonrec ('d, 'l) t = T of ('d * 'd, 'l) List.t *)
+      (* [@@deriving gt ~options:{ show; gmap }] *)
+      (* type nonrec ground = (Nat.ground, Nat.ground List.ground) t *)
+    (* ] *)
+
+    (* let make elems = inj (T elems) *)
+  (* end *)
 
   module State = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%distrib
-      type nonrec ('env, 'mem, 'last_mem, 'assignments) t = State of 'env * 'mem * 'last_mem * 'assignments
+      type nonrec ('env, 'mem, 'last_mem, 'assignments) t = T of 'env * 'mem * 'last_mem * 'assignments
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Envr.ground, Value.ground List.ground, Nat.ground, Nat.ground List.ground) t
+      type nonrec ground = (((Nat.ground, Nat.ground) Pair.ground) List.ground,
+                            Value.ground List.ground, Nat.ground, Nat.ground List.ground) t
     ]
+
+    let make env mem last_mem assignments = inj (T (env, mem, last_mem, assignments))
   end
 
   let rec list_replace xs id value ys =
@@ -116,14 +140,14 @@ struct
 
   let env_get state id mem_id' =
     fresh (env mem mem_len assignments)
-    (state === inj (env, mem, mem_len, assignments))
+    (state === State.make env mem mem_len assignments)
     (list_assoc id env mem_id')
     (* (List.assoco id env mem_id') *)
 
   let env_add state id mem_id state' =
     fresh (env env' mem mem_len assignments)
-    (state === inj (env, mem, mem_len, assignments))
-    (state' === inj (env', mem,  mem_len, assignments))
+    (state === State.make env mem mem_len assignments)
+    (state' === State.make env' mem mem_len assignments)
     (env' === List.cons (id, mem_id) env)
 
   let inv_id mem_len id id' =
@@ -142,30 +166,32 @@ struct
 
   (* TODO: use real holes *)
   let mem_get state id value' =
-    fresh (mem mem_len mem_id mem_id_inv env_ assignments_)
-    (state === inj (env_, mem, mem_len, assignments_))
+    fresh (mem mem_len mem_id mem_id_inv _env _assignments)
+    (state === inj (State.T (_env, mem, mem_len, _assignments)))
     (env_get state id mem_id)
     (inv_id mem_len mem_id mem_id_inv)
     (list_nth mem mem_id_inv value')
 
   let mem_set state id value state'=
-    fresh (env mem mem_len assignments mem_id inv_mem_id mem')
-    (state === inj (env, mem, mem_len, assignments))
+    fresh (env mem mem_len assignments mem_id inv_mem_id mem' assignments')
+    (state === State.make env mem mem_len assignments)
     (env_get state id mem_id)
     (inv_id mem_len mem_id inv_mem_id)
     (list_replace mem mem_id value mem')
-    (state' === inj (env, mem', mem_len, List.cons id assignments))
+    (assignments' === List.cons id assignments)
+    (state' === State.make env mem' mem_len assignments')
 
   let mem_add state value state' =
-    fresh (env mem mem_len assignments mem')
-    (state === inj (env, mem, mem_len, assignments))
+    fresh (env mem mem_len mem_len' assignments mem')
+    (state === State.make env mem mem_len assignments)
     (mem' === List.cons value mem)
-    (state' === inj (env, mem, Nat.s mem_len, assignments))
+    (mem_len' === Nat.s mem_len)
+    (state' === State.make env mem mem_len' assignments)
 
   let mem_check state id state' =
     conde
-    [ (mem_get state id (inj Value.Bot)) &&& (state' === state) (* TODO: error *)
-    ; (mem_get state id (inj Value.Unit)) &&& (state' === state)
+    [ (mem_get state id Value.bot) &&& (state' === state)
+    ; (mem_get state id Value.unit) &&& (state' === state)
     ]
 
   (* --- *)
@@ -202,27 +228,27 @@ struct
 
   let arg_to_value state arg value' =
     conde
-    [ (arg === inj Arg.RValue) &&& (value' === inj Value.Unit)
-    ; fresh (id) (arg === inj (Arg.LValue id)) (mem_get state id value')
+    [ (arg === Arg.rvalue) &&& (value' === Value.unit)
+    ; fresh (id) (arg === Arg.lvalue id) (mem_get state id value')
     ]
 
   let arg_to_rvalue _arg value' = (value' === inj Arg.RValue)
 
   let st_mem_len state mem_len' =
-    fresh (env_ mem_ assignments_) (* TODO: replace with real placeholder ? *)
-    (state === inj (env_, mem_, mem_len', assignments_))
+    fresh (_env _mem _assignments) (* TODO: replace with real placeholder ? *)
+    (state === State.make _env _mem mem_len' _assignments)
 
   let st_add_arg state state_before id arg_tag arg state'' =
     conde
-    [ (arg_tag === inj Tag.Ref) &&& (arg === inj Arg.RValue) &&& (state'' === state)
+    [ (arg_tag === Tag.ref) &&& (arg === Arg.rvalue) &&& (state'' === state)
       (* TODO: error, TODO: allow later ?? *)
     ; fresh (arg' value')
-      (arg_tag === inj Tag.Ref)
-      (arg === inj (Arg.LValue arg'))
+      (arg_tag === Tag.ref)
+      (arg === Arg.lvalue arg')
       (env_get state_before arg' value')
       (env_add state id value' state'')
     ; fresh (value' state' mem_len_dec')
-      (arg_tag === inj Tag.Value)
+      (arg_tag === Tag.value)
       (arg_to_value state_before arg value')
       (mem_add state value' state')
       (st_mem_len state (Nat.s mem_len_dec'))
@@ -236,11 +262,12 @@ struct
     (list_replace mem mem_id_inv' (inj Value.Bot) mem')
 
   let st_spoil_assignments state state' =
-    fresh (env mem mem' mem_len assignments)
-    (state === inj (env, mem, mem_len, assignments))
+    fresh (env mem mem' mem_len assignments nil')
+    (state === State.make env mem mem_len assignments)
     (list_foldl (st_spoil_folder mem_len state) mem assignments mem')
     (* (List.fold_left (fun mem id -> list_replace mem (inv_id mem_len @@ env_get state id) BotV) mem assignments mem') *)
-    (state' === inj (env, mem', mem_len, Std.nil ()))
+    (nil' === Std.nil ())
+    (state' === State.make env mem' mem_len nil')
 
   (* --- *)
 
@@ -256,12 +283,12 @@ struct
   let rec eval_stmt state prog stmt state' =
     conde
     [ fresh (f_id args f args')
-      (stmt === inj (Stmt.Call (f_id, args)))
+      (stmt === Stmt.call f_id args)
       (list_nth prog f_id f)
       (List.mapo arg_to_lvalue args args')
       (eval_fun state prog f args' state')
-    ; fresh (id) (stmt === inj (Stmt.Read id)) (mem_check state id state')
-    ; fresh (id) (stmt === inj (Stmt.Write id)) (mem_set state id (inj Value.Unit) state')
+    ; fresh (id) (stmt === Stmt.read id) (mem_check state id state')
+    ; fresh (id) (stmt === Stmt.write id) (mem_set state id Value.unit state')
     ]
 
   and eval_body_folder prog state stmt state' = eval_stmt state prog stmt state'
@@ -281,35 +308,43 @@ struct
     fresh (arg_tags body
            env_before mem_before len_before assignments_before
            state_clean
-           state_with_vars counter_
+           state_with_vars _counter
            state_evaled
            state_spoiled
-           env_ mem_spoiled len assignments_
-           mem_updated len_to_drop)
-    (decl === inj (arg_tags, body))
-    (state === inj (env_before, mem_before, len_before, assignments_before))
-    (state_clean === inj (Std.nil (), mem_before, len_before, Std.nil ()))
-    (list_foldl2 (add_arg_folder state) (inj (state, Nat.o)) arg_tags args (inj (state_with_vars, counter_))) (* TODO: replace with real placeholder *)
+           _env mem_spoiled len _assignments
+           mem_updated len_to_drop
+           nil_env nil_assignments)
+    (nil_env === Std.nil ())
+    (nil_assignments === Std.nil ())
+    (decl === FunDecl.make arg_tags body)
+    (state === State.make env_before mem_before len_before assignments_before)
+    (state_clean === State.make nil_env mem_before len_before nil_assignments)
+    (list_foldl2 (add_arg_folder state) (inj (state, Nat.o)) arg_tags args (inj (state_with_vars, _counter))) (* TODO: replace with real placeholder *)
     (eval_body state_with_vars prog body state_evaled)
     (st_spoil_assignments state_evaled state_spoiled)
-    (state_spoiled === inj (env_, mem_spoiled, len, assignments_))
+    (state_spoiled === State.make _env mem_spoiled len _assignments)
     (Nat.addo len_to_drop len_before len)
     (list_drop len_to_drop mem_spoiled mem_updated)
-    (state' === inj (env_before, mem_updated, len_before, assignments_before))
+    (state' === State.make env_before mem_updated len_before assignments_before)
 
   and eval_fun_empty_args state prog decl state' =
-    fresh (arg_tags args hole_) (* TODO: replace with real placeholder *)
-    (decl === inj (arg_tags, hole_))
+    fresh (arg_tags args _hole) (* TODO: replace with real placeholder *)
+    (decl === FunDecl.make arg_tags _hole)
     (List.mapo arg_to_rvalue arg_tags args)
     (eval_fun state prog decl args state')
 
   (* --- *)
 
-  let empty_state state = (state === inj (Std.nil (), Std.nil (), Nat.o, Std.nil ()))
+  let empty_state state =
+    fresh (nil_env nil_mem nil_assignments)
+    (nil_env === Std.nil ())
+    (nil_assignments === Std.nil ())
+    (nil_mem === Std.nil ())
+    (state === State.make nil_env nil_mem Nat.o nil_assignments)
 
   let eval_prog all_prog state' =
     fresh (prog main_decl state)
-    (all_prog === inj (prog, main_decl))
+    (all_prog === Prog.make prog main_decl)
     (empty_state state)
     (eval_fun_empty_args state prog main_decl state')
 
