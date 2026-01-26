@@ -348,12 +348,15 @@ struct
     (empty_state state)
     (eval_fun_empty_args state prog main_decl state')
 
-  (* let eval_prog_fwd all_prog = *)
-    (* run q (fun q -> eval_prog (inj_state all_prog) q) *)
-          (* (fun _ -> ()) *)
+  (* TODO: fix *)
+  let eval_prog_fwd all_prog =
+    Stream.hd @@
+    run q (fun q -> eval_prog (inj all_prog) q)
+          (fun qs -> qs#reify prj_exn)
 
+  (* TODO: fix *)
   (* let%expect_test "empty" = *)
-    (* eval_prog_fwd ([], ([], [])); *)
+    (* eval_prog_fwd (Prog.T ([], FunDecl.T ([], []))); *)
     (* Printf.printf "done!"; *)
     (* [%expect {| done! |}] *)
 
