@@ -12,76 +12,86 @@ struct
   [@@deriving gt ~options:{ show; gmap }]
   type data_injected = Nat.injected
 
-  let prj_data = ()
-  let reify_data = ()
-  let prj_exn_tree = ()
+  module Tag = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec t = Ref | Value
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = t
+    ]
+  end
 
-  type tag_ground = Ref | Value (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type tag_logic = tag_ground logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type tag_injected = tag_ground ilogic
+  module Stmt = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec ('d, 'dl) t = Call of 'd * 'dl | Read of 'd | Write of 'd
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Nat.ground, Nat.ground List.ground) t
+    ]
+  end
 
-  type ('d, 'dl) stmt_abs = Call of 'd * 'dl | Read of 'd | Write of 'd (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type stmt_ground = (data_ground, data_ground List.ground) stmt_abs (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type stmt_logic = (data_logic, data_logic List.logic) stmt_abs logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type stmt_injected = (data_injected, data_injected List.injected) stmt_abs ilogic
+  module Body = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec ('stmt, 'l) t = Body of ('stmt, 'l) List.t
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Stmt.ground, Stmt.ground List.ground) t
+    ]
+  end
 
-  type body_ground = stmt_ground List.ground (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type body_logic = stmt_logic List.logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type body_injected = stmt_injected List.injected
+  module FunDecl = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec ('tag, 'lt, 'stmt, 'ls) t = FunDecl of ('tag, 'lt) List.t * ('stmt, 'ls) Body.t
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Tag.ground, Tag.ground List.ground, Stmt.ground, Stmt.ground List.ground) t
+    ]
+  end
 
-  type fun_decl_ground = tag_ground List.ground * body_ground (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type fun_decl_logic = (tag_logic List.logic * body_logic) logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type fun_decl_injected = (tag_injected List.injected * body_injected) ilogic
+  module Prog = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec ('fd, 'lf, 'tag, 'lt, 'stmt, 'ls) t = Prog of ('fd, 'lf) List.t * ('tag, 'lt, 'stmt, 'ls) FunDecl.t
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (FunDecl.ground, FunDecl.ground List.ground, Tag.ground, Tag.ground List.ground, Stmt.ground, Stmt.ground List.ground) t
+    ]
+  end
 
-  type prog_ground = fun_decl_ground List.ground * fun_decl_ground (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type prog_logic = (fun_decl_logic List.logic * fun_decl_logic) logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type prog_injected = (fun_decl_injected List.injected * fun_decl_injected) ilogic
+  module Arg = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec 'd t = RValue | LValue of 'd
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = Nat.ground t
+    ]
+  end
 
-  type 'd arg_abs = RValue | LValue of 'd (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type arg_ground = data_ground arg_abs (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type arg_logic = data_logic arg_abs logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type arg_injected = data_injected arg_abs ilogic
+  module Value = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec t = Unit | Bot
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = t
+    ]
+  end
 
-  type value_ground = UnitV | BotV (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type value_logic = value_ground logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type value_injected = value_ground ilogic
+  module Envr = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec ('d, 'l) t = Envr of ('d * 'd, 'l) List.t
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Nat.ground, Nat.ground List.ground) t
+    ]
+  end
 
-  type env_ground = (data_ground * data_ground) List.ground (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type env_logic = (data_logic * data_logic) List.logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type env_injected = (data_injected * data_injected) List.injected ilogic
-
-  type ('env, 'mem, 'last_mem, 'assignments) state_abs =  'env * 'mem * 'last_mem * 'assignments (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type state_ground = (env_ground, value_ground List.ground, data_ground, data_ground List.ground) state_abs (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type state_logic = (env_logic, value_logic List.logic, data_logic, data_logic List.logic) state_abs logic (* with show, gmap *)
-  [@@deriving gt ~options:{ show; gmap }]
-  type state_injected = (env_injected, value_injected List.injected, data_injected, data_injected List.injected) state_abs ilogic
-
-  (* TODO *)
-  let inj_state = ()
-  let reify_state = ()
-  let prj_exn_state = ()
-
-  (* ocanren type 'a lst = Nil | Cons of 'a * 'a lst *)
+  module State = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%distrib
+      type nonrec ('env, 'mem, 'last_mem, 'assignments) t = State of 'env * 'mem * 'last_mem * 'assignments
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Envr.ground, Value.ground List.ground, Nat.ground, Nat.ground List.ground) t
+    ]
+  end
 
   let rec list_replace xs id value ys =
     conde
@@ -154,8 +164,8 @@ struct
 
   let mem_check state id state' =
     conde
-    [ (mem_get state id (inj BotV)) &&& (state' === state) (* TODO: error *)
-    ; (mem_get state id (inj UnitV)) &&& (state' === state)
+    [ (mem_get state id (inj Value.Bot)) &&& (state' === state) (* TODO: error *)
+    ; (mem_get state id (inj Value.Unit)) &&& (state' === state)
     ]
 
   (* --- *)
@@ -192,11 +202,11 @@ struct
 
   let arg_to_value state arg value' =
     conde
-    [ (arg === inj RValue) &&& (value' === inj UnitV)
-    ; fresh (id) (arg === inj (LValue id)) (mem_get state id value')
+    [ (arg === inj Arg.RValue) &&& (value' === inj Value.Unit)
+    ; fresh (id) (arg === inj (Arg.LValue id)) (mem_get state id value')
     ]
 
-  let arg_to_rvalue _arg value' = (value' === inj RValue)
+  let arg_to_rvalue _arg value' = (value' === inj Arg.RValue)
 
   let st_mem_len state mem_len' =
     fresh (env_ mem_ assignments_) (* TODO: replace with real placeholder ? *)
@@ -204,15 +214,15 @@ struct
 
   let st_add_arg state state_before id arg_tag arg state'' =
     conde
-    [ (arg_tag === inj Ref) &&& (arg === inj RValue) &&& (state'' === state)
+    [ (arg_tag === inj Tag.Ref) &&& (arg === inj Arg.RValue) &&& (state'' === state)
       (* TODO: error, TODO: allow later ?? *)
     ; fresh (arg' value')
-      (arg_tag === inj Ref)
-      (arg === inj (LValue arg'))
+      (arg_tag === inj Tag.Ref)
+      (arg === inj (Arg.LValue arg'))
       (env_get state_before arg' value')
       (env_add state id value' state'')
     ; fresh (value' state' mem_len_dec')
-      (arg_tag === inj Value)
+      (arg_tag === inj Tag.Value)
       (arg_to_value state_before arg value')
       (mem_add state value' state')
       (st_mem_len state (Nat.s mem_len_dec'))
@@ -223,7 +233,7 @@ struct
     fresh (mem_id' mem_id_inv')
     (env_get state id mem_id')
     (inv_id mem_len mem_id' mem_id_inv')
-    (list_replace mem mem_id_inv' (inj BotV) mem')
+    (list_replace mem mem_id_inv' (inj Value.Bot) mem')
 
   let st_spoil_assignments state state' =
     fresh (env mem mem' mem_len assignments)
@@ -234,7 +244,7 @@ struct
 
   (* --- *)
 
-  let arg_to_lvalue arg arg' = (arg' === inj (LValue arg))
+  let arg_to_lvalue arg arg' = (arg' === inj (Arg.LValue arg))
 
   let rec list_drop n xs xs' =
     conde
@@ -246,12 +256,12 @@ struct
   let rec eval_stmt state prog stmt state' =
     conde
     [ fresh (f_id args f args')
-      (stmt === inj (Call (f_id, args)))
+      (stmt === inj (Stmt.Call (f_id, args)))
       (list_nth prog f_id f)
       (List.mapo arg_to_lvalue args args')
       (eval_fun state prog f args' state')
-    ; fresh (id) (stmt === inj (Read id)) (mem_check state id state')
-    ; fresh (id) (stmt === inj (Write id)) (mem_set state id (inj UnitV) state')
+    ; fresh (id) (stmt === inj (Stmt.Read id)) (mem_check state id state')
+    ; fresh (id) (stmt === inj (Stmt.Write id)) (mem_set state id (inj Value.Unit) state')
     ]
 
   and eval_body_folder prog state stmt state' = eval_stmt state prog stmt state'
