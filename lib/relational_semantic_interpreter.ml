@@ -355,8 +355,11 @@ struct
           (fun qs -> qs#reify prj_exn)
 
   (* TODO: fix *)
+  (* let empty_prog = (Prog.T (List.Nil, FunDecl.T (List.Nil, Body.T List.Nil))) *)
+
+  (* TODO: fix *)
   (* let%expect_test "empty" = *)
-    (* eval_prog_fwd (Prog.T ([], FunDecl.T ([], []))); *)
+    (* eval_prog_fwd empty_prog; *)
     (* Printf.printf "done!"; *)
     (* [%expect {| done! |}] *)
 
