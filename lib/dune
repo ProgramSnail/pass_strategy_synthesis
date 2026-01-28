@@ -24,6 +24,7 @@
  (name relational_semantic_interpreter)
  (modules relational_semantic_interpreter)
  (flags
+  ; (-dsource)
   (:standard -rectypes))
  (libraries OCanren OCanren.tester)
  (preprocessor_deps ./pp5+gt+plugins+ocanren+dump.exe)
@@ -47,6 +48,7 @@
  (name relational_semantic_interpreter_oc)
  (modules relational_semantic_interpreter_oc)
  (flags
+  ; (-dsource)
   (:standard -rectypes))
  (libraries OCanren OCanren.tester)
  (preprocessor_deps ./pp5+gt+plugins+ocanren+dump.exe)

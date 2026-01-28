@@ -131,14 +131,10 @@ struct
     }
 
   let rec list_assoco a xs v' = ocanren {
-    { fresh a', b', xs' in
-      !(List.cons (a', b') xs' === xs) &
-      a =/= a' &
-      list_assoco a xs' v' } |
-    { fresh a', b', xs' in
-      !(List.cons (a', b') xs' === xs) &
-      a == a' &
-      v' == b' }
+    fresh a', b', xs' in
+      (Std.pair a' b') :: xs' == xs &
+      { a =/= a' & list_assoco a xs' v' |
+        a == a' & v' == b' }
   }
   (* TODO: difference from List.assoco ?? *)
 
@@ -152,7 +148,7 @@ struct
     fresh env, env', mem, mem_len, assignments in
       state == State.make env mem mem_len assignments &
       state' == State.make env' mem mem_len assignments &
-      !(List.cons (id, mem_id) env === env')
+      (Std.pair id mem_id) :: env == env'
   }
 
   let inv_ido mem_len id id' = ocanren {
@@ -369,4 +365,33 @@ struct
       empty_stateo state &
       eval_fun_empty_argso state prog main_decl state'
   }
+
+  (* TODO: fix *)
+  let eval_prog_fwd all_prog =
+    Stream.take ~n:1 @@
+    run q (fun q -> eval_progo all_prog q)
+          (fun qs -> qs#reify prj_exn)
+
+  (* TODO: fix *)
+  (* let empty_prog = Prog.T (List.Nil, FunDecl.T (List.Nil, Body.T List.Nil)) *)
+  (* let empty_prog'' = ocanren { T ([], T ([], T [])) } *)
+
+  (* let empty_prog = ocanren { Prog.make [] (FunDecl.make [] (Body.make [])) } *)
+  (* let empty_prog = Prog.make (Std.nil ()) (FunDecl.make (Std.nil ()) (Body.make (Std.nil ()))) *)
+
+  let eval_test =
+    Stream.hd @@
+    run q (fun q -> ocanren { list_assoco 0 [(0, 0)] q })
+          (fun qs -> qs#reify Nat.prj_exn)
+
+  let%expect_test "empty" =
+    let x = eval_test in
+    Printf.printf "done! %s" ((show (Nat.ground)) x);
+    [%expect {| done! 0 |}]
+
+  (* TODO: fix *)
+  (* let%expect_test "empty" = *)
+    (* eval_prog_fwd empty_prog; *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 end
