@@ -14,84 +14,64 @@ struct
 
   module Tag = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
+    [%%ocanren_inject
       type nonrec t = Ref | Value
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = t
     ]
 
-    let ref = inj Ref
-    let value = inj Value
+    module Test = struct
+      @type answer = logic GT.list with show
+      let _ =
+        Printf.printf "%s" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q === Ref})
+                                                               (fun q -> q#reify reify)))
+    end
   end
 
   module Stmt = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
+    [%%ocanren_inject
       type nonrec ('d, 'dl) t = Call of 'd * 'dl | Read of 'd | Write of 'd
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (Nat.ground, Nat.ground List.ground) t
     ]
 
-    let call f args = inj (Call (f, args))
-    let read id = inj (Read id)
-    let write id = inj (Write id)
-  end
-
-  module Body = struct
-    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
-      type nonrec ('stmt, 'l) t = T of ('stmt, 'l) List.t
-      [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Stmt.ground, Stmt.ground List.ground) t
-    ]
-
-    let make stmts = inj (T stmts)
   end
 
   module FunDecl = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
-      type nonrec ('l, 'b) t = T of 'l * 'b
+    [%%ocanren_inject
+      type nonrec ('l, 'b) t = FunDecl of 'l * 'b
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Tag.ground List.ground, Body.ground) t
+      type nonrec ground = (Tag.ground List.ground, Stmt.ground List.ground) t
     ]
-
-    let make args body = inj (T (args, body))
   end
 
   module Prog = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
-      type nonrec ('l, 'f) t = T of 'l * 'f
+    [%%ocanren_inject
+      type nonrec ('l, 'f) t = Prog of 'l * 'f
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (FunDecl.ground List.ground, FunDecl.ground) t
     ]
-
-    let make decls main_decl = inj (T (decls, main_decl))
   end
 
   module Arg = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
+    [%%ocanren_inject
       type nonrec 'd t = RValue | LValue of 'd
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = Nat.ground t
     ]
-
-    let rvalue = inj RValue
-    let lvalue x = inj (LValue x) 
   end
 
   module Value = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
+    [%%ocanren_inject
       type nonrec t = Unit | Bot
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = t
     ]
-
-    let unit = inj Unit
-    let bot = inj Bot
   end
 
   (* module Envr = struct *)
@@ -105,16 +85,14 @@ struct
     (* let make elems = inj (T elems) *)
   (* end *)
 
-  module State = struct
+  module St = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%distrib
-      type nonrec ('env, 'mem, 'last_mem, 'assignments) t = T of 'env * 'mem * 'last_mem * 'assignments
+    [%%ocanren_inject
+      type nonrec ('env, 'mem, 'last_mem, 'assignments) t = St of 'env * 'mem * 'last_mem * 'assignments
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (((Nat.ground, Nat.ground) Pair.ground) List.ground,
                             Value.ground List.ground, Nat.ground, Nat.ground List.ground) t
     ]
-
-    let make env mem last_mem assignments = inj (T (env, mem, last_mem, assignments))
   end
 
   let rec list_replaceo xs id value ys = ocanren {
@@ -130,7 +108,8 @@ struct
         list_replaceo xs' id' value ys' }
     }
 
-  let rec list_assoco a xs v' = ocanren {
+  let rec list_assoco a xs v' =
+    ocanren {
     fresh a', b', xs' in
       (Std.pair a' b') :: xs' == xs &
       { a =/= a' & list_assoco a xs' v' |
@@ -138,16 +117,20 @@ struct
   }
   (* TODO: difference from List.assoco ?? *)
 
-  let env_geto state id mem_id' = ocanren {
+  let env_geto state id mem_id' =
+    let open St in
+    ocanren {
     fresh env, mem, mem_len, assignments in
-      state == State.make env mem mem_len assignments &
+      state == St (env, mem, mem_len, assignments) &
       list_assoco id env mem_id'
   }
 
-  let env_addo state id mem_id state' = ocanren {
+  let env_addo state id mem_id state' =
+    let open St in
+    ocanren {
     fresh env, env', mem, mem_len, assignments in
-      state == State.make env mem mem_len assignments &
-      state' == State.make env' mem mem_len assignments &
+      state == St (env, mem, mem_len, assignments) &
+      state' == St (env', mem, mem_len, assignments) &
       (Std.pair id mem_id) :: env == env'
   }
 
@@ -172,35 +155,43 @@ struct
   }
 
   (* TODO: use real holes *)
-  let mem_geto state id value' = ocanren {
+  let mem_geto state id value' =
+    let open St in
+    ocanren {
     fresh mem, mem_len, mem_id, mem_id_inv, _env, _assignments in
-    state == State.make _env mem mem_len _assignments &
+    state == St (_env, mem, mem_len, _assignments) &
     env_geto state id mem_id &
     inv_ido mem_len mem_id mem_id_inv &
     list_ntho mem mem_id_inv value'
   }
 
-  let mem_seto state id value state'= ocanren {
+  let mem_seto state id value state'=
+    let open St in
+    ocanren {
     fresh env, mem, mem_len, assignments, mem_id, inv_mem_id, mem', assignments' in
-      state == State.make env mem mem_len assignments &
+      state == St (env, mem, mem_len, assignments) &
       env_geto state id mem_id &
       inv_ido mem_len mem_id inv_mem_id &
       list_replaceo mem mem_id value mem' &
       assignments' == id :: assignments &
-      state' == State.make env mem' mem_len assignments'
+      state' == St (env, mem', mem_len, assignments')
   }
 
-  let mem_addo state value state' = ocanren {
+  let mem_addo state value state' =
+    let open St in
+    ocanren {
     fresh env, mem, mem_len, mem_len', assignments, mem' in
-      state == State.make env mem mem_len assignments &
+      state == St (env, mem, mem_len, assignments) &
       mem' == value :: mem &
       mem_len' == Nat.s mem_len &
-      state' == State.make env mem mem_len' assignments
+      state' == St (env, mem, mem_len', assignments)
   }
 
-  let mem_checko state id state' = ocanren {
-    mem_geto state id Value.bot & state' == state |
-    mem_geto state id Value.unit & state' == state
+  let mem_checko state id state' =
+    let open Value in
+    ocanren {
+    mem_geto state id Bot & state' == state |
+    mem_geto state id Unit & state' == state
   }
 
   (* --- *)
@@ -232,56 +223,71 @@ struct
       f acc_upd x' y' acc' }
   }
 
-  let arg_to_valueo state arg value' = ocanren {
-    arg == Arg.rvalue & value' == Value.unit |
+  let arg_to_valueo state arg value' =
+    let open Arg in
+    let open Value in
+    ocanren {
+    arg == RValue & value' == Unit |
     { fresh id in
-      arg == Arg.lvalue id &
+      arg == LValue id &
       mem_geto state id value' }
   }
 
-  let arg_to_rvalueo _arg value' = ocanren { value' == Arg.rvalue }
+  let arg_to_rvalueo _arg value' =
+    let open Arg in
+    ocanren { value' == RValue }
 
-  let st_mem_leno state mem_len' = ocanren {
+  let st_mem_leno state mem_len' =
+    let open St in
+    ocanren {
     fresh _env, _mem, _assignments in (* TODO: replace with real placeholder ? *)
-      state == State.make _env _mem mem_len' _assignments
+      state == St (_env, _mem, mem_len', _assignments)
   }
 
-  let st_add_argo state state_before id arg_tag arg state'' = ocanren {
+  let st_add_argo state state_before id arg_tag arg state'' =
+    (* let open Nat in *)
+    let open Arg in
+    let open Tag in
+    ocanren {
     (* arg_tag == Tag.ref & arg == Arg.rvalue & state'' == state | *)
       (* TODO: error, TODO: allow later ?? *)
     { fresh arg', value' in
-      arg_tag == Tag.ref &
-      arg == Arg.lvalue arg' &
+      arg_tag == Ref &
+      arg == LValue arg' &
       env_geto state_before arg' value' &
       env_addo state id value' state'' } |
     { fresh value', state', mem_len_dec' in
-      arg_tag == Tag.value &
+      arg_tag == Value &
       arg_to_valueo state_before arg value' &
       mem_addo state value' state' &
       st_mem_leno state (Nat.s mem_len_dec') &
       env_addo state' id mem_len_dec' state'' }
   }
 
-  let st_spoil_foldero mem_len state mem id mem' = ocanren {
+  let st_spoil_foldero mem_len state mem id mem' =
+    let open Value in
+    ocanren {
     fresh mem_id', mem_id_inv' in
       env_geto state id mem_id' &
       inv_ido mem_len mem_id' mem_id_inv' &
-      list_replaceo mem mem_id_inv' Value.bot mem'
+      list_replaceo mem mem_id_inv' Bot mem'
   }
 
-  let st_spoil_assignmentso state state' = ocanren {
+  let st_spoil_assignmentso state state' =
+    let open St in
+    ocanren {
     fresh env, mem, mem', mem_len, assignments, nil' in
-      state == State.make env mem mem_len assignments &
+      state == St (env, mem, mem_len, assignments) &
       list_foldlo (st_spoil_foldero mem_len state) mem assignments mem' &
       nil' == [] &
-      state' == State.make env mem' mem_len nil'
+      state' == St (env, mem', mem_len, nil')
   }
 
   (* --- *)
 
-  let arg_to_lvalueo arg arg' = ocanren {
-    arg' == Arg.lvalue arg
-  }
+  let arg_to_lvalueo arg arg' =
+    let open Arg in
+    ocanren { arg' == LValue arg }
 
   let rec list_dropo n xs xs' = ocanren {
     xs == [] & xs' == [] |
@@ -292,14 +298,17 @@ struct
         list_dropo n' ys xs' }
   }
 
-  let rec eval_stmto state prog stmt state' = ocanren {
+  let rec eval_stmto state prog stmt state' =
+    let open Stmt in
+    let open Value in
+    ocanren {
     { fresh f_id, args, f, args' in
-      stmt == Stmt.call f_id args &
+      stmt == Call (f_id, args) &
       list_ntho prog f_id f &
       List.mapo arg_to_lvalueo args args' &
       eval_funo state prog f args' state' } |
-    { fresh id in stmt == Stmt.read id & mem_checko state id state' } |
-    { fresh id in stmt === Stmt.write id & mem_seto state id Value.unit state' }
+    { fresh id in stmt == Read id & mem_checko state id state' } |
+    { fresh id in stmt === Write id & mem_seto state id Unit state' }
   }
 
   and eval_body_foldero prog state stmt state' =
@@ -310,15 +319,19 @@ struct
     (* (List.fold_left (fun state stmt -> eval_stmt state prog stmt) state body) *)
 
   (* TODO: other types on translation to ocanren ? *)
-  and add_arg_foldero state_before state_c arg_tag arg state_c' = ocanren {
+  and add_arg_foldero state_before state_c arg_tag arg state_c' =
+    ocanren {
     fresh state, id, state', id' in
-      state_c == (state, id) &
+      state_c == Std.pair state id &
       st_add_argo state state_before id arg_tag arg state' &
       id' == Nat.s id &
-      state_c' == (state', id')
+      state_c' == Std.pair state' id'
   }
 
-  and eval_funo state prog decl args state' = ocanren {
+  and eval_funo state prog decl args state' =
+    let open FunDecl in
+    let open St in
+    ocanren {
     fresh arg_tags, body,
           env_before, mem_before, len_before, assignments_before,
           state_clean,
@@ -330,38 +343,44 @@ struct
           nil_env, nil_assignments in
       nil_env == [] &
       nil_assignments == [] &
-      decl == FunDecl.make arg_tags body &
-      state == State.make env_before mem_before len_before assignments_before &
-      state_clean == State.make nil_env mem_before len_before nil_assignments &
-      list_foldl2o (add_arg_foldero state) (state, Nat.o) arg_tags args (state_with_vars, _counter) & (* TODO: replace with real placeholder *)
+      decl == FunDecl (arg_tags, body) &
+      state == St (env_before, mem_before, len_before, assignments_before) &
+      state_clean == St (nil_env, mem_before, len_before, nil_assignments) &
+      list_foldl2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) & (* TODO: replace with real placeholder *)
       eval_bodyo state_with_vars prog body state_evaled &
       st_spoil_assignmentso state_evaled state_spoiled &
-      state_spoiled == State.make _env mem_spoiled len _assignments &
+      state_spoiled == St (_env, mem_spoiled, len, _assignments) &
       Nat.addo len_to_drop len_before len &
       list_dropo len_to_drop mem_spoiled mem_updated &
-      state' == State.make env_before mem_updated len_before assignments_before
+      state' == St (env_before, mem_updated, len_before, assignments_before)
   }
 
-  and eval_fun_empty_argso state prog decl state' = ocanren {
-    fresh arg_tags, args, _hole in (* TODO: replace with real placeholder *)
-      decl == FunDecl.make arg_tags _hole &
+  and eval_fun_empty_argso state prog decl state' =
+    let open FunDecl in
+    ocanren {
+    fresh arg_tags, args, _body in (* TODO: replace with real placeholder *)
+      decl == FunDecl (arg_tags, _body) &
       List.mapo arg_to_rvalueo arg_tags args &
       eval_funo state prog decl args state'
   }
 
   (* --- *)
 
-  let empty_stateo state = ocanren {
+  let empty_stateo state =
+    let open St in
+    ocanren {
     fresh nil_env, nil_mem, nil_assignments in
       nil_env == [] &
       nil_assignments == [] &
       nil_mem == [] &
-      state == State.make nil_env nil_mem Nat.o nil_assignments
+      state == St (nil_env, nil_mem, Nat.o, nil_assignments)
   }
 
-  let eval_progo all_prog state' = ocanren {
+  let eval_progo all_prog state' =
+    let open Prog in
+    ocanren {
     fresh prog, main_decl, state in
-      all_prog == Prog.make prog main_decl &
+      all_prog == Prog (prog, main_decl) &
       empty_stateo state &
       eval_fun_empty_argso state prog main_decl state'
   }
@@ -376,7 +395,10 @@ struct
   (* let empty_prog = Prog.T (List.Nil, FunDecl.T (List.Nil, Body.T List.Nil)) *)
   (* let empty_prog'' = ocanren { T ([], T ([], T [])) } *)
 
-  (* let empty_prog = ocanren { Prog.make [] (FunDecl.make [] (Body.make [])) } *)
+  (* let empty_prog = *)
+    (* let open FunDecl in *)
+    (* let open Prog in *)
+    (* ocanren { Prog ([], FunDecl ([], [])) } *)
   (* let empty_prog = Prog.make (Std.nil ()) (FunDecl.make (Std.nil ()) (Body.make (Std.nil ()))) *)
 
   let eval_test =
