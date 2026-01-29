@@ -36,6 +36,15 @@ struct
       type nonrec ground = (Nat.ground, Nat.ground List.ground) t
     ]
 
+    module Test = struct
+      @type answer1 = Nat.ground List.ground GT.list with show
+      @type answer  = ground GT.list with show
+      let _ = Printf.printf "%s\n" @@ show(answer1) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) === Call (1, q)})
+                                                    (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
+
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) === q})
+                                                                       (fun q -> q#reify (prj_exn))))
+    end
   end
 
   module FunDecl = struct
