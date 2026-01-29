@@ -80,6 +80,8 @@ struct
     (* TODO: use env var ids instead of mem_ids ?? *)
     (env, List.fold_left (fun mem id -> list_replace mem (inv_id mem_len @@ env_get state id) BotV) mem assignments, mem_len, [])
 
+  let list_drop n xs = List.of_seq @@ Seq.drop n @@ List.to_seq xs
+
   let rec eval_stmt state prog stmt =
     match stmt with
       | Call (f_id, args) -> eval_fun state prog (List.nth prog f_id) (List.map (fun arg -> LValue arg) args)
@@ -97,7 +99,7 @@ struct
     let state = eval_body state prog body in
     let state = st_spoil_assignments state in
     match state with (_env, mem, len, _assignments) ->
-    (env_before, List.drop (len - len_before) mem, len_before, assignments_before) (* TODO: save some assignments ?? *)
+    (env_before, list_drop (len - len_before) mem, len_before, assignments_before) (* TODO: save some assignments ?? *)
 
   and eval_fun_empty_args state prog decl =
     match decl with (arg_tags, _) ->
