@@ -1,5 +1,3 @@
-(* (,,) -< Pair.inj _ (Pair.inj _ _) *)
-
 module Relational =
 struct
   open GT
@@ -22,9 +20,9 @@ struct
 
     module Test = struct
       @type answer = logic GT.list with show
-      let _ =
-        Printf.printf "%s" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q === Ref})
-                                                               (fun q -> q#reify reify)))
+
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q == Ref})
+                                                                       (fun q -> q#reify reify)))
     end
   end
 
@@ -37,13 +35,14 @@ struct
     ]
 
     module Test = struct
-      @type answer1 = Nat.ground List.ground GT.list with show
-      @type answer  = ground GT.list with show
-      let _ = Printf.printf "%s\n" @@ show(answer1) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) === Call (1, q)})
-                                                    (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
+      @type answer = Nat.ground List.ground GT.list with show
+      @type answer'  = ground GT.list with show
 
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) === q})
-                                                                       (fun q -> q#reify (prj_exn))))
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == Call (1, q)})
+                                                                       (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
+
+      let _ = Printf.printf "%s\n" @@ show(answer') (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == q})
+                                                                        (fun q -> q#reify (prj_exn))))
     end
   end
 
@@ -54,6 +53,14 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (Tag.ground List.ground, Stmt.ground List.ground) t
     ]
+
+    module Test = struct
+      @type answer  = ground GT.list with show
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> let open Tag in
+                                                                                 let open Stmt in
+                                                                                 ocanren {FunDecl ([Ref; Value], [Call (1, [0]); Write 1]) == q})
+                                                                       (fun q -> q#reify (prj_exn))))
+    end
   end
 
   module Prog = struct
@@ -63,6 +70,15 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (FunDecl.ground List.ground, FunDecl.ground) t
     ]
+
+    module Test = struct
+      @type answer  = ground GT.list with show
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> let open FunDecl in
+                                                                                 let open Tag in
+                                                                                 let open Stmt in
+                                                                                 ocanren {Prog ([], FunDecl ([Value], [Write 0; Read 0])) == q})
+                                                                       (fun q -> q#reify (prj_exn))))
+    end
   end
 
   module Arg = struct
@@ -72,6 +88,12 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = Nat.ground t
     ]
+
+    module Test = struct
+      @type answer = logic GT.list with show
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q == LValue 3})
+                                                                       (fun q -> q#reify reify)))
+    end
   end
 
   module Value = struct
@@ -81,18 +103,13 @@ struct
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = t
     ]
+
+    module Test = struct
+      @type answer = logic GT.list with show
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q == Bot | q == Unit})
+                                                                       (fun q -> q#reify reify)))
+    end
   end
-
-  (* module Envr = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%distrib *)
-      (* type nonrec ('d, 'l) t = T of ('d * 'd, 'l) List.t *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = (Nat.ground, Nat.ground List.ground) t *)
-    (* ] *)
-
-    (* let make elems = inj (T elems) *)
-  (* end *)
 
   module St = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
@@ -102,6 +119,13 @@ struct
       type nonrec ground = (((Nat.ground, Nat.ground) Pair.ground) List.ground,
                             Value.ground List.ground, Nat.ground, Nat.ground List.ground) t
     ]
+
+    module Test = struct
+      @type answer  = ground GT.list with show
+      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> let open Value in
+                                                                                 ocanren {St ([Std.pair 0 0], [Bot], 1, [0]) == q})
+                                                                       (fun q -> q#reify (prj_exn))))
+    end
   end
 
   let rec list_replaceo xs id value ys = ocanren {
@@ -410,13 +434,14 @@ struct
     (* ocanren { Prog ([], FunDecl ([], [])) } *)
   (* let empty_prog = Prog.make (Std.nil ()) (FunDecl.make (Std.nil ()) (Body.make (Std.nil ()))) *)
 
-  let eval_test =
+  let eval_test () =
     Stream.hd @@
     run q (fun q -> ocanren { list_assoco 0 [(0, 0)] q })
           (fun qs -> qs#reify Nat.prj_exn)
 
+  (* TODO: launch tests *)
   let%expect_test "empty" =
-    let x = eval_test in
+    let x = eval_test () in
     Printf.printf "done! %s" ((show (Nat.ground)) x);
     [%expect {| done! 0 |}]
 
