@@ -1,5 +1,3 @@
-(* (,,) -< Pair.inj _ (Pair.inj _ _) *)
-
 module Functional =
 struct
 
