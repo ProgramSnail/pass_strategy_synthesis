@@ -52,7 +52,7 @@
   (:standard -rectypes))
  (libraries OCanren OCanren.tester)
  (preprocessor_deps ./pp5+gt+plugins+ocanren+dump.exe)
- ; (inline_tests)
+ (inline_tests)
  (wrapped false)
  (preprocess
   (pps
