@@ -129,7 +129,7 @@ struct
   end
 
   let rec list_replaceo xs id value ys = ocanren {
-    (* xs == [] & ys == [] | (* TODO: error *) *)
+    (* xs == [] & ys == [] | (* NOTE: error *) *)
     { fresh x, xs' in
         xs == x :: xs' &
         id == Nat.o &
@@ -176,7 +176,7 @@ struct
   (* --- *)
 
   let rec list_ntho xs id x' = ocanren {
-    (* xs == [] | (* TODO: error *) *)
+    (* xs == [] | (* NOTE: error *) *)
     { fresh y', xs' in
       id == Nat.o &
       y' :: xs' == xs &
@@ -187,7 +187,6 @@ struct
       list_ntho xs' id' x' }
   }
 
-  (* TODO: use real holes *)
   let mem_geto state id value' =
     let open St in
     ocanren {
@@ -223,7 +222,6 @@ struct
   let mem_checko state id state' =
     let open Value in
     ocanren {
-    mem_geto state id Bot & state' == state |
     mem_geto state id Unit & state' == state
   }
 
@@ -235,6 +233,15 @@ struct
       xs == x' :: xs' &
       list_foldlo f acc xs' acc_upd &
       f acc_upd x' acc' }
+  }
+
+  let rec list_foldro f acc xs acc' = ocanren {
+    xs == [] & acc' == acc |
+    { fresh x', xs', acc_upd in
+      xs == x' :: xs' &
+      f acc x' acc' &
+      list_foldro f acc' xs' acc_upd }
+    (* TODO: inf search on swap, investigate *)
   }
 
 
@@ -273,7 +280,7 @@ struct
   let st_mem_leno state mem_len' =
     let open St in
     ocanren {
-    fresh _env, _mem, _assignments in (* TODO: replace with real placeholder ? *)
+    fresh _env, _mem, _assignments in
       state == St (_env, _mem, mem_len', _assignments)
   }
 
@@ -283,7 +290,7 @@ struct
     let open Tag in
     ocanren {
     (* arg_tag == Tag.ref & arg == Arg.rvalue & state'' == state | *)
-      (* TODO: error, TODO: allow later ?? *)
+      (* NOTE: error, TODO: allow later ?? *)
     { fresh arg', value' in
       arg_tag == Ref &
       arg == LValue arg' &
@@ -348,10 +355,8 @@ struct
     eval_stmto state prog stmt state'
 
   and eval_bodyo state prog body state' =
-    list_foldlo (eval_body_foldero prog) state body state' 
-    (* (List.fold_left (fun state stmt -> eval_stmt state prog stmt) state body) *)
+    list_foldro (eval_body_foldero prog) state body state' 
 
-  (* TODO: other types on translation to ocanren ? *)
   and add_arg_foldero state_before state_c arg_tag arg state_c' =
     ocanren {
     fresh state, id, state', id' in
@@ -380,7 +385,7 @@ struct
       decl == FunDecl (arg_tags, body) &
       state == St (env_before, mem_before, len_before, assignments_before) &
       state_clean == St (nil_env, mem_before, len_before, nil_assignments) &
-      list_foldl2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) & (* TODO: replace with real placeholder *)
+      list_foldl2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) &
       eval_bodyo state_with_vars prog body state_evaled &
       st_spoil_assignmentso state_evaled state_spoiled &
       state_spoiled == St (_env, mem_spoiled, len, _assignments) &
@@ -392,7 +397,7 @@ struct
   and eval_fun_empty_argso state prog decl state' =
     let open FunDecl in
     ocanren {
-    fresh arg_tags, args, _body in (* TODO: replace with real placeholder *)
+    fresh arg_tags, args, _body in
       decl == FunDecl (arg_tags, _body) &
       List.mapo arg_to_rvalueo arg_tags args &
       eval_funo state prog decl args state'
@@ -425,6 +430,7 @@ struct
     @type answerArgs = (Arg.ground List.ground) GT.list with show
     @type answerValue = Value.ground GT.list with show
     @type answerNats = (Nat.ground List.ground) GT.list with show
+    @type answerTag = Tag.ground GT.list with show
 
     let _ = Printf.printf "list drop test: %s\n" @@ show(answerNats) (Stream.take (run q
       (fun q -> ocanren { list_dropo 2 [1; 2; 3] q })
@@ -450,6 +456,21 @@ struct
           empty_stateo s &
           empty_stateo s' &
           st_add_argo s  s' Nat.o Val RValue q })
+      (fun q -> q#reify (St.prj_exn))))
+
+    let _ = Printf.printf "call stmt eval test: %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> let open Arg in
+                let open Tag in
+                let open Value in
+                let open St in
+                let open Stmt in
+                let open FunDecl in
+                ocanren {
+        fresh s, p, stmt in
+          s == St ([Std.pair 0 0], [Unit], 1, []) &
+          p == [FunDecl ([Ref], [Write 0])] &
+          stmt == Call (0, [0]) &
+          eval_stmto s p stmt q})
       (fun q -> q#reify (St.prj_exn))))
 
     let _ = Printf.printf "mem set test: %s\n" @@ show(answer) (Stream.take (run q
@@ -497,7 +518,7 @@ struct
       (fun q -> q#reify (St.prj_exn))))
 
     (* fun eval test *)
-    let _ = Printf.printf "fun eval (empty): %s\n" @@ show(answer) (Stream.take (run q
+    let _ = Printf.printf "fun eval test (empty): %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> (* let open Prog in *)
                 let open FunDecl in
                 let open Tag in
@@ -510,7 +531,7 @@ struct
       (fun q -> q#reify (St.prj_exn))))
 
     (* fun eval test *)
-    let _ = Printf.printf "fun eval (args): %s\n" @@ show(answer) (Stream.take (run q
+    let _ = Printf.printf "fun eval tist (args): %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> (* let open Prog in *)
                 let open FunDecl in
                 let open Tag in
@@ -522,8 +543,21 @@ struct
                             eval_fun_empty_argso s p d q })
       (fun q -> q#reify (St.prj_exn))))
 
+    (* fun eval test *)
+    let _ = Printf.printf "fun eval test (wrong call): %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> (* let open Prog in *)
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                ocanren { fresh s, p, d in
+                            empty_stateo s &
+                            p == [FunDecl ([Ref], [Write 0])] &
+                            d == FunDecl ([Val], [Call (0, [0]); Read 0]) &
+                            eval_fun_empty_argso s p d q })
+      (fun q -> q#reify (St.prj_exn))))
+
     (* prog eval test *)
-    let _ = Printf.printf "prog eval: %s\n" @@ show(answer) (Stream.take (run q
+    let _ = Printf.printf "prog eval test: %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> let open Prog in
                 let open FunDecl in
                 let open Tag in
@@ -532,7 +566,7 @@ struct
       (fun q -> q#reify (St.prj_exn))))
 
     (* prog with func eval test *)
-    let _ = Printf.printf "prog with func eval: %s\n" @@ show(answer) (Stream.take (run q
+    let _ = Printf.printf "prog with func eval test: %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> let open Prog in
                 let open FunDecl in
                 let open Tag in
@@ -541,7 +575,7 @@ struct
       (fun q -> q#reify (St.prj_exn))))
 
     (* prog with func eval test *)
-    let _ = Printf.printf "prog with func eval 2: %s\n" @@ show(answer) (Stream.take (run q
+    let _ = Printf.printf "prog with func eval test 2: %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> let open Prog in
                 let open FunDecl in
                 let open Tag in
@@ -550,49 +584,43 @@ struct
       (fun q -> q#reify (St.prj_exn))))
 
     (* prog with func eval test *)
-    (* TODO: should be no results *)
-    let _ = Printf.printf "prog with func eval 3: %s\n" @@ show(answer) (Stream.take (run q
+    let _ = Printf.printf "prog with func eval test 3: %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> let open Prog in
                 let open FunDecl in
                 let open Tag in
                 let open Stmt in
-                ocanren {eval_progo (Prog ([FunDecl ([Ref], [Write 0; Read 0])], FunDecl ([Val], [Write 0; Read 0; Call (0, [0]); Read 0]))) q})
+                ocanren {eval_progo (Prog ([FunDecl ([Ref], [Write 0])], FunDecl ([Val], [Call (0, [0]); Read 0]))) q})
       (fun q -> q#reify (St.prj_exn))))
 
     (* annotation gen prog test *)
-    (* TODO *)
+    let _ = Printf.printf "synt test: %s\n" @@ show(answerTag) (Stream.take (run q
+      (fun q -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])], FunDecl ([Val], [Call (0, [0]); Read 0]))) (St ([], [], 0, []))})
+      (fun q -> q#reify (Tag.prj_exn))))
+
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 2: %s\n" @@ show(answerTag) (Stream.take (run q
+      (fun q -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])], FunDecl ([Val], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, []))})
+      (fun q -> q#reify (Tag.prj_exn))))
   end
 
-  (* TODO: fix *)
-  let eval_prog_fwd all_prog =
-    Stream.take ~n:1 @@
-    run q (fun q -> eval_progo all_prog q)
-          (fun qs -> qs#reify prj_exn)
-
-  (* TODO: fix *)
-  (* let empty_prog = Prog.T (List.Nil, FunDecl.T (List.Nil, Body.T List.Nil)) *)
-  (* let empty_prog'' = ocanren { T ([], T ([], T [])) } *)
-
-  (* let empty_prog = *)
-    (* let open FunDecl in *)
-    (* let open Prog in *)
-    (* ocanren { Prog ([], FunDecl ([], [])) } *)
-  (* let empty_prog = Prog.make (Std.nil ()) (FunDecl.make (Std.nil ()) (Body.make (Std.nil ()))) *)
-
-  let eval_test () =
-    Stream.hd @@
-    run q (fun q -> ocanren { List.assoco 0 [(0, 0)] q })
-          (fun qs -> qs#reify Nat.prj_exn)
+  (* let eval_test () = *)
+    (* Stream.hd @@ *)
+    (* run q (fun q -> ocanren { List.assoco 0 [(0, 0)] q }) *)
+          (* (fun qs -> qs#reify Nat.prj_exn) *)
 
   (* TODO: launch tests *)
-  let%expect_test "empty" =
-    let x = eval_test () in
-    Printf.printf "done! %s" ((show (Nat.ground)) x);
-    [%expect {| done! 0 |}]
-
-  (* TODO: fix *)
   (* let%expect_test "empty" = *)
-    (* eval_prog_fwd empty_prog; *)
-    (* Printf.printf "done!"; *)
-    (* [%expect {| done! |}] *)
+    (* let x = eval_test () in *)
+    (* Printf.printf "done! %s" ((show (Nat.ground)) x); *)
+    (* [%expect {| done! 0 |}] *)
 end
