@@ -39,3 +39,4 @@ let%expect_test "some test" = print_endline (synt_t5 ()); [%expect {| [[Ref; Ref
 let%expect_test "some test" = print_endline (synt_t6 ()); [%expect {| [[Ref; Ref]; [Val; Ref]; [Ref; Val]; [Val; Val]] |}]
 let%expect_test "some test" = print_endline (synt_t7 ()); [%expect {| [[Ref; Val]; [Val; Val]] |}]
 let%expect_test "some test" = print_endline (synt_t8 ()); [%expect {| [[Val; Ref]; [Val; Val]] |}]
+(* TODO: test with assymetric args order *)
