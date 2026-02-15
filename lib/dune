@@ -45,27 +45,6 @@
    lib/pp5+gt+plugins+ocanren+dump.exe)))
 
 (library
- (name relational_semantic_interpreter)
- (modules relational_semantic_interpreter)
- (flags
-  ; (-dsource)
-  (:standard -rectypes))
- (libraries OCanren OCanren.tester)
- (preprocessor_deps ./pp5+gt+plugins+ocanren+dump.exe)
- (wrapped false)
- (preprocess
-  (pps
-   OCanren-ppx.ppx_repr
-   OCanren-ppx.ppx_deriving_reify
-   OCanren-ppx.ppx_fresh
-   GT.ppx
-   GT.ppx_all
-   OCanren-ppx.ppx_distrib
-   --
-   -pp
-   lib/pp5+gt+plugins+ocanren+dump.exe)))
-
-(library
  (name relational_semantic_interpreter_oc)
  (modules relational_semantic_interpreter_oc)
  (flags
@@ -85,29 +64,6 @@
    --
    -pp
    lib/pp5+gt+plugins+ocanren+dump.exe)))
-
-; (library
-;  (name test)
-;  (modules test)
-;  (flags
-;   (-dsource)
-;   (:standard -rectypes))
-;  (libraries OCanren OCanren.tester)
-;  (preprocessor_deps ./pp5+gt+plugins+ocanren+dump.exe)
-;  (wrapped false)
-;  (preprocess
-;   (pps
-;    ppx_expect
-;    ppx_inline_test
-;    GT.ppx
-;    GT.ppx_all
-;    OCanren-ppx.ppx_repr
-;    OCanren-ppx.ppx_deriving_reify
-;    OCanren-ppx.ppx_fresh
-;    OCanren-ppx.ppx_distrib
-;    --
-;    -pp
-;    lib/pp5+gt+plugins+ocanren+dump.exe)))
 
 (rule
  (targets pp5+gt+plugins+ocanren+dump.exe)
