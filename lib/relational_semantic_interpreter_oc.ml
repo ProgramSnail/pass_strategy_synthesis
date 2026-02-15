@@ -834,7 +834,6 @@ struct
                 ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Write 1])], FunDecl ([Val; Val], [Call (0, [0; 1]); Write 0; Read 0; Read 1]))) (St ([], [], 0, []))})
       (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
 
-    (* TODO FIXME *)
     (* annotation gen prog test *)
     let _ = Printf.printf "synt test 6' (swap call args): %s\n" @@ show(answerTags) (Stream.take (run qr
       (fun q r -> let open Prog in
@@ -857,15 +856,4 @@ struct
 
     (* TODO: test with assymetric args order *)
   end
-
-  (* let eval_test () = *)
-    (* Stream.hd @@ *)
-    (* run q (fun q -> ocanren { List.assoco 0 [(0, 0)] q }) *)
-          (* (fun qs -> qs#reify Nat.prj_exn) *)
-
-  (* TODO: launch tests *)
-  (* let%expect_test "empty" = *)
-    (* let x = eval_test () in *)
-    (* Printf.printf "done! %s" ((show (Nat.ground)) x); *)
-    (* [%expect {| done! 0 |}] *)
 end

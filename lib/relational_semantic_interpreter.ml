@@ -345,32 +345,4 @@ struct
     (all_prog === Prog.make prog main_decl)
     (empty_state state)
     (eval_fun_empty_args state prog main_decl state')
-
-  (* TODO: fix *)
-  (* let eval_prog_fwd all_prog = *)
-    (* Stream.hd @@ *)
-    (* run q (fun q -> eval_prog (inj all_prog) q) *)
-          (* (fun qs -> qs#reify prj_exn) *)
-
-  (* TODO: fix *)
-  (* let empty_prog = (Prog.T (List.Nil, FunDecl.T (List.Nil, Body.T List.Nil))) *)
-  (* let empty_prog = Prog.make (Std.nil ()) (FunDecl.make (Std.nil ()) (Body.make (Std.nil ()))) *)
-
-  (* TODO: fix *)
-  (* let%expect_test "empty" = *)
-    (* eval_prog_fwd empty_prog; *)
-    (* Printf.printf "done!"; *)
-    (* [%expect {| done! |}] *)
-
-  let eval_test =
-    Stream.hd @@
-    run q (fun q -> ocanren { List.assoco 0 [(0, 0)] q })
-          (fun qs -> qs#reify Nat.prj_exn)
-
-(* ((show (GT.list) (show Nat.ground)) x *)
-  let%expect_test "empty" =
-    let x = eval_test in
-    Printf.printf "done! %s" ((show (Nat.ground)) x);
-    [%expect {| done! 0 |}]
-
 end
