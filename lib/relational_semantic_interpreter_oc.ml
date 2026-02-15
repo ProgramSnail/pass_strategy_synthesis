@@ -204,7 +204,7 @@ struct
       state == St (env, mem, mem_len, assignments) &
       env_geto state id mem_id &
       inv_ido mem_len mem_id inv_mem_id &
-      list_replaceo mem mem_id value mem' &
+      list_replaceo mem inv_mem_id value mem' &
       assignments' == id :: assignments &
       state' == St (env, mem', mem_len, assignments')
   }
@@ -385,7 +385,7 @@ struct
       decl == FunDecl (arg_tags, body) &
       state == St (env_before, mem_before, len_before, assignments_before) &
       state_clean == St (nil_env, mem_before, len_before, nil_assignments) &
-      list_foldl2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) &
+      list_foldl2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) & (* TODO: or foldr2o ?? *)
       eval_bodyo state_with_vars prog body state_evaled &
       st_spoil_assignmentso state_evaled state_spoiled &
       state_spoiled == St (_env, mem_spoiled, len, _assignments) &
@@ -429,15 +429,29 @@ struct
     @type answer  = St.ground GT.list with show
     @type answerArgs = (Arg.ground List.ground) GT.list with show
     @type answerValue = Value.ground GT.list with show
+    @type answerNat = Nat.ground GT.list with show
     @type answerNats = (Nat.ground List.ground) GT.list with show
     @type answerTag = Tag.ground GT.list with show
+    @type answerTags = (Tag.ground List.ground) GT.list with show
+
+    let _ = Printf.printf "inv id test: %s\n" @@ show(answerNat) (Stream.take (run q
+      (fun q -> ocanren { inv_ido 2 1 q })
+      (fun q -> q#reify Nat.prj_exn)))
+
+    let _ = Printf.printf "inv id test 2: %s\n" @@ show(answerNat) (Stream.take (run q
+      (fun q -> ocanren { inv_ido 2 0 q })
+      (fun q -> q#reify Nat.prj_exn)))
+
+    let _ = Printf.printf "inv id test 3: %s\n" @@ show(answerNat) (Stream.take (run q
+      (fun q -> ocanren { inv_ido 2 q 0 })
+      (fun q -> q#reify Nat.prj_exn)))
 
     let _ = Printf.printf "list drop test: %s\n" @@ show(answerNats) (Stream.take (run q
       (fun q -> ocanren { list_dropo 2 [1; 2; 3] q })
       (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
 
     let _ = Printf.printf "list replace test: %s\n" @@ show(answerNats) (Stream.take (run q
-      (fun q -> ocanren { list_replaceo [1; 2; 3] 1 0 q })
+      (fun q -> ocanren { list_replaceo [1; 2; 3; 4] 1 0 q })
       (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
 
     let _ = Printf.printf "arg to value test: %s\n" @@ show(answerValue) (Stream.take (run q
@@ -473,6 +487,36 @@ struct
           eval_stmto s p stmt q})
       (fun q -> q#reify (St.prj_exn))))
 
+    let _ = Printf.printf "call stmt eval test 2: %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> let open Arg in
+                let open Tag in
+                let open Value in
+                let open St in
+                let open Stmt in
+                let open FunDecl in
+                ocanren {
+        fresh s, p, stmt in
+          s == St ([Std.pair 1 1; Std.pair 0 0], [Unit; Unit], 2, []) &
+          p == [FunDecl ([Ref], [Write 0])] &
+          stmt == Call (0, [0]) &
+          eval_stmto s p stmt q})
+      (fun q -> q#reify (St.prj_exn))))
+
+    let _ = Printf.printf "call stmt eval test 3: %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> let open Arg in
+                let open Tag in
+                let open Value in
+                let open St in
+                let open Stmt in
+                let open FunDecl in
+                ocanren {
+        fresh s, p, stmt in
+          s == St ([Std.pair 1 1; Std.pair 0 0], [Unit; Unit], 2, []) &
+          p == [FunDecl ([Ref], [Write 0])] &
+          stmt == Call (0, [1]) &
+          eval_stmto s p stmt q})
+      (fun q -> q#reify (St.prj_exn))))
+
     let _ = Printf.printf "mem set test: %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> let open Arg in
                 let open Tag in
@@ -480,8 +524,30 @@ struct
                 let open St in
                 ocanren {
         fresh s in
-          s == St ([Std.pair 0 0], [Unit], 1, []) &
+          s == St ([Std.pair 0 0], [Bot], 1, []) &
           mem_seto s 0 Unit q})
+      (fun q -> q#reify (St.prj_exn))))
+
+    let _ = Printf.printf "mem set test 2: %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> let open Arg in
+                let open Tag in
+                let open Value in
+                let open St in
+                ocanren {
+        fresh s in
+          s == St ([Std.pair 0 0], [Unit], 1, []) &
+          mem_seto s 0 Bot q})
+      (fun q -> q#reify (St.prj_exn))))
+
+    let _ = Printf.printf "mem set test 3: %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> let open Arg in
+                let open Tag in
+                let open Value in
+                let open St in
+                ocanren {
+        fresh s in
+          s == St ([Std.pair 0 1], [Unit; Unit], 2, []) &
+          mem_seto s 0 Bot q})
       (fun q -> q#reify (St.prj_exn))))
 
     let _ = Printf.printf "add arg folder test: %s\n" @@ show(answer) (Stream.take (run q
@@ -556,6 +622,19 @@ struct
                             eval_fun_empty_argso s p d q })
       (fun q -> q#reify (St.prj_exn))))
 
+    (* fun eval test *)
+    let _ = Printf.printf "fun eval test (wrong call 2): %s\n" @@ show(answer) (Stream.take (run q
+      (fun q -> (* let open Prog in *)
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                ocanren { fresh s, p, d in
+                            empty_stateo s &
+                            p == [FunDecl ([Ref], [Write 0])] &
+                            d == FunDecl ([Val; Val], [Call (0, [1]); Write 0; Read 1]) &
+                            eval_fun_empty_argso s p d q })
+      (fun q -> q#reify (St.prj_exn))))
+
     (* prog eval test *)
     let _ = Printf.printf "prog eval test: %s\n" @@ show(answer) (Stream.take (run q
       (fun q -> let open Prog in
@@ -611,6 +690,72 @@ struct
                 let open St in
                 ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])], FunDecl ([Val], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, []))})
       (fun q -> q#reify (Tag.prj_exn))))
+
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 3: %s\n" @@ show(answerTags) (Stream.take (run qr
+      (fun q r -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])], FunDecl ([r], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, []))})
+      (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+
+    (* TODO *)
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 4: %s\n" @@ show(answerTags) (Stream.take (run q
+      (fun q -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])], FunDecl ([Val; Val], [Call (0, [1]); Write 0; Read 1]))) (St ([], [], 0, []))})
+      (fun q -> [q#reify (Tag.prj_exn)]))) (* -> [Val] *)
+
+    (* TODO *)
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 5: %s\n" @@ show(answerTags) (Stream.take (run qr
+      (fun q r -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0])], FunDecl ([Val; Val], [Call (0, [0; 1]); Write 0; Read 0]))) (St ([], [], 0, []))})
+      (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)]))) (* all variants *)
+
+    (* TODO *)
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 5' (swap call args): %s\n" @@ show(answerTags) (Stream.take (run qr
+      (fun q r -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0])], FunDecl ([Val; Val], [Call (0, [1; 0]); Write 0; Read 0]))) (St ([], [], 0, []))})
+      (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)]))) (* all variants *)
+
+    (* TODO *)
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 5'' (swap def args): %s\n" @@ show(answerTags) (Stream.take (run qr
+      (fun q r -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([r; q], [Write 0])], FunDecl ([Val; Val], [Call (0, [0; 1]); Write 0; Read 0]))) (St ([], [], 0, []))})
+      (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)]))) (* all variants *)
+
+    (* TODO *)
+    (* annotation gen prog test *)
+    let _ = Printf.printf "synt test 6: %s\n" @@ show(answerTags) (Stream.take (run qr
+      (fun q r -> let open Prog in
+                let open FunDecl in
+                let open Tag in
+                let open Stmt in
+                let open St in
+                ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Write 1])], FunDecl ([Val; Val], [Call (0, [0; 1]); Write 0; Read 0; Read 1]))) (St ([], [], 0, []))})
+      (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+
   end
 
   (* let eval_test () = *)
