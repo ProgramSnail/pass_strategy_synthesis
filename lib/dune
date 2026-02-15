@@ -17,7 +17,9 @@
  (name relational_interpreter_oc_tests)
  (modules relational_interpreter_oc_tests)
  (flags (-rectypes))
- (libraries relational_interpreter_oc_tests_f)
+ (libraries
+  relational_semantic_interpreter_oc
+  relational_interpreter_oc_tests_f)
  (inline_tests)
  (wrapped false)
  (preprocess

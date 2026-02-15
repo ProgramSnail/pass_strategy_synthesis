@@ -21,8 +21,8 @@ struct
     module Test = struct
       @type answer = logic GT.list with show
 
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q == Ref})
-                                                                       (fun q -> q#reify reify)))
+      let test _ = show(answer) (Stream.take (run q (fun q -> ocanren {q == Ref})
+                                                    (fun q -> q#reify reify)))
     end
   end
 
@@ -38,11 +38,11 @@ struct
       @type answer = Nat.ground List.ground GT.list with show
       @type answer'  = ground GT.list with show
 
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == Call (1, q)})
-                                                                       (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
+      let test1 _ = show(answer) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == Call (1, q)})
+                                                     (fun q -> q#reify (List.prj_exn Nat.prj_exn))))
 
-      let _ = Printf.printf "%s\n" @@ show(answer') (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == q})
-                                                                        (fun q -> q#reify (prj_exn))))
+      let test2 _ = show(answer') (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == q})
+                                                      (fun q -> q#reify (prj_exn))))
     end
   end
 
@@ -56,10 +56,10 @@ struct
 
     module Test = struct
       @type answer  = ground GT.list with show
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> let open Tag in
-                                                                                 let open Stmt in
-                                                                                 ocanren {FunDecl ([Ref; Val], [Call (1, [0]); Write 1]) == q})
-                                                                       (fun q -> q#reify (prj_exn))))
+      let test _ = show(answer) (Stream.take (run q (fun q -> let open Tag in
+                                                              let open Stmt in
+                                                              ocanren {FunDecl ([Ref; Val], [Call (1, [0]); Write 1]) == q})
+                                                    (fun q -> q#reify (prj_exn))))
     end
   end
 
@@ -73,11 +73,11 @@ struct
 
     module Test = struct
       @type answer  = ground GT.list with show
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> let open FunDecl in
-                                                                                 let open Tag in
-                                                                                 let open Stmt in
-                                                                                 ocanren {Prog ([], FunDecl ([Val], [Write 0; Read 0])) == q})
-                                                                       (fun q -> q#reify (prj_exn))))
+      let test _ = show(answer) (Stream.take (run q (fun q -> let open FunDecl in
+                                                              let open Tag in
+                                                              let open Stmt in
+                                                              ocanren {Prog ([], FunDecl ([Val], [Write 0; Read 0])) == q})
+                                                    (fun q -> q#reify (prj_exn))))
     end
   end
 
@@ -91,8 +91,8 @@ struct
 
     module Test = struct
       @type answer = logic GT.list with show
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q == LValue 3})
-                                                                       (fun q -> q#reify reify)))
+      let test _ = show(answer) (Stream.take (run q (fun q -> ocanren {q == LValue 3})
+                                                    (fun q -> q#reify reify)))
     end
   end
 
@@ -106,8 +106,8 @@ struct
 
     module Test = struct
       @type answer = logic GT.list with show
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> ocanren {q == Bot | q == Unit})
-                                                                       (fun q -> q#reify reify)))
+      let test _ = show(answer) (Stream.take (run q (fun q -> ocanren {q == Bot | q == Unit})
+                                                    (fun q -> q#reify reify)))
     end
   end
 
@@ -122,9 +122,9 @@ struct
 
     module Test = struct
       @type answer  = ground GT.list with show
-      let _ = Printf.printf "%s\n" @@ show(answer) (Stream.take (run q (fun q -> let open Value in
-                                                                                 ocanren {St ([Std.pair 0 0], [Bot], 1, [0]) == q})
-                                                                       (fun q -> q#reify (prj_exn))))
+      let test _ = show(answer) (Stream.take (run q (fun q -> let open Value in
+                                                              ocanren {St ([Std.pair 0 0], [Bot], 1, [0]) == q})
+                                                    (fun q -> q#reify (prj_exn))))
     end
   end
 

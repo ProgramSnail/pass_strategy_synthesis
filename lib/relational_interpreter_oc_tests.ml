@@ -1,4 +1,6 @@
 open Relational_interpreter_oc_tests_f
+open Relational_semantic_interpreter_oc
+open Relational
 
 let%expect_test "inv id: test 1" = print_endline (inv_id_t ()); [%expect {| [O] |}]
 let%expect_test "some test" = print_endline (inv_id_t2 ()); [%expect {| [S (O)] |}]
@@ -40,3 +42,20 @@ let%expect_test "some test" = print_endline (synt_t6 ()); [%expect {| [[Ref; Ref
 let%expect_test "some test" = print_endline (synt_t7 ()); [%expect {| [[Ref; Val]; [Val; Val]] |}]
 let%expect_test "some test" = print_endline (synt_t8 ()); [%expect {| [[Val; Ref]; [Val; Val]] |}]
 (* TODO: test with assymetric args order *)
+(* TODO: tests names *)
+
+let%expect_test "Tag type test" = print_endline (Tag.Test.test ()); [%expect {| [Ref] |}]
+let%expect_test "Stmt type test (1)" = print_endline (Stmt.Test.test1 ()); [%expect {| [[S (S (O))]] |}]
+let%expect_test "Stmt type test (2)" = print_endline (Stmt.Test.test2 ()); [%expect {| [Call (S (O), [S (S (O))])] |}]
+let%expect_test "FunDecl type test" = print_endline (FunDecl.Test.test ()); [%expect {| [FunDecl ([Ref; Val], [Call (S (O), [O]); Write (S (O))])] |}]
+let%expect_test "Prog type test" = print_endline (Prog.Test.test ()); [%expect {| [Prog ([], FunDecl ([Val], [Write (O); Read (O)]))] |}]
+let%expect_test "Arg type test" = print_endline (Arg.Test.test ()); [%expect {| [LValue (S (S (S (O))))] |}]
+let%expect_test "Value type test" = print_endline (Value.Test.test ()); [%expect {| [Bot; Unit] |}]
+let%expect_test "St type test" = print_endline (St.Test.test ()); [%expect {| [St ([(O, O)], [Bot], S (O), [O])] |}]
+
+
+
+
+
+
+
