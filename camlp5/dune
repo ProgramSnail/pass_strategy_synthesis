@@ -1,0 +1,23 @@
+(rule
+ (targets pp5+gt+plugins+ocanren+dump.exe)
+ (action
+  (run
+   mkcamlp5.opt
+   -package
+   camlp5,camlp5.pa_o,camlp5.macro,camlp5.pr_dump,logger.syntax
+   -package
+   logger.syntax,GT.syntax,GT.syntax.all,OCanren.syntax
+   -o
+   %{targets})))
+
+(rule
+ (targets pp5+gt+plugins+ostap+dump.exe)
+ (action
+  (run
+   mkcamlp5.opt
+   -package
+   camlp5,camlp5.pa_o,camlp5.macro,camlp5.pr_dump,logger.syntax
+   -package
+   logger.syntax,GT.syntax,GT.syntax.all,ostap.syntax
+   -o
+   %{targets})))

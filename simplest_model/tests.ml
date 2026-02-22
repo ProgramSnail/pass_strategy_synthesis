@@ -1,5 +1,5 @@
-open Relational_interpreter_oc_tests_f
-open Relational_semantic_interpreter_oc
+open Tests_f
+open Synthesizer
 open Relational
 
 let%expect_test "inv id: test 1" = print_endline (inv_id_t ()); [%expect {| [O] |}]

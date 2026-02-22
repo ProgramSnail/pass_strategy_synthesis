@@ -1,0 +1,83 @@
+; (env
+;  (_
+;   (flags
+;    (:standard -warn-error +5))))
+
+(library
+ (name analyzer)
+ (modules analyzer)
+ (flags (-rectypes))
+ (libraries OCanren OCanren.tester)
+ (inline_tests)
+ (wrapped false)
+ (preprocess
+  (pps GT.ppx GT.ppx_all ppx_expect ppx_inline_test)))
+
+(library
+ (name tests)
+ (modules tests)
+ (flags (-rectypes))
+ (libraries synthesizer tests_f)
+ (inline_tests)
+ (wrapped false)
+ (preprocess
+  (pps ppx_expect ppx_inline_test)))
+
+(library
+ (name tests_f)
+ (modules tests_f)
+ (flags (-rectypes))
+ (libraries OCanren OCanren.tester synthesizer)
+ (preprocessor_deps ../camlp5/pp5+gt+plugins+ocanren+dump.exe)
+ (wrapped false)
+ (preprocess
+  (pps
+   OCanren-ppx.ppx_repr
+   OCanren-ppx.ppx_deriving_reify
+   OCanren-ppx.ppx_fresh
+   GT.ppx
+   GT.ppx_all
+   OCanren-ppx.ppx_distrib
+   --
+   -pp
+   camlp5/pp5+gt+plugins+ocanren+dump.exe)))
+
+(library
+ (name synthesizer)
+ (modules synthesizer)
+ (flags
+  ; (-dsource)
+  (:standard -rectypes))
+ (libraries OCanren OCanren.tester)
+ (preprocessor_deps ../camlp5/pp5+gt+plugins+ocanren+dump.exe)
+ (wrapped false)
+ (preprocess
+  (pps
+   OCanren-ppx.ppx_repr
+   OCanren-ppx.ppx_deriving_reify
+   OCanren-ppx.ppx_fresh
+   GT.ppx
+   GT.ppx_all
+   OCanren-ppx.ppx_distrib
+   --
+   -pp
+   camlp5/pp5+gt+plugins+ocanren+dump.exe)))
+
+(library
+ (name parser)
+ (modules parser)
+ (flags
+  ; (-dsource)
+  (:standard -rectypes))
+ (libraries ostap GT)
+ (preprocessor_deps ../camlp5/pp5+gt+plugins+ostap+dump.exe)
+ (wrapped false)
+ (preprocess
+  (pps
+   ppx_expect
+   ppx_inline_test
+   GT.ppx
+   GT.ppx_all
+   --
+   -pp
+   camlp5/pp5+gt+plugins+ostap+dump.exe)))
