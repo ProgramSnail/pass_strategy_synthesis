@@ -65,6 +65,25 @@
    -pp
    lib/pp5+gt+plugins+ocanren+dump.exe)))
 
+(library
+ (name parser)
+ (modules parser)
+ (flags
+  ; (-dsource)
+  (:standard -rectypes))
+ (libraries ostap GT)
+ (preprocessor_deps ./pp5+gt+plugins+ostap+dump.exe)
+ (wrapped false)
+ (preprocess
+  (pps
+   ppx_expect
+   ppx_inline_test
+   GT.ppx
+   GT.ppx_all
+   --
+   -pp
+   lib/pp5+gt+plugins+ostap+dump.exe)))
+
 (rule
  (targets pp5+gt+plugins+ocanren+dump.exe)
  (action
@@ -74,5 +93,17 @@
    camlp5,camlp5.pa_o,camlp5.macro,camlp5.pr_dump,logger.syntax
    -package
    logger.syntax,GT.syntax,GT.syntax.all,OCanren.syntax
+   -o
+   %{targets})))
+
+(rule
+ (targets pp5+gt+plugins+ostap+dump.exe)
+ (action
+  (run
+   mkcamlp5.opt
+   -package
+   camlp5,camlp5.pa_o,camlp5.macro,camlp5.pr_dump,logger.syntax
+   -package
+   logger.syntax,GT.syntax,GT.syntax.all,ostap.syntax
    -o
    %{targets})))
