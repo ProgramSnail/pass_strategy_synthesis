@@ -311,7 +311,7 @@ let prog_eval_t1 _ = show(answer) (Stream.take (run q
   (fun q -> q#reify (St.prj_exn))))
 
 (* prog with func eval test *)
-let prog_eeal_t2 _ = show(answer) (Stream.take (run q
+let prog_eval_t2 _ = show(answer) (Stream.take (run q
   (fun q -> let open Prog in
             let open FunDecl in
             let open Tag in
@@ -416,3 +416,14 @@ let synt_t8 _ = show(answerTags) (Stream.take (run qr
             let open St in
             ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Write 1])], FunDecl ([Val; Val], [Call (0, [1; 0]); Write 0; Read 0; Read 1]))) (St ([], [], 0, []))})
   (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+
+(* annotation gen prog test *)
+let synt_t9 _ = show(answerTags) (Stream.take (run qr
+  (fun q r -> let open Prog in
+            let open FunDecl in
+            let open Tag in
+            let open Stmt in
+            let open St in
+            ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Read 1])], FunDecl ([Val; Val], [Call (0, [0; 1]); Read 0; Read 1]))) (St ([], [], 0, []))})
+  (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+

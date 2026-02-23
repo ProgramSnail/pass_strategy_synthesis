@@ -380,7 +380,7 @@ struct
       decl == FunDecl (arg_tags, body) &
       state == St (env_before, mem_before, len_before, assignments_before) &
       state_clean == St (nil_env, mem_before, len_before, nil_assignments) &
-      list_foldl2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) & (* TODO: or foldr2o ?? *)
+      list_foldr2o (add_arg_foldero state) (Std.pair state Nat.o) arg_tags args (Std.pair state_with_vars _counter) & (* TODO: or foldr2o ?? *)
       eval_bodyo state_with_vars prog body state_evaled &
       st_spoil_assignmentso state_evaled state_spoiled &
       state_spoiled == St (_env, mem_spoiled, len, _assignments) &
