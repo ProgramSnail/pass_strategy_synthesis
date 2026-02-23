@@ -427,3 +427,12 @@ let synt_t9 _ = show(answerTags) (Stream.take (run qr
             ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Read 1])], FunDecl ([Val; Val], [Call (0, [0; 1]); Read 0; Read 1]))) (St ([], [], 0, []))})
   (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
 
+(* prog with recursive function call *)
+let rec_eval_t _ = show(answer) (Stream.take (run q
+  (fun q -> let open Prog in
+            let open FunDecl in
+            let open Tag in
+            let open Stmt in
+            ocanren {eval_progo (Prog ([FunDecl ([Ref], [Write 0; Call (0, [0])])], FunDecl ([Val], [Call (0, [0]); Write 0; Read 0]))) q})
+  (fun q -> q#reify (St.prj_exn))))
+

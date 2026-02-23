@@ -53,6 +53,7 @@ let%expect_test "synthesis test 6" = print_endline (synt_t6 ()); [%expect {| [[R
 let%expect_test "synthesis test 7" = print_endline (synt_t7 ()); [%expect {| [[Ref; Val]; [Val; Val]] |}]
 let%expect_test "synthesis test 8" = print_endline (synt_t8 ()); [%expect {| [[Val; Ref]; [Val; Val]] |}]
 let%expect_test "synthesis test 9" = print_endline (synt_t9 ()); [%expect {| [[Val; Ref]; [Val; Val]] |}]
-(* TODO: test with assymetric args order *)
-(* TODO: tests names *)
+
+(* NOTE: inf test in current model (without additional functional interfaces and ) *)
+(* let%expect_test "recursive eval test" = print_endline (rec_eval_t ()); [%expect {| [St ([], [], O, [])] |}] *)
 
