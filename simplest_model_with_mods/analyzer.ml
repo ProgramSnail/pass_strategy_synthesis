@@ -29,9 +29,8 @@ struct
 
   type env = (int * (mode * data)) list
 
-  (* TODO: assigments are not required, add var modes to env *)
-  (* env * memory * last unused memory * assignments *) 
-  type state = env * value list * int * data list
+  (* env * memory * last unused memory *) 
+  type state = env * value list * int
 
   (* TODO: replace with pairs *)
   let rec list_replace xs id value = match (xs, id) with
@@ -41,23 +40,23 @@ struct
 
 
   let env_get (state : state) (id : data) : (mode * data) = match state with
-    (env, _mem, _mem_len, _assignments) -> List.assoc id env
+    (env, _mem, _mem_len) -> List.assoc id env
 
   let env_add (state : state) (id : data) (mode : mode) (mem_id : data) : state = match state with
-    (env, mem, mem_len, assignments) -> let env = (id, (mode, mem_id)) :: env in
-                                        (env, mem, mem_len, assignments)
+    (env, mem, mem_len) -> let env = (id, (mode, mem_id)) :: env in
+                           (env, mem, mem_len)
 
   let inv_id (mem_len : int) (id : data) : data = mem_len - id - 1
 
   let mem_get (state : state) (id : data) : value = match state with
-    (_env, mem, mem_len, _assignments) -> List.nth mem @@ inv_id mem_len @@ snd @@ env_get state id
+    (_env, mem, mem_len) -> List.nth mem @@ inv_id mem_len @@ snd @@ env_get state id
 
   let mem_set (state : state) (id : data) (value : value) : state = match state with
-    (env, mem, mem_len, assignments) -> let mem_id = inv_id mem_len @@ snd @@ env_get state id in
-                                        let mem = list_replace mem mem_id value in (env, mem, mem_len, id :: assignments)
+    (env, mem, mem_len) -> let mem_id = inv_id mem_len @@ snd @@ env_get state id in
+                                        let mem = list_replace mem mem_id value in (env, mem, mem_len)
 
   let mem_add (state : state) (value : value) : state = match state with
-    (env, mem, mem_len, assignments) -> let mem = value :: mem in (env, mem, mem_len + 1, assignments)
+    (env, mem, mem_len) -> let mem = value :: mem in (env, mem, mem_len + 1)
 
   let mem_check (state : state) (id : data) : state =
     if mem_get state id == BotV then raise @@ Incorrect_memory_access id else state
@@ -68,7 +67,7 @@ struct
     | LValue id -> mem_get state id
 
   let st_mem_len (state : state) : int =
-    match state with (_, _, mem_len, _) -> mem_len
+    match state with (_, _, mem_len) -> mem_len
 
   let st_add_arg (state : state) (state_before : state)
       (id : data) (arg_tag : mode * tag) (arg : arg) : state =
@@ -81,13 +80,8 @@ struct
       | ((mode, Value), arg) -> let state = mem_add state (arg_to_value state_before arg) in
                                 env_add state id mode (st_mem_len state - 1)
 
-  let st_spoil_assignments (state : state) : state =
-    match state with (env, mem, mem_len, assignments) ->
-    (* TODO: use env var ids instead of mem_ids ?? *)
-    List.fold_left (fun state id -> mem_set state id BotV) state assignments
-
   let st_spoil_by_args (state : state) (arg_tags : (mode * tag) list) (args : data list) : state =
-    match state with (env, mem, mem_len, assignments) ->
+    match state with (env, mem, mem_len) ->
     let spoilFolder state tag id =
       match tag with
       | (Mut, Ref) -> if fst (env_get state id) == Const
@@ -114,21 +108,20 @@ struct
 
   and eval_fun (state : state) (prog : fun_decl list) (decl : fun_decl) (args : arg list) : state =
     match decl with (arg_tags, body) ->
-    match state with (env_before, mem_before, len_before, assignments_before) as state_before ->
-    let state = ([], mem_before, len_before, []) in
+    match state with (env_before, mem_before, len_before) as state_before ->
+    let state = ([], mem_before, len_before) in
     let (state, _) = List.fold_left2 (fun (state, id) arg_tag arg -> (st_add_arg state state_before id arg_tag arg, id + 1))
                                      (state, 0) arg_tags args in
     let state = eval_body state prog body in
-    let state = st_spoil_assignments state in
-    match state with (_env, mem, len, _assignments) ->
-    (env_before, list_drop (len - len_before) mem, len_before, assignments_before) (* TODO: save some assignments ?? *)
+    match state with (_env, mem, len) ->
+    (env_before, list_drop (len - len_before) mem, len_before) (* TODO: save some assignments ?? *)
 
   and eval_fun_empty_args (state : state) (prog : fun_decl list) (decl : fun_decl) : state =
     match decl with (arg_tags, _) ->
     let args = List.map (fun _ -> RValue) arg_tags in
     eval_fun state prog decl args
 
-  let empty_state : state = ([], [], 0, [])
+  let empty_state : state = ([], [], 0)
 
   let eval_prog ((prog, main_decl) : prog) = ignore @@ eval_fun_empty_args empty_state prog main_decl
 
