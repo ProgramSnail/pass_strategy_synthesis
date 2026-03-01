@@ -14,6 +14,16 @@
   (pps GT.ppx GT.ppx_all ppx_expect ppx_inline_test)))
 
 (library
+ (name analyzer_mods_cap)
+ (modules analyzer_cap)
+ (flags (-rectypes))
+ (libraries OCanren OCanren.tester)
+ (inline_tests)
+ (wrapped false)
+ (preprocess
+  (pps GT.ppx GT.ppx_all ppx_expect ppx_inline_test)))
+
+(library
  (name tests_modt)
  (modules tests)
  (flags (-rectypes))
