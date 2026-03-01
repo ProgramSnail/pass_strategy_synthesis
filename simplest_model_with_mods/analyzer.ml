@@ -351,6 +351,30 @@ struct
 
   (* --- *)
 
+  let%expect_test "simple function call with value arg" =
+    try (eval_prog ([([(Const, Value)], [Write 0; Read 0; Write 0])], ([(Mut, Value)], [Write 0; Call (0, [0]) ]));
+         [%expect.unreachable])
+    with Incorrect_const_cast id -> Printf.printf "%i" id;
+    [%expect {| 0 |}]
+
+  let%expect_test "simple function call with ref arg" =
+    try (eval_prog ([([(Const, Ref)], [Write 0; Read 0; Write 0])], ([(Mut, Value)], [Write 0; Call (0, [0]) ]));
+         [%expect.unreachable])
+    with Incorrect_const_cast id -> Printf.printf "%i" id;
+    [%expect {| 0 |}]
+
+  let%expect_test "simple function call with value arg" =
+    eval_prog ([([(Const, Value)], [Read 0])], ([(Mut, Value)], [Write 0; Call (0, [0]) ]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple function call with ref arg" =
+    eval_prog ([([(Const, Ref)], [Read 0])], ([(Mut, Value)], [Write 0; Call (0, [0]) ]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  (* --- *)
+
   let%expect_test "simple function call with arg, recursive calls" =
     eval_prog ([([(Mut, Value)], [Write 0; Read 0; Write 0; Call (0, [0])])], ([(Mut, Value)], [Write 0; Call (0, [0]) ]));
     Printf.printf "done!";
