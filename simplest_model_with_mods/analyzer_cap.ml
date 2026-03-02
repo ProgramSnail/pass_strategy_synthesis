@@ -109,7 +109,7 @@ struct
   (* TODO *)
   let check_tag_correct (tag : tag) (id : data) : unit =
     if (* (is_in tag && not (is_read tag)) || *) (* TODO: required ?? *)
-       (is_out tag && not (is_write tag))
+       is_out tag > is_write tag
        (* || is_copy tag && is_out tag *) (* ?? *)
     then raise @@ Invalid_argument_tag id
     else ()
@@ -132,6 +132,8 @@ struct
                            mem_set state_ext id BotV
 
   (* TODO: FIXME: do not spoil out arguments *)
+  (* TODO: FIXME: do write to tags that are out for args (code + semantics fix)
+    -> write to out args *)
   let st_spoil_by_args (state : state) (arg_tags : tag list) (args : data list) : state =
     match state with (env, mem, mem_len, _visited) ->
     let spoil_folder (state : state) (tag : tag) (id : data) : state =
