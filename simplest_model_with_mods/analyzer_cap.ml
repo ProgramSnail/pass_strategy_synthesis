@@ -44,23 +44,23 @@ struct
   (* --- *)
 
   let is_read (tag : tag) : bool = match tag with
-    | (Rd, _, _, _, _) -> true  
+    | (Rd, _, _, _, _) -> true
     | (NRd, _, _, _, _) -> false
 
   let is_write (tag : tag) : bool = match tag with
-    | (_, Wr, _, _, _) -> true  
+    | (_, Wr, _, _, _) -> true
     | (_, NWr, _, _, _) -> false
 
   let is_copy (tag : tag) : bool = match tag with
-    | (_, _, Cp, _, _) -> true  
+    | (_, _, Cp, _, _) -> true
     | (_, _, NCp, _, _) -> false
 
   let is_in (tag : tag) : bool = match tag with
-    | (_, _, _, In, _) -> true  
+    | (_, _, _, In, _) -> true
     | (_, _, _, NIn, _) -> false
 
   let is_out (tag : tag) : bool = match tag with
-    | (_, _, _, _, Out) -> true  
+    | (_, _, _, _, Out) -> true
     | (_, _, _, _, NOut) -> false
 
   (* --- *)
@@ -95,8 +95,8 @@ struct
   let mem_add (state : state) (value : value) : state = match state with
     (env, mem, mem_len, visited) -> let mem = value :: mem in (env, mem, mem_len + 1, visited)
 
-  let mem_check (state : state) (id : data) : state =
-    if mem_get state id == BotV then raise @@ Incorrect_memory_access id else state
+  let mem_check (state : state) (id : data) : unit =
+    if mem_get state id == BotV then raise @@ Incorrect_memory_access id else ()
 
 
   let arg_to_value (state : state) (arg : arg) : value = match arg with
@@ -106,10 +106,10 @@ struct
   let st_mem_len (state : state) : int =
     match state with (_, _, mem_len, _) -> mem_len
 
-  (* TODO *)
   let check_tag_correct (tag : tag) (id : data) : unit =
     if (* (is_in tag && not (is_read tag)) || *) (* TODO: required ?? *)
-       is_out tag > is_write tag
+       is_out tag > is_write tag ||
+       is_read tag > is_in tag
        (* || is_copy tag && is_out tag *) (* ?? *)
     then raise @@ Invalid_argument_tag id
     else ()
@@ -131,25 +131,19 @@ struct
                       else let state_ext = env_add state id arg_tag mem_id in
                            mem_set state_ext id BotV
 
-  (* TODO: FIXME: do not spoil out arguments *)
-  (* TODO: FIXME: do write to tags that are out for args (code + semantics fix)
-    -> write to out args *)
+  (* TODO: use state_before ?? or state in some order (both orders ?, mod and then check ?) *)
   let st_spoil_by_args (state : state) (arg_tags : tag list) (args : data list) : state =
     match state with (env, mem, mem_len, _visited) ->
+    let state_before = state in
     let spoil_folder (state : state) (tag : tag) (id : data) : state =
       let parent_tag = fst (env_get state id) in
-      if not (is_copy tag) && not (is_out tag)
-      then (if is_write tag > is_write parent_tag
-               (* || is_read tag > is_read parent_tag *) (* TODO FIXME: check that can read *)
-            then raise @@ Incorrect_const_cast id
-            else let state_checked = if is_read tag
-                                     then mem_check state id
-                                     else state
-                 in
-                 if is_write tag
-                 then mem_set state_checked id BotV
-                 else state_checked)
-      else state
+      if is_write tag > is_write parent_tag then raise @@ Incorrect_const_cast id
+      else let state' = if is_read tag then (mem_check state_before id; state) else state (* NOTE: state override *)
+      in if not @@ is_write tag then state'
+      else match is_out tag with
+        | true -> mem_set state' id UnitV
+        | false -> if is_copy tag then state'
+                   else mem_set state' id BotV
     in List.fold_left2 spoil_folder state arg_tags args
 
   let list_drop n xs = List.of_seq @@ Seq.drop n @@ List.to_seq xs
@@ -382,7 +376,7 @@ struct
     [%expect {| done! |}]
 
   (* NOTE: changed semantics by comporasion with prev analyzer, new test *)
-  let%expect_test "function with ref two same ref args, read & write both & nothing" =
+  let%expect_test "function with ref two same ref args, read both & nothing" =
     eval_prog (
       [([ri_ref; ri_ref],[Read 0; Read 1; Read 1])],
       ([wi_value], [Write 0; Call (0, [0; 0]); ]));
@@ -390,21 +384,33 @@ struct
     [%expect {| done! |}]
 
   (* NOTE: changed semantics by comporasion with prev analyzer, new test *)
-  let%expect_test "function with ref & copy of the same arg, read both & nothing" =
+  let%expect_test "function with ref & copy of the same arg, read & write both & nothing" =
     eval_prog (
       [([rwi_ref; rwi_value],[Read 0; Read 1; Write 0; Write 1; Read 1])],
       ([wi_value], [Write 0; Call (0, [0; 0]); ]));
     Printf.printf "done!";
     [%expect {| done! |}]
 
+  (* NOTE: changed semantics by comporasion with prev analyzer, new test *)
+  let%expect_test "function with copy & ref of the same arg, read & write both & nothing" =
+    eval_prog (
+      [([rwi_value; rwi_ref],[Read 0; Read 1; Write 0; Write 1; Read 1])],
+      ([wi_value], [Write 0; Call (0, [0; 0]); ]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  (* TODO: FIXME: now correct (use state before for mem check), is this good ?, proper way to fix ? *)
   (* NOTE: maybe important case in the future *)
   let%expect_test "function with ref two same ref args, read & write both, error" =
-    try (eval_prog (
+    (* try ( *)
+      eval_prog (
       [([rwi_ref; rwi_ref],[Read 0; Read 1; Write 0; Write 1; Read 1])],
       ([wi_value], [Write 0; Call (0, [0; 0]); ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
+    Printf.printf "done!";
+    [%expect {| done! |}]
 
   (* >> tests with several functions *)
 
@@ -468,4 +474,8 @@ struct
     eval_prog ([([rwi_value], [Write 0; Read 0; Write 0; Call (0, [0])])], ([wi_value], [Write 0; Call (0, [0]) ]));
     Printf.printf "done!";
     [%expect {| done! |}]
+
+  (* --- *)
+
+  (* TODO: out arguments test, etc. *)
 end

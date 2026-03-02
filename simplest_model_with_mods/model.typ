@@ -29,19 +29,19 @@
 #let prog = `prog`
 #bnf(
   Prod(`read`,
-    { Or[Read][]
+    { Or[Read][read passed value]
       Or[Not Read][] } ),
   Prod(`write`,
-    { Or[Write][]
+    { Or[Write][write to passed variable]
       Or[Not Write][] } ),
   Prod(`copy`,
-    { Or[Ref][]
-      Or[Value][] } ),
+    { Or[Ref][pass reference to the value]
+      Or[Value][pass copy of te value] } ),
   Prod(`in`,
-    { Or[In][]
+    { Or[In][parameter value used as input]
       Or[Not In][] } ),
   Prod(`out`,
-    { Or[Out][]
+    { Or[Out][parametr value returned]
       Or[Not Out][] } ),
   Prod(
     `tag`,
@@ -88,8 +88,6 @@
 )
 == Семантика статического интерпретатора
 
-*TODO: исправить с обычного интерпретатора*
-
 #h(10pt)
 
 $V := value$ - значения памяти
@@ -99,8 +97,6 @@ $L := NN$ - позиции в памяти
 $X$ - можество переменных
 
 *TODO: специфицировать доступ*
-
-*TODO: формально описать isCorrect для tag-а*
 
 *TODO: формально описать accessor-ы tag*
 
