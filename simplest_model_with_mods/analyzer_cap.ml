@@ -138,39 +138,13 @@ struct
     let spoil_folder (state : state) (tag : tag) (id : data) : state =
       let parent_tag = fst (env_get state id) in
       if is_write tag > is_write parent_tag then raise @@ Incorrect_const_cast id
-      else let state' = if is_read tag then (ignore @@ mem_check state_before id; state) else state (* NOTE: state override *)
+      else let state = if is_read tag then (mem_check state_before id; state) else state (* NOTE: state override *)
       in if not @@ is_write tag then state
       else match is_out tag with
-        | true -> mem_set state' id UnitV
-        | false -> if is_copy tag then state'
-                   else mem_set state' id BotV
+        | true -> mem_set state id UnitV
+        | false -> if is_copy tag then state
+                   else mem_set state id BotV
     in List.fold_left2 spoil_folder state arg_tags args
-
-  (* NOTE: wrong (sequential) version *)
-  (* NOTE: could not just spoil one time, will catch all rectoords, not only intersections *)
-  (* let st_spoil_by_args (state : state) (arg_tags : tag list) (args : data list) : state = *)
-    (* match state with (env, mem, mem_len, _visited) -> *)
-    (* let spoil_folder (state : state) (tag : tag) (id : data) : state = *)
-      (* let parent_tag = fst (env_get state id) in *)
-      (* if is_write tag > is_write parent_tag then raise @@ Incorrect_const_cast id *)
-      (* else if not @@ is_write tag then state *)
-      (* else match is_out tag with *)
-        (* | true -> state (* NOTE: fix - later *) *)
-        (* | false -> if is_copy tag then state *)
-                   (* else mem_set state id BotV *)
-    (* in *)
-    (* let check_folder (state : state) (tag : tag) (id : data) : state = *)
-      (* if is_read tag then mem_check state id else state *)
-    (* in *)
-    (* let fix_folder (state : state) (tag : tag) (id : data) : state = *)
-      (* if not @@ is_write tag then state *)
-      (* else match is_out tag with *)
-        (* | true -> mem_set state id UnitV *)
-        (* | false -> state (* NOTE: spoil - earlier *) *)
-    (* in *)
-    (* let spoiled_state = List.fold_left2 spoil_folder state arg_tags args in *)
-    (* let checked_state = List.fold_left2 check_folder spoiled_state arg_tags args in *)
-    (* List.fold_left2 fix_folder checked_state arg_tags args *)
 
   let list_drop n xs = List.of_seq @@ Seq.drop n @@ List.to_seq xs
 
