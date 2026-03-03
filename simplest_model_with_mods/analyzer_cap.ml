@@ -131,24 +131,49 @@ struct
                       else let state_ext = env_add state id arg_tag mem_id in
                            mem_set state_ext id BotV
 
-  (* TODO: use state_before ?? or state in some order (both orders ?, mod and then check ?) *)
+  (* TODO; FIXME: forbid duplicates,  collect lists of all spoils & checks ? *)
   let st_spoil_by_args (state : state) (arg_tags : tag list) (args : data list) : state =
     match state with (env, mem, mem_len, _visited) ->
     let state_before = state in
     let spoil_folder (state : state) (tag : tag) (id : data) : state =
       let parent_tag = fst (env_get state id) in
       if is_write tag > is_write parent_tag then raise @@ Incorrect_const_cast id
-      else let state' = if is_read tag then (mem_check state_before id; state) else state (* NOTE: state override *)
-      in if not @@ is_write tag then state'
+      else let state' = if is_read tag then (ignore @@ mem_check state_before id; state) else state (* NOTE: state override *)
+      in if not @@ is_write tag then state
       else match is_out tag with
         | true -> mem_set state' id UnitV
         | false -> if is_copy tag then state'
                    else mem_set state' id BotV
     in List.fold_left2 spoil_folder state arg_tags args
 
+  (* NOTE: wrong (sequential) version *)
+  (* NOTE: could not just spoil one time, will catch all rectoords, not only intersections *)
+  (* let st_spoil_by_args (state : state) (arg_tags : tag list) (args : data list) : state = *)
+    (* match state with (env, mem, mem_len, _visited) -> *)
+    (* let spoil_folder (state : state) (tag : tag) (id : data) : state = *)
+      (* let parent_tag = fst (env_get state id) in *)
+      (* if is_write tag > is_write parent_tag then raise @@ Incorrect_const_cast id *)
+      (* else if not @@ is_write tag then state *)
+      (* else match is_out tag with *)
+        (* | true -> state (* NOTE: fix - later *) *)
+        (* | false -> if is_copy tag then state *)
+                   (* else mem_set state id BotV *)
+    (* in *)
+    (* let check_folder (state : state) (tag : tag) (id : data) : state = *)
+      (* if is_read tag then mem_check state id else state *)
+    (* in *)
+    (* let fix_folder (state : state) (tag : tag) (id : data) : state = *)
+      (* if not @@ is_write tag then state *)
+      (* else match is_out tag with *)
+        (* | true -> mem_set state id UnitV *)
+        (* | false -> state (* NOTE: spoil - earlier *) *)
+    (* in *)
+    (* let spoiled_state = List.fold_left2 spoil_folder state arg_tags args in *)
+    (* let checked_state = List.fold_left2 check_folder spoiled_state arg_tags args in *)
+    (* List.fold_left2 fix_folder checked_state arg_tags args *)
+
   let list_drop n xs = List.of_seq @@ Seq.drop n @@ List.to_seq xs
 
-  (* TODO: FIXME: require at least one read / write for read / write args ?? *)
   let rec eval_stmt (state : state) (prog : fun_decl list) (stmt : stmt) : state =
     match stmt with
       | Call (f_id, args) -> let (arg_tags, _) as f_decl = List.nth prog f_id in
@@ -158,14 +183,8 @@ struct
                                                let state_fun = eval_fun new_state_with_visited prog f_decl (List.map (fun arg -> LValue arg) args) in
                                                (* NOTE: now memory in function is not spoiled  *)
                                                state_fun
-                             in
-                             (* let state_checked = List.fold_left2 (fun s arg arg_tag -> *)
-                                  (* if is_read arg_tag *)
-                                  (* then mem_check s arg *)
-                                  (* else s) *)
-                                (* state_with_visited args arg_tags in *)
-                             st_spoil_by_args state_with_visited arg_tags args
-      | Read id -> mem_check state id
+                             in st_spoil_by_args state_with_visited arg_tags args
+      | Read id -> mem_check state id; state
       | Write id -> if is_write @@ fst @@ env_get state id
                     then mem_set state id UnitV
                     else raise @@ Incorrect_const_cast id
