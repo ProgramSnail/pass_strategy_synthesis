@@ -23,16 +23,15 @@
  (preprocess
   (pps GT.ppx GT.ppx_all ppx_expect ppx_inline_test)))
 
-; TODO: tmp, during change
-; (library
-;  (name tests_mods)
-;  (modules tests)
-;  (flags (-rectypes))
-;  (libraries synthesizer_mods tests_f_mods)
-;  (inline_tests)
-;  (wrapped false)
-;  (preprocess
-;   (pps ppx_expect ppx_inline_test)))
+(library
+ (name tests_mods)
+ (modules tests)
+ (flags (-rectypes))
+ (libraries synthesizer_mods tests_f_mods)
+ (inline_tests)
+ (wrapped false)
+ (preprocess
+  (pps ppx_expect ppx_inline_test)))
 
 (library
  (name tests_f_mods)
