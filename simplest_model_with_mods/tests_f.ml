@@ -11,6 +11,8 @@ open OCanren.Std
 @type answerNats = (Nat.ground List.ground) GT.list with show
 @type answerTag = Tag.ground GT.list with show
 @type answerTags = (Tag.ground List.ground) GT.list with show
+@type answerCopyCap = CopyCap.ground GT.list with show
+@type answerCopyCaps = (CopyCap.ground List.ground) GT.list with show
 
 let inv_id_t _ = show(answerNat) (Stream.take (run q
   (fun q -> ocanren { inv_ido 2 1 q })
@@ -301,6 +303,19 @@ let fun_eval_t5 _ = show(answer) (Stream.take (run q
                         eval_fun_empty_argso s p d q })
   (fun q -> q#reify (St.prj_exn))))
 
+(* fun eval test *)
+let fun_eval_t6 _ = show(answer) (Stream.take (run q
+  (fun q -> (* let open Prog in *)
+            let open FunDecl in
+            let open Tag in
+            let open Stmt in
+            ocanren { fresh s, p, d in
+                        empty_stateo s &
+                        p == [FunDecl ([wi_val], [Write 0])] &
+                        d == FunDecl ([wi_val], [Call (0, [0])]) &
+                        eval_fun_empty_argso s p d q })
+  (fun q -> q#reify (St.prj_exn))))
+
 (* prog eval test *)
 let prog_eval_t1 _ = show(answer) (Stream.take (run q
   (fun q -> let open Prog in
@@ -340,6 +355,26 @@ let prog_eval_t4 _ = show(answer) (Stream.take (run q
                                        FunDecl ([wi_val], [Call (0, [0]); Read 0]))) q})
   (fun q -> q#reify (St.prj_exn))))
 
+(* prog with func eval test *)
+let prog_eval_t5 _ = show(answer) (Stream.take (run q
+  (fun q -> let open Prog in
+            let open FunDecl in
+            let open Tag in
+            let open Stmt in
+            ocanren {eval_progo (Prog ([FunDecl ([wi_val], [Write 0])],
+                                       FunDecl ([wi_val], [Call (0, [0]); Read 0]))) q})
+  (fun q -> q#reify (St.prj_exn))))
+
+(* prog with func eval test *)
+let prog_eval_t6 _ = show(answer) (Stream.take (run q
+  (fun q -> let open Prog in
+            let open FunDecl in
+            let open Tag in
+            let open Stmt in
+            ocanren {eval_progo (Prog ([FunDecl ([ri_val], [Write 0])],
+                                       FunDecl ([wi_val], [Call (0, [0]); Read 0]))) q})
+  (fun q -> q#reify (St.prj_exn))))
+
 (* annotation gen prog test *)
 let synt_t1 _ = show(answerTag) (Stream.take (run q
   (fun q -> let open Prog in
@@ -347,8 +382,9 @@ let synt_t1 _ = show(answerTag) (Stream.take (run q
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])],
-                                       FunDecl ([wi_val], [Call (0, [0]); Read 0]))) (St ([], [], 0, []))})
+            ocanren {i_any q &
+                     eval_progo (Prog ([FunDecl ([q], [Write 0])],
+                                       FunDecl ([wi_val], [Call (0, [0]); Read 0]))) (St ([], [], 0, [0]))})
   (fun q -> q#reify (Tag.prj_exn))))
 
 (* annotation gen prog test *)
@@ -358,8 +394,9 @@ let synt_t2 _ = show(answerTag) (Stream.take (run q
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])],
-                                       FunDecl ([wi_val], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, []))})
+            ocanren {i_any q & is_not_reado q &
+                     eval_progo (Prog ([FunDecl ([q], [Write 0])],
+                                       FunDecl ([wi_val], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, [0]))})
   (fun q -> q#reify (Tag.prj_exn))))
 
 (* annotation gen prog test *)
@@ -369,8 +406,9 @@ let synt_t3 _ = show(answerTags) (Stream.take (run qr
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])],
-                                       FunDecl ([r], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, []))})
+            ocanren {i_any q & is_not_reado q & i_any r & is_not_reado r &
+                     eval_progo (Prog ([FunDecl ([q], [Write 0])],
+                                       FunDecl ([r], [Call (0, [0]); Write 0; Read 0]))) (St ([], [], 0, [0]))})
   (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
 
 (* annotation gen prog test *)
@@ -380,72 +418,92 @@ let synt_t4 _ = show(answerTags) (Stream.take (run q
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q], [Write 0])],
-                                       FunDecl ([wi_val; wi_val], [Call (0, [1]); Write 0; Read 1]))) (St ([], [], 0, []))})
+            ocanren {i_any q & is_not_reado q &
+                     eval_progo (Prog ([FunDecl ([q], [Write 0])],
+                                       FunDecl ([wi_val; wi_val], [Call (0, [1]); Write 0; Read 1]))) (St ([], [], 0, [0]))})
   (fun q -> [q#reify (Tag.prj_exn)]))) (* -> [Val] *)
 
 (* annotation gen prog test *)
-let synt_t5 _ = show(answerTags) (Stream.take (run qr
+let synt_t5 _ = show(answerCopyCaps) (Stream.take (run qr
   (fun q r -> let open Prog in
             let open FunDecl in
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0])],
-                                       FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Write 0; Read 0]))) (St ([], [], 0, []))})
-  (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)]))) (* all variants *)
+            ocanren {fresh q', r' in
+                     i_any q' & is_not_reado q' &
+                     i_any r' & is_not_reado r' & is_not_writeo r' &
+                     eq_copyo q' q & eq_copyo r' r &
+                     eval_progo (Prog ([FunDecl ([q'; r'], [Write 0])],
+                                       FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Write 0; Read 0]))) (St ([], [], 0, [0]))})
+  (fun q r -> [q#reify (CopyCap.prj_exn); r#reify (CopyCap.prj_exn)]))) (* all variants *)
 
 (* annotation gen prog test *)
-let synt_t6 _ = show(answerTags) (Stream.take (run qr
+let synt_t6 _ = show(answerCopyCaps) (Stream.take (run qr
   (fun q r -> let open Prog in
             let open FunDecl in
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0])],
-                                       FunDecl ([wi_val; wi_val], [Call (0, [1; 0]); Write 0; Read 0]))) (St ([], [], 0, []))})
-  (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)]))) (* all variants *)
+            ocanren {fresh q', r' in
+                     i_any q' & is_not_reado q' &
+                     i_any r' & is_not_reado r' & is_not_writeo r' &
+                     eq_copyo q' q & eq_copyo r' r &
+                     eval_progo (Prog ([FunDecl ([q'; r'], [Write 0])],
+                                       FunDecl ([wi_val; wi_val], [Call (0, [1; 0]); Write 0; Read 0]))) (St ([], [], 0, [0]))})
+  (fun q r -> [q#reify (CopyCap.prj_exn); r#reify (CopyCap.prj_exn)]))) (* all variants *)
 
 (* annotation gen prog test *)
-let synt_t7 _ = show(answerTags) (Stream.take (run qr
+let synt_t7 _ = show(answerCopyCaps) (Stream.take (run qr
   (fun q r -> let open Prog in
             let open FunDecl in
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Write 1])],
-                                       FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Write 0; Read 0; Read 1]))) (St ([], [], 0, []))})
-  (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+            ocanren {fresh q', r' in
+                     i_any q' & is_not_reado q' & i_any r' & is_not_reado r' &
+                     eq_copyo q' q & eq_copyo r' r &
+                     eval_progo (Prog ([FunDecl ([q'; r'], [Write 0; Write 1])],
+                                       FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Write 0; Read 0; Read 1]))) (St ([], [], 0, [0]))})
+  (fun q r -> [q#reify (CopyCap.prj_exn); r#reify (CopyCap.prj_exn)])))
 
 (* annotation gen prog test *)
-let synt_t8 _ = show(answerTags) (Stream.take (run qr
+let synt_t8 _ = show(answerCopyCaps) (Stream.take (run qr
   (fun q r -> let open Prog in
             let open FunDecl in
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Write 1])],
-                                       FunDecl ([wi_val; wi_val], [Call (0, [1; 0]); Write 0; Read 0; Read 1]))) (St ([], [], 0, []))})
-  (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+            ocanren {fresh q', r' in
+                     i_any q' & is_not_reado q' & i_any r' & is_not_reado r' &
+                     eq_copyo q' q & eq_copyo r' r &
+                     eval_progo (Prog ([FunDecl ([q'; r'], [Write 0; Write 1])],
+                                       FunDecl ([wi_val; wi_val], [Call (0, [1; 0]); Write 0; Read 0; Read 1]))) (St ([], [], 0, [0]))})
+  (fun q r -> [q#reify (CopyCap.prj_exn); r#reify (CopyCap.prj_exn)])))
 
 (* annotation gen prog test *)
-let synt_t9 _ = show(answerTags) (Stream.take (run qr
+let synt_t9 _ = show(answerCopyCaps) (Stream.take (run qr
   (fun q r -> let open Prog in
             let open FunDecl in
             let open Tag in
             let open Stmt in
             let open St in
-            ocanren {eval_progo (Prog ([FunDecl ([q; r], [Write 0; Read 1])],
-                                       FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Read 0; Read 1]))) (St ([], [], 0, []))})
-  (fun q r -> [q#reify (Tag.prj_exn); r#reify (Tag.prj_exn)])))
+            ocanren {fresh q', r' in
+                     i_any q' & is_not_reado q' &
+                     i_any r' & is_reado r' & is_not_writeo r' &
+                     eq_copyo q' q & eq_copyo r' r &
+                     eval_progo (Prog ([FunDecl ([q'; r'], [Write 0; Read 1])],
+                                       FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Read 0; Read 1]))) (St ([], [], 0, [0]))})
+  (fun q r -> [q#reify (CopyCap.prj_exn); r#reify (CopyCap.prj_exn)])))
 
 (* TODO: FIXME: implement memoization cuts *)
 (* prog with recursive function call *)
-(* let rec_eval_t _ = show(answer) (Stream.take (run q *)
-  (* (fun q -> let open Prog in *)
-            (* let open FunDecl in *)
-            (* let open Tag in *)
-            (* let open Stmt in *)
-            (* ocanren {eval_progo (Prog ([FunDecl ([Ref], [Write 0; Call (0, [0])])], FunDecl ([Val], [Call (0, [0]); Write 0; Read 0]))) q}) *)
-  (* (fun q -> q#reify (St.prj_exn)))) *)
+let rec_eval_t _ = show(answer) (Stream.take (run q
+  (fun q -> let open Prog in
+            let open FunDecl in
+            let open Tag in
+            let open Stmt in
+            ocanren {eval_progo (Prog ([FunDecl ([wi_ref], [Write 0; Call (0, [0])])],
+                                       FunDecl ([wi_val], [Call (0, [0]); Write 0; Read 0]))) q})
+  (fun q -> q#reify (St.prj_exn))))
 

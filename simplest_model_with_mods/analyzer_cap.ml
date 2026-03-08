@@ -131,18 +131,22 @@ struct
                       else let state_ext = env_add state id arg_tag mem_id in
                            mem_set state_ext id BotV
 
+  (* TODO: FIXME: not enough tests on incorrect const cast (passed without ref or out check) *)
   (* TODO; FIXME: forbid duplicates,  collect lists of all spoils & checks ? *)
   let st_spoil_by_args (state : state) (arg_tags : tag list) (args : data list) : state =
     match state with (env, mem, mem_len, _visited) ->
     let state_before = state in
     let spoil_folder (state : state) (tag : tag) (id : data) : state =
       let parent_tag = fst (env_get state id) in
-      if is_write tag > is_write parent_tag then raise @@ Incorrect_const_cast id
-      else let state = if is_read tag then (mem_check state_before id; state) else state (* NOTE: state override *)
+      (* NOTE: replaced with later condition *)
+      (* if is_write tag > is_write parent_tag && (not (is_copy tag) || is_out tag) then raise @@ Incorrect_const_cast idi else *)
+      let state = if is_read tag then (mem_check state_before id; state) else state (* NOTE: state override *)
       in if not @@ is_write tag then state
       else match is_out tag with
-        | true -> mem_set state id UnitV
+        | true -> if not @@ is_write parent_tag then raise @@ Incorrect_const_cast id
+                  else mem_set state id UnitV
         | false -> if is_copy tag then state
+                   else if not @@ is_write parent_tag then raise @@ Incorrect_const_cast id
                    else mem_set state id BotV
     in List.fold_left2 spoil_folder state arg_tags args
 

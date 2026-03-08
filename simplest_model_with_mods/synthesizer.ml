@@ -116,37 +116,59 @@ struct
                 let open OutCap in
                 ocanren { Tag (NRd, NWr, Ref, In, NOut) }
 
+    (* constraints *)
+    let x_any tag = let open InCap in
+                    let open OutCap in
+                    ocanren { fresh r, w, c in
+                              tag == Tag (r, w, c, NIn, NOut) }
+    let i_any tag = let open InCap in
+                    let open OutCap in
+                    ocanren { fresh r, w, c in
+                              tag == Tag (r, w, c, In, NOut) }
+    let o_any tag = let open InCap in
+                    let open OutCap in
+                    ocanren { fresh r, w, c in
+                              tag == Tag (r, w, c, NIn, Out) }
+    let io_any tag = let open InCap in
+                     let open OutCap in
+                     ocanren { fresh r, w, c in
+                               tag == Tag (r, w, c, In, Out) }
+
     (* accessors *)
     let is_reado tag = let open ReadCap in ocanren {
-                      fresh w_, c_, i_, o_ in
-                        tag == Tag (Rd, w_, c_, i_, o_) }
+                         fresh w_, c_, i_, o_ in
+                         tag == Tag (Rd, w_, c_, i_, o_) }
     let is_not_reado tag = let open ReadCap in ocanren {
-                      fresh w_, c_, i_, o_ in
-                        tag == Tag (NRd, w_, c_, i_, o_) }
+                             fresh w_, c_, i_, o_ in
+                             tag == Tag (NRd, w_, c_, i_, o_) }
     let is_writeo tag = let open WriteCap in ocanren {
-                      fresh r_, c_, i_, o_ in
-                        tag == Tag (r_, Wr, c_, i_, o_) }
+                          fresh r_, c_, i_, o_ in
+                          tag == Tag (r_, Wr, c_, i_, o_) }
     let is_not_writeo tag = let open WriteCap in ocanren {
-                      fresh r_, c_, i_, o_ in
-                        tag == Tag (r_, NWr, c_, i_, o_) }
+                              fresh r_, c_, i_, o_ in
+                              tag == Tag (r_, NWr, c_, i_, o_) }
     let is_refo tag = let open CopyCap in ocanren {
-                      fresh r_, w_, i_, o_ in
+                        fresh r_, w_, i_, o_ in
                         tag == Tag (r_, w_, Ref, i_, o_) }
     let is_valueo tag = let open CopyCap in ocanren {
-                      fresh r_, w_, i_, o_ in
-                        tag == Tag (r_, w_, Val, i_, o_) }
+                          fresh r_, w_, i_, o_ in
+                          tag == Tag (r_, w_, Val, i_, o_) }
     let is_ino tag = let open InCap in ocanren {
-                      fresh r_, w_, c_, o_ in
-                        tag == Tag (r_, w_, c_, In, o_) }
+                       fresh r_, w_, c_, o_ in
+                       tag == Tag (r_, w_, c_, In, o_) }
     let is_not_ino tag = let open InCap in ocanren {
-                      fresh r_, w_, c_, o_ in
-                        tag == Tag (r_, w_, c_, NIn, o_) }
+                           fresh r_, w_, c_, o_ in
+                           tag == Tag (r_, w_, c_, NIn, o_) }
     let is_outo tag = let open OutCap in ocanren {
-                      fresh r_, w_, c_, i_ in
+                        fresh r_, w_, c_, i_ in
                         tag == Tag (r_, w_, c_, i_, Out) }
     let is_not_outo tag = let open OutCap in ocanren {
-                      fresh r_, w_, c_, i_ in
-                        tag == Tag (r_, w_, c_, i_, NOut) }
+                            fresh r_, w_, c_, i_ in
+                            tag == Tag (r_, w_, c_, i_, NOut) }
+
+    let eq_copyo tag cp = let open CopyCap in ocanren {
+                           fresh r_, w_, i_, o_ in
+                           tag == Tag (r_, w_, cp, i_, o_) }
 
     module Test = struct
       @type answer = logic GT.list with show
@@ -157,23 +179,6 @@ struct
                                                               let open InCap in
                                                               let open OutCap in
                                                               ocanren {q == Tag (Rd, NWr, Ref, In, NOut)})
-                                                    (fun q -> q#reify reify)))
-    end
-  end
-
-  (* TODO: tmp *)
-  module Tag' = struct
-    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%ocanren_inject
-      type nonrec t = Ref | Val
-      [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = t
-    ]
-
-    module Test = struct
-      @type answer = logic GT.list with show
-
-      let test _ = show(answer) (Stream.take (run q (fun q -> ocanren {q == Ref})
                                                     (fun q -> q#reify reify)))
     end
   end
@@ -433,8 +438,8 @@ struct
   let tag_correcto tg =
     let open Tag in
     ocanren {
-      {is_not_outo tg | is_writeo tg} &
-      {is_not_reado tg | is_ino tg}
+      {is_not_outo tg | { is_outo tg & is_writeo tg } } &
+      {is_not_reado tg | { is_reado tg & is_ino tg } }
     }
 
   let st_add_argo state state_before id arg_tag arg state'' =
@@ -456,7 +461,7 @@ struct
           arg == LValue arg' &
           env_geto state_before id parent_tag mem_id &
           env_addo state id arg_tag mem_id state' &
-          { is_not_writeo arg_tag | is_writeo parent_tag } &
+          { is_not_writeo arg_tag | { is_writeo arg_tag & is_writeo parent_tag } } &
           {
             { is_reado arg_tag & state' == state'' } |
             { is_not_reado arg_tag & mem_seto state' id Bot state'' }
@@ -473,14 +478,16 @@ struct
       fresh env, mem, mem_len, _visited, parent_tg, _mem_id in
       state == St (env, mem, mem_len, _visited) &
       env_geto state id parent_tg _mem_id &
-      { is_not_writeo tg | is_writeo parent_tg } &
-      { is_not_reado tg | mem_checko state_before id } &
+      (* NOTE: replaced with later condition (this one needs fix) *)
+      (* { is_not_writeo tg | { is_writeo tg & is_writeo parent_tg } } & *)
+      { is_not_reado tg | { is_reado tg & mem_checko state_before id } } &
       { { is_not_writeo tg & state == state'} |
-        { is_outo tg & mem_seto state id Unit state' } |
-        { is_not_outo tg & is_valueo tg & state == state' } |
-        { is_not_outo tg & is_refo tg & mem_seto state id Bot state' }
-      } &
-      mem_seto state id Bot state'
+        { is_writeo tg & {
+          { is_outo tg & is_writeo parent_tg & mem_seto state id Unit state' } |
+          { is_not_outo tg & is_valueo tg & state == state' } |
+          { is_not_outo tg & is_refo tg & is_writeo parent_tg & mem_seto state id Bot state' }
+        } }
+      }
     }
 
   let st_spoil_by_argso state arg_tags args state' =
@@ -529,7 +536,6 @@ struct
     ocanren {
       fresh env, mem, mem_len, visited, visited' in
       state == St (env, mem, mem_len, visited) &
-      List.membero visited f_id &
       visited' == f_id :: visited &
       state' == St (env,mem, mem_len, visited')
     }
@@ -538,6 +544,7 @@ struct
     let open Stmt in
     let open Value in
     let open FunDecl in
+    let open Tag in
     ocanren {
     { fresh f_id, args, f, args', state_after_call, state_with_visited, arg_tags, _body in
       stmt == Call (f_id, args) &
@@ -548,11 +555,12 @@ struct
       eval_funo state prog f args' state_after_call &
       (* NOTE: tmp simplification for less branching (TODO?) *)
       visited_addo state_after_call f_id state_with_visited &
-      st_spoil_by_argso state_with_visited arg_tags args state'} |
+      st_spoil_by_argso state_with_visited arg_tags args state' } |
     { fresh id in stmt == Read id & mem_checko state id & state == state' } |
     { fresh id, tag, _mem_id in
-      stmt === Write id &
+      stmt == Write id &
       env_geto state id tag _mem_id &
+      is_writeo tag &
       mem_seto state id Unit state' }
   }
 
