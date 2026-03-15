@@ -9,6 +9,19 @@
 
 *TODO: проблемы с добавлением if в будущем: как записать write and not write ?*
 
+Нужно будет добавить во write-flag модальности: `not write` | `may write` | `always write`
+
+Добавление condition-исполнения - выбор из нескольких блоков. Варианты:
+- & of | of & -вложенные блоки ?
+- добавить несколько альтернативны тел функциям. Но тогда придётся при трансляции if-блоки выносить в функции
+
+Лямбды - нужно тоже будет как-то находить лямбды и ля них тоже синтезировать атрибуты
+вызов лямбд будет нужен в модели?
+- lambda-аргумент - вложенные теги?, должна быть одна и та же сигнтура
+можно ввести отдельные сигнатуры-определения?
+
+проблема простой семантики: вызов лямбд: могут быть модифицируемые функции
+
 == Синтаксис
 
 #h(10pt)
@@ -146,7 +159,7 @@ $d space @ space overline(x)$ - запись применения функции
     name: [ is correct],
     $isOut tag -> isWrite tag$, // NOTE; strong requirment should write
     $isRead tag -> isIn tag$,
-    $isWrite tag -> isWrite sigma(x)$, // NOTE: may tag => should sigma(x)
+    $isWrite tag and (isOut tag or not isCopy tag) -> isWrite sigma(x)$, // NOTE: may tag => should sigma(x)
     $isRead tag -> mu (sigma(x)) != bot$, // NOTE: may tag -> ... 
 
     $isCorrect_(cl sigma, mu cr) (tag, x)$,

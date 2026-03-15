@@ -57,7 +57,5 @@ let%expect_test "synthesis test 7" = print_endline (synt_t7 ()); [%expect {| [[V
 let%expect_test "synthesis test 8" = print_endline (synt_t8 ()); [%expect {| [[Val; Val]; [Val; Ref]] |}]
 let%expect_test "synthesis test 9" = print_endline (synt_t9 ()); [%expect {| [[Val; Ref]; [Val; Val]] |}]
 
-(* TODO: FIXME: implement memoization cuts *)
-(* NOTE: inf test in current model (without additional functional interfaces and ) *)
-(* let%expect_test "recursive eval test" = print_endline (rec_eval_t ()); [%expect {| [St ([], [], O, [])] |}] *)
+let%expect_test "recursive eval test" = print_endline (rec_eval_t ()); [%expect {| [St ([], [], O, [O])] |}]
 

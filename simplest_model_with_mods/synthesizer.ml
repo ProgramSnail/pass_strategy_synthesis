@@ -520,6 +520,14 @@ struct
         list_dropo n' ys xs' }
   }
 
+  let rec list_not_membero xs x = ocanren {
+    xs == [] |
+    { fresh x', xs' in
+        xs == x' :: xs' &
+        x' =/= x &
+        list_not_membero xs' x }
+  }
+
   let visited_checko state f_id =
     let open St in
     ocanren {
@@ -528,8 +536,13 @@ struct
       List.membero visited f_id
     }
 
-  (* TODO *)
-  (* let visited_not_checko state f_id = ??? *)
+  let not_visited_checko state f_id =
+    let open St in
+    ocanren {
+      fresh _env, _mem, _mem_len, visited in
+      state == St (_env, _mem, _mem_len, visited) &
+      list_not_membero visited f_id
+    }
 
   let visited_addo state f_id state' =
     let open St in
@@ -546,16 +559,21 @@ struct
     let open FunDecl in
     let open Tag in
     ocanren {
-    { fresh f_id, args, f, args', state_after_call, state_with_visited, arg_tags, _body in
+    { fresh f_id, args, f, args', state_after_call, arg_tags, _body in
       stmt == Call (f_id, args) &
       list_ntho prog f_id f &
       FunDecl (arg_tags, _body) == f &
       List.mapo arg_to_lvalueo args args' &
       (* TODO: FIXME: memoisation, do not do calls on check successfull *)
-      eval_funo state prog f args' state_after_call &
+      
       (* NOTE: tmp simplification for less branching (TODO?) *)
-      visited_addo state_after_call f_id state_with_visited &
-      st_spoil_by_argso state_with_visited arg_tags args state' } |
+      { { fresh state_with_visited in
+          not_visited_checko state f_id &
+          visited_addo state f_id state_with_visited &
+          eval_funo state_with_visited prog f args' state_after_call } |
+        { visited_checko state f_id &
+          state_after_call == state } } &
+      st_spoil_by_argso state_after_call arg_tags args state' } |
     { fresh id in stmt == Read id & mem_checko state id & state == state' } |
     { fresh id, tag, _mem_id in
       stmt == Write id &
