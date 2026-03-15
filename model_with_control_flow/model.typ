@@ -31,7 +31,8 @@
 #let isCorrect = `isCorrect`
 
 #let isRead = `isRead`
-#let isWrite = `isWrite`
+#let isAlwaysWrite = `isAlwaysWrite`
+#let isPossibleWrite = `isPossibleWrite`
 #let isRef = `isRef`
 #let isCopy = `isCopy`
 #let isIn = `isIn`
@@ -47,11 +48,12 @@
     { Or[Read][read passed value]
       Or[Not Read][] } ),
   Prod(`write`,
-    { Or[Write][write to passed variable]
-      Or[Not Write][] } ),
+    { Or[$square$ Write][in all cases there is a write to passed variable] // always write, requre at least one write in each flow variant
+      Or[$diamond$ Write][in some cases there is a write to passed variable] // possible write, no requirements (?)
+      Or[$not$ Write][] } ), // no write, require n owrites in all flow variants
   Prod(`copy`,
     { Or[Ref][pass reference to the value]
-      Or[Value][pass copy of te value] } ),
+      Or[Value][pass copy of the value] } ),
   Prod(`in`,
     { Or[In][parameter value used as input]
       Or[Not In][] } ),
@@ -84,13 +86,17 @@
       Or[`CALL` $f space overline(x)$][call function by id]
       Or[`WRITE` $x$][write to variable]
       Or[`READ` $x$][read from variable]
+      Or[`CHOICE` #overline(`stmt`) #overline(`stmt`)][control flow operator, xecution of one of the blocks]
+      // NOTE: var: replaced with arguments (use rvalue as init) (?)
+      // Or[`VAR`][variables inside functions] // NOTE: no modifiers required, because it is in the new memory ?? // TODO: not required ??
+      // NOTE: lambda: compile to call to the funciton with CHOICE between possible lambda bodies <- do this analysis inside synthesizer ?
     }
   ),
   Prod(
     `decl`,
     {
       Or[ovreline(stmt)][function body]
-      Or[$lambda #[`tag`] a.$ `decl`][with argument pass strategy annotation]
+      Or[$lambda #[`tag` #h(3pt) `argtype`] a.$ `decl`][argument with argument pass strategy annotation]
     }
   ),
   Prod(
@@ -159,9 +165,9 @@ $d space @ space overline(x)$ - запись применения функции
   vertical-spacing: 4pt,
   rule(
     name: [ is correct],
-    $isOut tag -> isWrite tag$, // NOTE; strong requirment should write
+    $isOut tag -> isAlwaysWrite tag$, // NOTE; strong requirment should write
     $isRead tag -> isIn tag$,
-    $isWrite tag and (isOut tag or not isCopy tag) -> isWrite sigma(x)$, // NOTE: may tag => should sigma(x)
+    $isPossibleWrite tag and (isOut tag or not isCopy tag) -> isAlwaysWrite sigma(x)$, // NOTE: may tag => should sigma(x)
     $isRead tag -> mu (sigma(x)) != bot$, // NOTE: may tag -> ... 
 
     $isCorrect_(cl sigma, mu cr) (tag, x)$,
@@ -187,7 +193,7 @@ $d space @ space overline(x)$ - запись применения функции
 
     $mu stretch(=>)^args_sigma gamma$,
 
-    $isWrite tag$, // NOTE: weak requirement: may write
+    $isPossibleWrite tag$, // NOTE: weak requirement: may write
     $not isCopy tag$,
     $not isOut tag$,
 
@@ -207,7 +213,7 @@ $d space @ space overline(x)$ - запись применения функции
 
     $mu stretch(=>)^args_sigma gamma$,
 
-    $isWrite tag$, // NOTE: strong requirement: should write
+    $isAlwaysWrite tag$, // NOTE: strong requirement: should write
     $isOut tag$,
 
     $isCorrect_(cl sigma, mu cr) (tag, x)$,
@@ -396,11 +402,35 @@ $d space @ space overline(x)$ - запись применения функции
   rule(
     name: [ WRITE $x$],
 
-    $isWrite sigma(x)$,
+    $isPossibleWrite sigma(x)$, // TODO: FIXME ?? always or possible ??
 
     $cl sigma, mu, l cr
      xarrow("WRITE" x)
      cl sigma, mu[x <- 0], l union {sigma(x)} cr$,
+  )
+))
+
+#h(10pt)
+
+// TODO: FIXME
+// TODO: anyway choice is actually on the top level ??
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ CHOICE $overline(s)$ $overline(t)$],
+
+    $cl sigma, mu, l cr
+     attach(stretch(->)^overline(s), tr: *)
+     cl sigma_s, gamma_s, l_s cr$,
+
+    $cl sigma, mu, l cr
+     attach(stretch(->)^overline(t), tr: *)
+     cl sigma_t, gamma_t, l_t cr$,
+
+    // TODO changes ?? two ways ??
+    $cl sigma, mu, l cr
+     xarrow("CHOICE" overline(s) overline(t))
+     cl sigma, mu, l cr$,
   )
 ))
 
