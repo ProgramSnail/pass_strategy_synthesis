@@ -7,9 +7,7 @@
 
 = Формальная модель используемого языка
 
-*TODO: добавить лямбды, control flow, локальные переменные в каком-то виде*
-
-*TODO: проблемы с добавлением if в будущем: как записать write and not write ?*
+*TODO: проверить, что всё нужное добавлено*
 
 Нужно будет добавить во write-flag модальности: `not write` | `may write` | `always write`
 
@@ -69,8 +67,9 @@
   Prod(
     `value`,
     {
-      Or[$0$][cell with some value]
-      Or[$bot$][spoiled cell]
+      Or[$0$][cell with some value (always)]
+      Or[$X$][cell with possible value or $bot$]
+      Or[$bot$][spoiled cell (always)]
     }
   ),
   // Prod(
@@ -387,7 +386,8 @@ $d space @ space overline(x)$ - запись применения функции
   rule(
     name: [ READ $x$],
 
-    $mu(sigma(x)) != bot$,
+    $mu[sigma(x)] != bot$,
+    $mu[sigma(x)] != X$,
 
     $cl sigma, mu, l cr
      xarrow("READ" x)
@@ -412,8 +412,8 @@ $d space @ space overline(x)$ - запись применения функции
 
 #h(10pt)
 
-// TODO: FIXME
-// TODO: anyway choice is actually on the top level ??
+#let combine = `combine`
+
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
@@ -421,17 +421,27 @@ $d space @ space overline(x)$ - запись применения функции
 
     $cl sigma, mu, l cr
      attach(stretch(->)^overline(s), tr: *)
-     cl sigma_s, gamma_s, l_s cr$,
+     cl sigma_s, mu_s, l_s cr$,
 
     $cl sigma, mu, l cr
      attach(stretch(->)^overline(t), tr: *)
-     cl sigma_t, gamma_t, l_t cr$,
+     cl sigma_t, mu_t, l_t cr$,
+
+    $l_t = l_s$,
+    $sigma_s = sigma_t$,
 
     // TODO changes ?? two ways ??
     $cl sigma, mu, l cr
-     xarrow("CHOICE" overline(s) overline(t))
-     cl sigma, mu, l cr$,
+     xarrow("CHOICE" overline(s) space overline(t))
+     cl sigma, combine(mu_s, mu_t), l cr$,
   )
 ))
+
+#h(10pt)
+
+$ combine(mu_1, mu_2)[i] = combine_e (mu_1[i], mu_2[i]) $
+$ combine_e (bot, bot) = bot $
+$ combine_e (0, 0) = 0 $
+$ combine_e (\_, \_) = X $
 
 ]
