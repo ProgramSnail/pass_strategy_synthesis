@@ -14,7 +14,7 @@ struct
 
   type tag = read_cap * write_cap * copy_cap * in_cap * out_cap
 
-  type stmt = Call of data * data list | Read of data | Write of data
+  type stmt = Call of data * data list | Read of data | Write of data | Choice of stmt list * stmt list
 
   type body = stmt list
 
@@ -29,6 +29,7 @@ struct
   exception Ref_rvalue_argument of int
   exception Incorrect_const_cast of int
   exception Invalid_argument_tag of int
+  exception Incompatible_states
 
   (* --- static interpreter (no rec) --- *)
 
@@ -43,13 +44,26 @@ struct
 
   (* --- *)
 
+  let rec list_zip_with f xs ys = match xs, ys with (* TODO: alternative from stdlib *)
+    | x :: xs, y :: ys -> f x y :: list_zip_with f xs ys 
+    | _, _ -> []
+
+  (* --- *)
+
   let value_combine (left : value) (right : value) : value = match left, right with
     | UnitV, UnitV -> UnitV
     | BotV, BotV -> BotV
     | _, _ -> UndefV (* NOTE: should be expanded in relational interpreter to not use ineq (?) *)
 
-  (* let memory_combine (left : value list) (right : value list) : value list = *)
-    (* List.merge value_combine left right (* FIXME: why it is not zip ? *) *)
+  let memory_combine (left : value list) (right : value list) : value list =
+    list_zip_with value_combine left right
+
+  let state_combine (left : state) (right : state) : state = match left, right with
+    (lenv, lmem, lmem_len, lvisited), (renv, rmem, rmem_len, rvisited) ->
+    if lenv != renv || lmem_len != rmem_len || lvisited != rvisited then raise Incompatible_states
+    else (lenv, memory_combine lmem rmem, lmem_len, List.append lvisited rvisited) (* TODO: union visited lists instead ? *)
+
+  (* --- *)
 
   let is_read (tag : tag) : bool = match tag with
     | (Rd, _, _, _, _) -> true
@@ -183,6 +197,10 @@ struct
       | Write id -> if is_may_write @@ fst @@ env_get state id
                     then mem_set state id UnitV
                     else raise @@ Incorrect_const_cast id
+      | Choice (xs, ys) -> let state_x = eval_body state prog xs in
+                           let state_y = eval_body state prog ys in
+                           state_combine state_x state_y
+                           (* TODO: FIXME: additional may write / always write checks ?? *)
 
   and eval_body (state : state) (prog : fun_decl list) (body : body) : state =
     List.fold_left (fun state stmt -> eval_stmt state prog stmt) state body
@@ -210,12 +228,16 @@ struct
   (* tests *)
 
   let rwi_value : tag = (Rd, AlwaysWr, Cp, In, NOut)
+  let rmwi_value : tag = (Rd, MayWr, Cp, In, NOut)
   let ri_value : tag = (Rd, NeverWr, Cp, In, NOut)
   let wi_value : tag = (NRd, AlwaysWr, Cp, In, NOut)
+  let mwi_value : tag = (NRd, MayWr, Cp, In, NOut)
   let i_value : tag = (NRd, NeverWr, Cp, In, NOut)
   let rwi_ref : tag = (Rd, AlwaysWr, NCp, In, NOut)
+  let rmwi_ref : tag = (Rd, MayWr, NCp, In, NOut)
   let ri_ref : tag = (Rd, NeverWr, NCp, In, NOut)
   let wi_ref : tag = (NRd, AlwaysWr, NCp, In, NOut)
+  let mwi_ref : tag = (NRd, MayWr, NCp, In, NOut)
   let i_ref : tag = (NRd, NeverWr, NCp, In, NOut)
 
   (* >> tests without functions *)
@@ -492,4 +514,9 @@ struct
   (* --- *)
 
   (* TODO: out arguments test, etc. *)
+
+  (* --- *)
+
+  (* TODO: combine statement tests *)
+
 end
