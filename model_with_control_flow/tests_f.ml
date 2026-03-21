@@ -432,7 +432,7 @@ let synt_t5 _ = show(answerCopyCaps) (Stream.take (run qr
             let open St in
             ocanren {fresh q', r' in
                      i_any q' & is_not_reado q' &
-                     i_any r' & is_not_reado r' & is_not_writeo r' &
+                     i_any r' & is_not_reado r' & is_never_writeo r' &
                      eq_copyo q' q & eq_copyo r' r &
                      eval_progo (Prog ([FunDecl ([q'; r'], [Write 0])],
                                        FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Write 0; Read 0]))) (St ([], [], 0, [0]))})
@@ -447,7 +447,7 @@ let synt_t6 _ = show(answerCopyCaps) (Stream.take (run qr
             let open St in
             ocanren {fresh q', r' in
                      i_any q' & is_not_reado q' &
-                     i_any r' & is_not_reado r' & is_not_writeo r' &
+                     i_any r' & is_not_reado r' & is_never_writeo r' &
                      eq_copyo q' q & eq_copyo r' r &
                      eval_progo (Prog ([FunDecl ([q'; r'], [Write 0])],
                                        FunDecl ([wi_val; wi_val], [Call (0, [1; 0]); Write 0; Read 0]))) (St ([], [], 0, [0]))})
@@ -490,7 +490,7 @@ let synt_t9 _ = show(answerCopyCaps) (Stream.take (run qr
             let open St in
             ocanren {fresh q', r' in
                      i_any q' & is_not_reado q' &
-                     i_any r' & is_reado r' & is_not_writeo r' &
+                     i_any r' & is_reado r' & is_never_writeo r' &
                      eq_copyo q' q & eq_copyo r' r &
                      eval_progo (Prog ([FunDecl ([q'; r'], [Write 0; Read 1])],
                                        FunDecl ([wi_val; wi_val], [Call (0, [0; 1]); Read 0; Read 1]))) (St ([], [], 0, [0]))})

@@ -17,7 +17,7 @@
  (name tests_cf)
  (modules tests)
  (flags (-rectypes))
- (libraries synthesizer_mods tests_f_mods)
+ (libraries synthesizer_cf tests_f_cf)
  (inline_tests)
  (wrapped false)
  (preprocess
@@ -27,7 +27,7 @@
  (name tests_f_cf)
  (modules tests_f)
  (flags (-rectypes))
- (libraries OCanren OCanren.tester synthesizer_mods)
+ (libraries OCanren OCanren.tester synthesizer_cf)
  (preprocessor_deps ../camlp5/pp5+gt+plugins+ocanren+dump.exe)
  (wrapped false)
  (preprocess
