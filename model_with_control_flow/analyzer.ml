@@ -6,7 +6,7 @@ struct
   type data = int
 
   type read_cap = Rd | NRd
-  type write_cap = Wr | NWr
+  type write_cap = AlwaysWr | MayWr | NeverWr
   type copy_cap = Cp | NCp
 
   type in_cap = In | NIn
@@ -34,7 +34,7 @@ struct
 
   (* TODO: allow data (rvalue) in calls ?? *)
   type arg = RValue | LValue of data
-  type value = UnitV | BotV (* NOTE: RefV of data - not needed for now *)
+  type value = UnitV | UndefV | BotV (* NOTE: RefV of data - not needed for now *)
 
   type env = (int * (tag * data)) list
 
@@ -43,25 +43,42 @@ struct
 
   (* --- *)
 
+  let value_combine (left : value) (right : value) : value = match left, right with
+    | UnitV, UnitV -> UnitV
+    | BotV, BotV -> BotV
+    | _, _ -> UndefV (* NOTE: should be expanded in relational interpreter to not use ineq (?) *)
+
+  (* let memory_combine (left : value list) (right : value list) : value list = *)
+    (* List.merge value_combine left right (* FIXME: why it is not zip ? *) *)
+
   let is_read (tag : tag) : bool = match tag with
     | (Rd, _, _, _, _) -> true
-    | (NRd, _, _, _, _) -> false
+    | _ -> false
 
-  let is_write (tag : tag) : bool = match tag with
-    | (_, Wr, _, _, _) -> true
-    | (_, NWr, _, _, _) -> false
+  let is_always_write (tag : tag) : bool = match tag with
+    | (_, AlwaysWr, _, _, _) -> true
+    | _ -> false
+
+  let is_may_write (tag : tag) : bool = match tag with
+    | (_, AlwaysWr, _, _, _) -> true
+    | (_, MayWr, _, _, _) -> true
+    | _ -> false
+
+  let is_never_write (tag : tag) : bool = match tag with
+    | (_, NeverWr, _, _, _) -> true
+    | _ -> false
 
   let is_copy (tag : tag) : bool = match tag with
     | (_, _, Cp, _, _) -> true
-    | (_, _, NCp, _, _) -> false
+    | _ -> false
 
   let is_in (tag : tag) : bool = match tag with
     | (_, _, _, In, _) -> true
-    | (_, _, _, NIn, _) -> false
+    | _ -> false
 
   let is_out (tag : tag) : bool = match tag with
     | (_, _, _, _, Out) -> true
-    | (_, _, _, _, NOut) -> false
+    | _ -> false
 
   (* --- *)
 
@@ -108,7 +125,7 @@ struct
 
   let check_tag_correct (tag : tag) (id : data) : unit =
     if (* (is_in tag && not (is_read tag)) || *) (* TODO: required ?? *)
-       is_out tag > is_write tag ||
+       is_out tag > is_always_write tag ||
        is_read tag > is_in tag
        (* || is_copy tag && is_out tag *) (* ?? *)
     then raise @@ Invalid_argument_tag id
@@ -123,7 +140,7 @@ struct
     else match arg with
       | RValue -> raise @@ Ref_rvalue_argument id (* TODO: allow later ?? *)
       | LValue arg -> let (parent_tag, mem_id) = env_get state_before arg in
-                      if is_write arg_tag > is_write parent_tag
+                      if is_may_write arg_tag > is_always_write parent_tag (* TODO: FIXME: not updated semantics ?? *)
                       then raise @@ Incorrect_const_cast id
                       else if is_read arg_tag
                       then env_add state id arg_tag mem_id
@@ -141,12 +158,12 @@ struct
       (* NOTE: replaced with later condition *)
       (* if is_write tag > is_write parent_tag && (not (is_copy tag) || is_out tag) then raise @@ Incorrect_const_cast idi else *)
       let state = if is_read tag then (mem_check state_before id; state) else state (* NOTE: state override *)
-      in if not @@ is_write tag then state
+      in if is_never_write tag then state (* TODO: FIXME: check *)
       else match is_out tag with
-        | true -> if not @@ is_write parent_tag then raise @@ Incorrect_const_cast id
+        | true -> if not @@ is_always_write parent_tag then raise @@ Incorrect_const_cast id
                   else mem_set state id UnitV
         | false -> if is_copy tag then state
-                   else if not @@ is_write parent_tag then raise @@ Incorrect_const_cast id
+                   else if not @@ is_may_write parent_tag then raise @@ Incorrect_const_cast id (* TODO: check that may modifier correct *)
                    else mem_set state id BotV
     in List.fold_left2 spoil_folder state arg_tags args
 
@@ -163,7 +180,7 @@ struct
                                                state_fun
                              in st_spoil_by_args state_with_visited arg_tags args
       | Read id -> mem_check state id; state
-      | Write id -> if is_write @@ fst @@ env_get state id
+      | Write id -> if is_may_write @@ fst @@ env_get state id
                     then mem_set state id UnitV
                     else raise @@ Incorrect_const_cast id
 
@@ -192,14 +209,14 @@ struct
 
   (* tests *)
 
-  let rwi_value : tag = (Rd, Wr, Cp, In, NOut)
-  let ri_value : tag = (Rd, NWr, Cp, In, NOut)
-  let wi_value : tag = (NRd, Wr, Cp, In, NOut)
-  let i_value : tag = (NRd, NWr, Cp, In, NOut)
-  let rwi_ref : tag = (Rd, Wr, NCp, In, NOut)
-  let ri_ref : tag = (Rd, NWr, NCp, In, NOut)
-  let wi_ref : tag = (NRd, Wr, NCp, In, NOut)
-  let i_ref : tag = (NRd, NWr, NCp, In, NOut)
+  let rwi_value : tag = (Rd, AlwaysWr, Cp, In, NOut)
+  let ri_value : tag = (Rd, NeverWr, Cp, In, NOut)
+  let wi_value : tag = (NRd, AlwaysWr, Cp, In, NOut)
+  let i_value : tag = (NRd, NeverWr, Cp, In, NOut)
+  let rwi_ref : tag = (Rd, AlwaysWr, NCp, In, NOut)
+  let ri_ref : tag = (Rd, NeverWr, NCp, In, NOut)
+  let wi_ref : tag = (NRd, AlwaysWr, NCp, In, NOut)
+  let i_ref : tag = (NRd, NeverWr, NCp, In, NOut)
 
   (* >> tests without functions *)
 
