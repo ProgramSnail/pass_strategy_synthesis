@@ -60,8 +60,9 @@ struct
 
   let state_combine (left : state) (right : state) : state = match left, right with
     (lenv, lmem, lmem_len, lvisited), (renv, rmem, rmem_len, rvisited) ->
-    if lenv != renv || lmem_len != rmem_len || lvisited != rvisited then raise Incompatible_states
-    else (lenv, memory_combine lmem rmem, lmem_len, List.append lvisited rvisited) (* TODO: union visited lists instead ? *)
+    if lenv != renv || lmem_len != rmem_len then raise Incompatible_states
+    else (lenv, memory_combine lmem rmem, lmem_len, List.append lvisited rvisited)
+    (* TODO: union visited lists instead ? *)
 
   (* --- *)
 
@@ -517,6 +518,22 @@ struct
 
   (* --- *)
 
-  (* TODO: combine statement tests *)
+  (* TODO: more Combine statement tests *)
+
+  let%expect_test "simple function call with value arg and choice, rw" =
+    eval_prog ([([wi_value], [Choice ([Write 0; Read 0], [Write 0]); Read 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple function call with ref arg and choice, rw" =
+    try (eval_prog ([([ri_ref], [Choice ([Read 0], [Write 0])])], ([wi_value], [Write 0; Call (0, [0]) ]));
+         [%expect.unreachable])
+    with Incorrect_const_cast id -> Printf.printf "%i" id;
+    [%expect {| 0 |}]
+
+  let%expect_test "simple function call with ref arg and choice, rr" =
+    eval_prog ([([ri_ref], [Choice ([Read 0], [Read 0; Read 0])])], ([wi_value], [Write 0; Call (0, [0]) ]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
 
 end

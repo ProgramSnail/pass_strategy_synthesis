@@ -383,7 +383,7 @@ $d space @ space overline(x)$ - запись применения функции
 
     $cl sigma, mu, l cr
      xarrow("WRITE" x)
-     cl sigma, mu[x <- 0], l union {sigma(x)} cr$,
+     cl sigma, mu[x <- 0], l cr$,
   )
 ))
 

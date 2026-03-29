@@ -7,8 +7,8 @@
 
 = Формальная модель используемого языка
 
-*TODO: проверить, что всё нужное добавлено*
-
+*TODO: переработь обычную control flow семантику в формат collecting semantics*
+i
 Нужно будет добавить во write-flag модальности: `not write` | `may write` | `always write`
 
 Добавление condition-исполнения - выбор из нескольких блоков. Варианты:
@@ -94,7 +94,7 @@
   Prod(
     `decl`,
     {
-      Or[overline(stmt)][function body]
+      Or[$overline(stmt)$][function body]
       Or[$lambda #[`tag` #h(3pt)] a.$ `decl`][argument with argument pass strategy annotation]
     }
   ),
@@ -407,7 +407,7 @@ $d space @ space overline(x)$ - запись применения функции
 
     $cl sigma, mu, l cr
      xarrow("WRITE" x)
-     cl sigma, mu[x <- 0], l cr$,
+     cl sigma, mu[x <- 0], l union {sigma(x)} cr$,
   )
 ))
 

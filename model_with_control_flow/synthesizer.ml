@@ -190,9 +190,9 @@ struct
   module Stmt = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('d, 'dl) t = Call of 'd * 'dl | Read of 'd | Write of 'd
+      type nonrec ('d, 'dl, 'sl) t = Call of 'd * 'dl | Read of 'd | Write of 'd | Choice of 'sl * 'sl
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Nat.ground, Nat.ground List.ground) t
+      type ground = (Nat.ground, Nat.ground List.ground, ground List.ground) t
     ]
 
     module Test = struct
@@ -260,7 +260,7 @@ struct
   module Value = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec t = Unit | Bot
+      type nonrec t = Unit | Undef | Bot
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = t
     ]
@@ -290,6 +290,51 @@ struct
     end
   end
 
+  (* --- *)
+
+  let rec list_zip_witho f xs ys zs = ocanren {
+    { fresh x, xs', y, ys', z, zs' in
+      xs == x :: xs' &
+      ys == y :: ys' &
+      zs == z :: zs' &
+      f x y z &
+      list_zip_witho f xs' ys' zs' } |
+    { fresh x, xs' in
+      xs == x :: xs' &
+      ys == [] &
+      zs == [] } |
+    { fresh y, ys' in
+      xs == [] &
+      ys == y :: ys' &
+      zs == [] } |
+    { xs == [] & ys == [] & zs == [] }
+  }
+
+  (* --- *)
+
+  let value_combineo left right res = let open Value in ocanren {
+    { left == Unit & right == Unit & res == Unit } |
+    { left == Bot & right == Bot & res == Bot } |
+    { left == Unit & right == Bot & res == Undef } |
+    { left == Bot & right == Unit & res == Undef }
+  }
+
+  let memory_combineo left right res = ocanren {
+    list_zip_witho value_combineo left right res
+  }
+
+  let state_combineo left right res = let open St in ocanren {
+    fresh lenv, lmem, lmem_len, lvisited, renv, rmem, rmem_len, rvisited, res_mem in
+    left == St (lenv, lmem, lmem_len, lvisited) &
+    right == St (renv, rmem, rmem_len, rvisited) &
+    lenv == renv & lmem_len == rmem_len &
+    memory_combineo lmem rmem res_mem  &
+    res == St (lenv, rmem, lmem_len, List.appendo lvisited rvisited)
+    (* TODO: union visited lists instead ? *)
+  }
+
+  (* --- *)
+
   let rec list_replaceo xs id value ys = ocanren {
     (* xs == [] & ys == [] | (* NOTE: error *) *)
     { fresh x, xs' in
@@ -301,7 +346,7 @@ struct
         id == Nat.s id' &
         ys == x :: ys' &
         list_replaceo xs' id' value ys' }
-    }
+  }
 
   let env_geto state id tag' mem_id' =
     let open St in
@@ -582,7 +627,10 @@ struct
       stmt == Write id &
       env_geto state id tag _mem_id &
       is_may_writeo tag &
-      mem_seto state id Unit state' }
+      mem_seto state id Unit state' } |
+    { fresh xs, ys in
+      stmt == Choice (xs, ys) }
+    (* TODO: FIXME: choice actions *)
   }
 
   and eval_body_foldero prog state stmt state' =
