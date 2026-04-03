@@ -208,8 +208,6 @@ $d space @ space overline(x)$ - запись применения функции
 // TODO: FIXME: define argtag operation
 #let argtag = `argtag`
 
-// TODO: FIXME: define addpaths operation: ~>
-
 // FIXME
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -223,6 +221,18 @@ $d space @ space overline(x)$ - запись применения функции
     $isCorrect_(cl sigma, mu cr) (tag, x)$,
   )
 ))
+
+#h(10pt)
+
+// TODO: FIXME: define addpaths operation: ~>
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ add paths init],
+
+//     $mu stretch(~>)^nothing_(cl sigma, mu cr) mu$,
+//   )
+// ))
 
 #h(10pt)
 
@@ -298,8 +308,6 @@ $d space @ space overline(x)$ - запись применения функции
 #align(center, line())
 
 #h(10pt)
-
-// TODO: special operation to add all paths one by one ??
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
