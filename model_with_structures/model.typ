@@ -3,15 +3,13 @@
 // #import "@preview/zebraw:0.5.0": *
 // #show: zebraw
 #import "@preview/curryst:0.6.0": rule, prooftree, rule-set
-#import "@preview/xarrow:0.4.0": xarrow, xarrowDashed
+#import "@preview/xarrow:0.4.0": xarrow, xarrowDashed, xarrowSquiggly
 
 = Формальная модель используемого языка
 
-*TODO: проверить, что всё нужное добавлено*
-*TODO: добавить сложные структуры (типы) и работу с ними*
-*TODO: добавить тип лямбд (тип с id сигнатуры)*
-*TODO: добавить тип вызова поля структуры*
-*TODO: добавить правльную работу со вложенными тегами, path-доступ к полям переменных, корректность пути*
+#h(10pt)
+
+// TODO: check correctnes for path, mem & type ??
 
 Нужно будет добавить во write-flag модальности: `not write` | `may write` | `always write`
 
@@ -82,9 +80,10 @@
   Prod(
     `path`,
     {
-      Or[$x$][fuction argument or variable itself]
+      Or[$@x$][fuction argument or variable itself]
+      Or[$* path$][reference insede path]
       Or[$path . n$][access $n$-th cell of the tuple]
-      Or[$path : n$][access $n$-th cell of the union] // TODO: another notation ??
+      // Or[$path : n$][access $n$-th cell of the union] // TODO: another notation ??
     }
   ),
   Prod(
@@ -92,7 +91,8 @@
     {
       Or[$()$][simple type representing all primitive types] // `Unit`
       Or[\& #h(3pt) `tag` #h(3pt) `argtype`][reference to structure, contains copy / ref choice] // `Ref`
-      Or[`argtype` $times$ `argtype`][pair type, allows to make tuples] // `Prod`
+      Or[\[#overline(`argtype`)\]][pair type, allows to make tuples] // `Prod`
+      // Or[`argtype` $times$ `argtype`][pair type, allows to make tuples] // `Prod`
       // Or[`argtype` $+$ `argtype`][union type (important in some way ???)] // `Sum` // TODO ?
       Or[$F_x$][type of lambda or function pointer, defined by function declaration id] // `Fun`
     }
@@ -100,11 +100,14 @@
   Prod(
     `argmem`,
     {
-      Or[$[m]$][memory id for simple type variable] // `Unit`
-      Or[\& #h(3pt) `tag` #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
-      Or[`argmem` $times$ `argmem`][pair type, allows specify memory for tuples] // `Prod`
+      Or[$@m$][memory id for simple type variable] // `Unit`
+      Or[\& #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
+      // Or[\& #h(3pt) `tag` #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
+      Or[\[#overline(`argmem`)\]][pair type, allows specify memory for tuples] // `Prod`
+      // Or[`argmem` $times$ `argmem`][pair type, allows specify memory for tuples] // `Prod`
       // Or[`argmem` $+$ `argmem`][union type (important in some way ???)] // `Sum` // TODO ?
-      Or[$F_m$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
+      Or[$F$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
+      // Or[$F_m$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
     }
   ),
   // Prod(
@@ -133,7 +136,7 @@
     `decl`,
     {
       Or[$overline(stmt)$][function body]
-      Or[$lambda #[`argtype`] a.$ `decl`][argument with argument pass strategy annotation]
+      Or[$lambda a : argtype.$ `decl`][argument with argument pass strategy annotation]
     }
   ),
   Prod(
@@ -154,11 +157,7 @@ $L := NN$ - позиции в памяти
 
 $X$ - можество переменных
 
-*TODO: специфицировать доступ*
-
-*TODO: формально описать accessor-ы tag*
-
-$sigma : X -> argmem$ - #[ позиции памяти, соответстующие переменным контекста,
+$sigma : X -> argmem times argtype$ - #[ позиции памяти, соответстующие переменным контекста,
                            частично определённая функция ]
 
 $mu : NN -> V$ - память, частично определённая функция
@@ -198,17 +197,57 @@ $d space @ space overline(x)$ - запись применения функции
 
 // TODO: introduce spep env argument ??
 
-// TODO: FIXME: define typeof operation
+#h(10pt)
+
+=== Path
+
+#let pathtype = `pathtype`
+$ pathtype(t, @x) = t $
+$ pathtype(\& #h(3pt) tag #h(3pt) t, *p) = pathtype(t, p) $
+$ pathtype([t_1, t_2, ..., t_n], p.i) = pathtype(t_i, p) $
+
+#let pathmem = `pathmem`
+$ pathmem(@m, @x) = m $
+$ pathmem(\& #h(3pt) m, *p) = pathmem(m, p) $
+$ pathmem([m_1, m_2, ..., m_n], p.i) = pathmem(m_i, p) $
+
+// NOTE: is replaced with pathtype
+// #let pathfun = `pathfun`
+// $ pathfun(F_m, @x) = m $
+// $ pathfun(\& #h(3pt) m, *p) = pathfun(m, p) $
+// $ pathfun([m_1, m_2, ..., m_n], p.i) = pathfun(m_i, p) $
+
+#let pathtag = `pathtag`
+$ pathtag(\& #h(3pt) tag #h(3pt) t, @x) = tag $
+$ pathtag(\& #h(3pt) tag #h(3pt) t, *p) = pathtag(t, p) $
+$ pathtag([t_1, t_2, ..., t_n], p.i) = pathmem(t_i, p) $
+
+#let pathvar = `pathvar`
+$ pathvar(x) = x $
+$ pathvar(p.i) = pathvar(p) $
+
+#h(10pt)
+
+// $ pathtype({t_1, t_2, ..., t_n}, x -> i) = t_i$
+
 #let typeof = `typeof`
+$ typeof(sigma, p) = pathtype(sigma[pathvar(p)].2, p) $
 
-// TODO: FIXME: define access operation
-// TODO: two versions: write with change & read
+// TODO: two versions: write with change & read ??
+#let accessmem = `accessmem`
+$ accessmem(sigma, p) = pathmem(sigma[pathvar(p)].1, p) $
+
 #let access = `access`
+$ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
-// TODO: FIXME: define argtag operation
 #let argtag = `argtag`
+$ argtag(sigma, p) = pathtag(sigma[pathvar(p)].2, p) $
 
-// FIXME
+#h(10pt)
+
+=== Correctness
+
+// TODO: check all requirements
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
@@ -224,17 +263,99 @@ $d space @ space overline(x)$ - запись применения функции
 
 #h(10pt)
 
-// TODO: FIXME: define addpaths operation: ~>
+=== Call Initialization
+
+Отсутствующий ижний индекс ($ref$, $copy$) означает произвольный индекс.
+Считается, что выбранный индекс одинаков в рамках одного правила.
+
+// NOTE: no empty argtype
 // #align(center, prooftree(
 //   vertical-spacing: 4pt,
 //   rule(
 //     name: [ add paths init],
 
-//     $mu stretch(~>)^nothing_(cl sigma, mu cr) mu$,
+//     $cl sigma, mu, l cr stretch(~>)^nothing cl sigma, mu, l cr$,
 //   )
 // ))
 
+// #h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add paths field by copy],
+
+    // TODO: check that access is what required ??
+    $cl sigma, mu, l cr xarrowSquiggly(p : ())_copy cl accessmem(sigma, p) <- l, mu [l <- 0], l + 1 cr$,
+  )
+))
+
 #h(10pt)
+
+// NOTE: do nothing, ref init by default
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add paths field by reference],
+
+    $cl sigma, mu, l cr xarrowSquiggly(p : ())_ref cl sigma, mu, l cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add paths ref],
+    $cl sigma, mu, l cr xarrowSquiggly(*p : t)_ref cl sigma', mu', l' cr$,
+    $isRef tag$,
+
+    $cl sigma, mu, l cr xarrowSquiggly(p : \& tag t) cl sigma', mu', l' cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add paths ref],
+    $cl sigma, mu, l cr xarrowSquiggly(*p : t)_copy cl sigma, mu, l cr$,
+    $isCopy tag$,
+
+    $cl sigma, mu, l cr xarrowSquiggly(p : \& tag t) cl sigma', mu', l' cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add paths tuple],
+    $cl sigma, mu, l cr xarrowSquiggly(p.1 : t_1) cl sigma_1, mu_1, l_1 cr$,
+    $...$,
+    $cl sigma_(n - 1), mu_(n - 1), l_(n - 1) cr xarrowSquiggly(p.n : t_n) cl sigma_n, mu_n, l_n cr$,
+
+    $cl sigma, mu, l cr xarrowSquiggly(p : [t_1, ... t_n]) cl sigma_n, mu_n, l_n cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add paths funciton pointer],
+
+    $cl sigma, mu, l cr xarrowSquiggly(F_x) cl sigma, mu, l cr$,
+  )
+))
+
+#h(10pt)
+
+=== Call Finalization
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -305,18 +426,18 @@ $d space @ space overline(x)$ - запись применения функции
 
 #h(10pt)
 
-#align(center, line())
-
-#h(10pt)
+=== Function Evaluation
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ $(lambda a. d) x$],
+    name: [ $(lambda a : t. d) m$],
 
-    $cl sigma, mu, l cr
-     stretch(~>)^a
-     cl sigma, mu', l' cr$,
+    // TODO: verify that type of m is t ??
+
+    $cl sigma [a <- (m, t)], mu, l cr
+     xarrowSquiggly(t)
+     cl sigma', mu', l' cr$,
 
     $cl sigma', mu', l' cr
      xarrowDashed(d space @ space overline(y))
@@ -354,9 +475,7 @@ $d space @ space overline(x)$ - запись применения функции
 
 #h(10pt)
 
-#align(center, line())
-
-#h(10pt)
+=== Statement Evaluation
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -385,7 +504,7 @@ $d space @ space overline(x)$ - запись применения функции
   rule(
     name: [ CALL_LAM $y space overline(x)$],
 
-    $typeof(y) = F_f$,
+    $typeof(sigma, y) = F_f$,
 
     $cl sigma, mu, l cr
      xarrow("CALL" f space overline(x))
@@ -420,7 +539,7 @@ $d space @ space overline(x)$ - запись применения функции
   rule(
     name: [ WRITE $x$],
 
-    $isPossibleWrite sigma(x)$, // TODO: FIXME ?? always or possible ??
+    $isPossibleWrite sigma(x)$,
 
     $cl sigma, mu, l cr
      xarrow("WRITE" x)
@@ -456,6 +575,8 @@ $d space @ space overline(x)$ - запись применения функции
 ))
 
 #h(10pt)
+
+=== Combination
 
 $ combine(mu_1, mu_2)[i] = combine_e (mu_1[i], mu_2[i]) $
 $ combine_e (bot, bot) = bot $
