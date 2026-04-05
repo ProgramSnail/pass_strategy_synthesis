@@ -220,10 +220,11 @@ $ pathmem([m_1, m_2, ..., m_n], p.i) = pathmem(m_i, p) $
 #let pathtag = `pathtag`
 $ pathtag(\& #h(3pt) tag #h(3pt) t, @x) = tag $
 $ pathtag(\& #h(3pt) tag #h(3pt) t, *p) = pathtag(t, p) $
-$ pathtag([t_1, t_2, ..., t_n], p.i) = pathmem(t_i, p) $
+$ pathtag([t_1, t_2, ..., t_n], p.i) = pathtag(t_i, p) $
 
 #let pathvar = `pathvar`
-$ pathvar(x) = x $
+$ pathvar(@x) = x $
+$ pathvar(* p) = pathvar(p) $
 $ pathvar(p.i) = pathvar(p) $
 
 #h(10pt)
@@ -237,11 +238,11 @@ $ typeof(sigma, p) = pathtype(sigma[pathvar(p)].2, p) $
 #let accessmem = `accessmem`
 $ accessmem(sigma, p) = pathmem(sigma[pathvar(p)].1, p) $
 
-#let access = `access`
-$ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
-
 #let argtag = `argtag`
 $ argtag(sigma, p) = pathtag(sigma[pathvar(p)].2, p) $
+
+#let access = `access`
+$ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
 #h(10pt)
 

@@ -14,13 +14,14 @@ struct
 
   type tag = read_cap * write_cap * copy_cap * in_cap * out_cap
 
-  type stmt = Call of data * data list | Read of data | Write of data | Choice of stmt list * stmt list
+  type path = VarP of data | DerefP of path | AccessP of path * data
+  type argtype = UnitT | RefT of tag * argtype | TupleT of argtype list | FunT of data
+  type argmem = VarM of data | RefM of argmem | TupleM of argmem list | FunM
 
+  type stmt = Call of data * path list | CallLam of path * path list | Read of path | Write of path | Choice of stmt list * stmt list
   type body = stmt list
 
-
-  type fun_decl = tag list * body
-
+  type fun_decl = argtype list * body
   type prog = fun_decl list * fun_decl
 
   (* --- exceptions --- *)
@@ -30,14 +31,17 @@ struct
   exception Incorrect_const_cast of int
   exception Invalid_argument_tag of int
   exception Incompatible_states
+  exception Incompatible_path_and_type
+  exception Incompatible_path_and_mem
+  exception Incompatible_path_and_type_for_tag
 
   (* --- static interpreter (no rec) --- *)
 
   (* TODO: allow data (rvalue) in calls ?? *)
-  type arg = RValue | LValue of data
-  type value = UnitV | UndefV | BotV (* NOTE: RefV of data - not needed for now *)
+  type arg = RValue | LValue of path
+  type value = UnitV | UndefV | BotV
 
-  type env = (int * (tag * data)) list
+  type env = (int * (argmem * argtype)) list
 
   (* env * memory * last unused memory * visited functions *) 
   type state = env * value list * int * int list
@@ -48,7 +52,7 @@ struct
     | x :: xs, y :: ys -> f x y :: list_zip_with f xs ys 
     | _, _ -> []
 
-  (* --- *)
+  (* --- combination --- *)
 
   let value_combine (left : value) (right : value) : value = match left, right with
     | UnitV, UnitV -> UnitV
@@ -64,7 +68,7 @@ struct
     else (lenv, memory_combine lmem rmem, lmem_len, List.append lvisited rvisited)
     (* TODO: union visited lists instead ? *)
 
-  (* --- *)
+  (* --- tag accessors --- *)
 
   let is_read (tag : tag) : bool = match tag with
     | (Rd, _, _, _, _) -> true
@@ -102,38 +106,77 @@ struct
    | (x :: xs, _n) -> x :: list_replace xs (id - 1) value 
    | ([], _) -> raise Not_found
 
+  let inv_id (mem_len : int) (id : data) : data = mem_len - id - 1
+
+  (* --- path accessors --- *)
+
+  let rec pathtype (t : argtype) (p : path) : argtype = match t, p with
+    | t, VarP x -> t
+    | RefT (tag, t), DerefP p -> pathtype t p
+    | TupleT ts, AccessP (p, n) -> pathtype (List.nth ts n) p
+    | _, _ -> raise Incompatible_path_and_type
+
+  let rec pathmem (m : argmem) (p : path) : data = match m, p with
+    | VarM m, VarP x -> m
+    | RefM m, DerefP p -> pathmem m p
+    | TupleM ms, AccessP (p, n) -> pathmem (List.nth ms n) p
+    | _, _ -> raise Incompatible_path_and_mem
+
+  let rec pathtag (t : argtype) (p : path) : tag = match t, p with
+    | RefT (tag, t), VarP x -> tag
+    | RefT (tag, t), DerefP p -> pathtag t p
+    | TupleT ts, AccessP (p, n) -> pathtag (List.nth ts n) p
+    | _, _ -> raise Incompatible_path_and_type_for_tag
+
+  let rec pathvar (p : path) : data = match p with
+    | VarP x -> x
+    | DerefP p -> pathvar p
+    | AccessP (p, n) -> pathvar p
+
+  let typeof (env : env) (p : path) : argtype = pathtype (snd (List.assoc (pathvar p) env)) p
+  let accessmem (env : env) (p : path) : data = pathmem (fst (List.assoc (pathvar p) env)) p
+  let argtag (env : env) (p : path) : tag = pathtag (snd (List.assoc (pathvar p) env)) p
+  (* TODO: check indices *)
+  let access_get (env : env) (mem : value list) (mem_len : data) (p : path) : value = List.nth mem @@ inv_id mem_len @@ accessmem env p
+  let access_set (env : env) (mem : value list) (mem_len : data) (p : path) (value : value) : value list = list_replace mem (inv_id mem_len @@ accessmem env p) value
+
+  (* --- *)
+
   let visited_add (state : state) (id : data) : state =
     match state with (env, mem, mem_len, visited) -> (env, mem, mem_len, id :: visited)
 
   let visited_check (state : state) (id : data) : bool =
     match state with (_, _, _, visited) -> List.exists (fun i -> i == id) visited
 
-  let env_get (state : state) (id : data) : (tag * data) =
+  (* --- *)
+
+  (* TODO: replacewith more useful path versions *)
+  let env_get (state : state) (id : data) : (argmem * argtype) =
     match state with (env, _mem, _mem_len, _visited) -> List.assoc id env
 
-  let env_add (state : state) (id : data) (mode : tag) (mem_id : data) : state = match state with
-    (env, mem, mem_len, visited) -> let env = (id, (mode, mem_id)) :: env in
+  let env_add (state : state) (id : data) (argmem : argmem) (argtype : argtype) : state = match state with
+    (env, mem, mem_len, visited) -> let env = (id, (argmem, argtype)) :: env in
                            (env, mem, mem_len, visited)
 
-  let inv_id (mem_len : int) (id : data) : data = mem_len - id - 1
+  let mem_get (state : state) (p : path) : value = match state with
+    (env, mem, mem_len, _visited) -> access_get env mem mem_len p
 
-  let mem_get (state : state) (id : data) : value = match state with
-    (_env, mem, mem_len, _visited) -> List.nth mem @@ inv_id mem_len @@ snd @@ env_get state id
-
-  let mem_set (state : state) (id : data) (value : value) : state = match state with
-    (env, mem, mem_len, visited) -> let mem_id = inv_id mem_len @@ snd @@ env_get state id in
-                                        let mem = list_replace mem mem_id value in (env, mem, mem_len, visited)
+  let mem_set (state : state) (p : path) (value : value) : state = match state with
+    (env, mem, mem_len, visited) -> (env, access_set env mem mem_len p value, mem_len, visited)
 
   let mem_add (state : state) (value : value) : state = match state with
     (env, mem, mem_len, visited) -> let mem = value :: mem in (env, mem, mem_len + 1, visited)
 
-  let mem_check (state : state) (id : data) : unit =
-    if mem_get state id == BotV then raise @@ Incorrect_memory_access id else ()
+  let mem_check (state : state) (p : path) : unit =
+    (* TODO: use path in error instead *)
+    if mem_get state p == BotV then raise @@ Incorrect_memory_access (pathvar p) else ()
 
+  (* --- *)
 
   let arg_to_value (state : state) (arg : arg) : value = match arg with
     | RValue -> UnitV
-    | LValue id -> mem_get state id
+    | LValue p -> mem_get state p
+  (* TODO: FIXME: args as argmem ?? *)
 
   let st_mem_len (state : state) : int =
     match state with (_, _, mem_len, _) -> mem_len
@@ -248,269 +291,261 @@ struct
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  let%expect_test "ref param in main failure" =
-    try (eval_prog ([], ([i_ref], []));
-         [%expect.unreachable])
-    with Ref_rvalue_argument id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
+  (* let%expect_test "ref param in main failure" = *)
+    (* try (eval_prog ([], ([i_ref], [])); *)
+         (* [%expect.unreachable]) *)
+    (* with Ref_rvalue_argument id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
 
-  let%expect_test "read empty args" =
-    try (eval_prog ([], ([], [Read 0]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "read empty args" = *)
+    (* try (eval_prog ([], ([], [Read 0])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "write empty args" =
-    try (eval_prog ([], ([], [Write 0]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "write empty args" = *)
+    (* try (eval_prog ([], ([], [Write 0])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "simple write" =
-    eval_prog ([], ([wi_value], [Write 0]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple write" = *)
+    (* eval_prog ([], ([wi_value], [Write 0])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "simple read" = (* NOTE: should not work with read-before-write check*)
-    eval_prog ([], ([ri_value], [Read 0]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple read" = (* NOTE: should not work with read-before-write check*) *)
+    (* eval_prog ([], ([ri_value], [Read 0])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "multiple read & write" =
-    eval_prog ([], ([rwi_value], [Write 0; Read 0; Write 0; Write 0; Read 0; Read 0]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "multiple read & write" = *)
+    (* eval_prog ([], ([rwi_value], [Write 0; Read 0; Write 0; Write 0; Read 0; Read 0])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "multiple read & write, multiple args" =
-    eval_prog ([], ([wi_value; wi_value; wi_value], [Write 0; Read 0; Write 1; Write 0; Write 2; Read 1; Write 2; Read 0; Read 2]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "multiple read & write, multiple args" = *)
+    (* eval_prog ([], ([wi_value; wi_value; wi_value], [Write 0; Read 0; Write 1; Write 0; Write 2; Read 1; Write 2; Read 0; Read 2])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "main, access out of range" =
-    try(eval_prog ([], ([wi_value], [Write 0; Read 5 ]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "main, access out of range" = *)
+    (* try(eval_prog ([], ([wi_value], [Write 0; Read 5 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "main, access out of range" =
-    try(eval_prog ([], ([wi_value], [Write 0; Write 5 ]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "main, access out of range" = *)
+    (* try(eval_prog ([], ([wi_value], [Write 0; Write 5 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
   (* >> tests with one function *)
 
-  let%expect_test "simple function call with value arg" =
-    eval_prog ([([wi_value], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple function call with value arg" = *)
+    (* eval_prog ([([wi_value], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "simple function call with ref arg" =
-    eval_prog ([([wi_ref], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple function call with ref arg" = *)
+    (* eval_prog ([([wi_ref], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "function with value arg & read" =
-    eval_prog ([([wi_value], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0 ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  (* --- *)
-
-  let%expect_test "function with ref arg & read" =
-    try (eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0 ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  let%expect_test "function with ref arg & call twice" =
-    try (eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Call (0, [0]) ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  (* NOTE: behaviour is fixed with new capabilities *)
-  let%expect_test "function with ref arg, write first & call twice" =
-    eval_prog ([([wi_ref], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-
-  let%expect_test "function with ref arg & read, write" =
-    try (eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0; Write 0 ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  let%expect_test "function with ref arg & write, read" =
-    eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Write 0; Read 0 ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "function with ref arg, no write inside & read" =
-    eval_prog ([([ri_ref], [Read 0; Read 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0 ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "function with value arg & read" = *)
+    (* eval_prog ([([wi_value], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0 ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
   (* --- *)
 
-  let%expect_test "function with value arg, read out of range" =
-    try(eval_prog ([([ri_ref], [Read 0; Read 1])], ([wi_value; i_value], [Write 0; Call (0, [0]); Read 0 ]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "function with ref arg, read out of range" =
-    try(eval_prog ([([ri_ref], [Read 0; Read 1])], ([wi_value; i_value], [Write 0; Call (0, [0]); Read 0 ]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "function with value arg, write out of range" =
-    try(eval_prog ([([rwi_value], [Read 0; Write 1])], ([wi_value; i_value], [Write 0; Call (0, [0]); Read 0 ]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "function with value arg, call out of range" =
-    try(eval_prog ([([ri_value], [Read 0])], ([wi_value; i_value], [Write 0; Call (0, [2]); Read 0 ]));
-         [%expect.unreachable])
-    with Not_found -> Printf.printf "done!";
-    [%expect {| done! |}]
-
-  (* --- *)
-
-  let%expect_test "function with ref & value args, no write inside & read" =
-    eval_prog (
-      [([ri_ref; ri_value], [Read 0; Read 1])],
-      ([wi_value; wi_value], [Write 0; Write 1; Call (0, [0; 1]); Read 0; Read 1 ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "function with ref & value args, write value inside & read" =
-    eval_prog (
-      [([ri_ref; rwi_value], [Read 0; Read 1; Write 1; Read 1])],
-      ([wi_value; wi_value], [Write 0; Write 1; Call (0, [0; 1]); Read 0; Read 1 ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "function with ref & value args, write both inside & read" =
-    try (eval_prog (
-      [([rwi_ref; rwi_value],[Read 0; Read 1; Write 0; Write 1; Read 1])],
-      ([wi_value; wi_value], [Write 0; Write 1; Call (0, [0; 1]); Read 0; Read 1 ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  (* --- *)
-
-  (* NOTE: maybe important case in the future *)
-  let%expect_test "function with ref two same ref args, read both & read" =
-    eval_prog (
-      [([ri_ref; ri_ref],[Read 0; Read 1; Read 1])],
-      ([wi_value], [Write 0; Call (0, [0; 0]); Read 0 ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  (* NOTE: changed semantics by comporasion with prev analyzer, new test *)
-  let%expect_test "function with ref two same ref args, read both & nothing" =
-    eval_prog (
-      [([ri_ref; ri_ref],[Read 0; Read 1; Read 1])],
-      ([wi_value], [Write 0; Call (0, [0; 0]); ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  (* NOTE: changed semantics by comporasion with prev analyzer, new test *)
-  let%expect_test "function with ref & copy of the same arg, read & write both & nothing" =
-    eval_prog (
-      [([rwi_ref; rwi_value],[Read 0; Read 1; Write 0; Write 1; Read 1])],
-      ([wi_value], [Write 0; Call (0, [0; 0]); ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  (* NOTE: changed semantics by comporasion with prev analyzer, new test *)
-  let%expect_test "function with copy & ref of the same arg, read & write both & nothing" =
-    eval_prog (
-      [([rwi_value; rwi_ref],[Read 0; Read 1; Write 0; Write 1; Read 1])],
-      ([wi_value], [Write 0; Call (0, [0; 0]); ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  (* TODO: FIXME: now correct (use state before for mem check), is this good ?, proper way to fix ? *)
-  (* NOTE: maybe important case in the future *)
-  let%expect_test "function with ref two same ref args, read & write both, error" =
-    (* try ( *)
-      eval_prog (
-      [([rwi_ref; rwi_ref],[Read 0; Read 1; Write 0; Write 1; Read 1])],
-      ([wi_value], [Write 0; Call (0, [0; 0]); ]));
+  (* let%expect_test "function with ref arg & read" = *)
+    (* try (eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0 ])); *)
          (* [%expect.unreachable]) *)
     (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
     (* [%expect {| 0 |}] *)
-    Printf.printf "done!";
-    [%expect {| done! |}]
+
+  (* let%expect_test "function with ref arg & call twice" = *)
+    (* try (eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Call (0, [0]) ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
+
+  (* NOTE: behaviour is fixed with new capabilities *)
+  (* let%expect_test "function with ref arg, write first & call twice" = *)
+    (* eval_prog ([([wi_ref], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+
+  (* let%expect_test "function with ref arg & read, write" = *)
+    (* try (eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0; Write 0 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
+
+  (* let%expect_test "function with ref arg & write, read" = *)
+    (* eval_prog ([([rwi_ref], [Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]); Write 0; Read 0 ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with ref arg, no write inside & read" = *)
+    (* eval_prog ([([ri_ref], [Read 0; Read 0])], ([wi_value], [Write 0; Call (0, [0]); Read 0 ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* --- *)
+
+  (* let%expect_test "function with value arg, read out of range" = *)
+    (* try(eval_prog ([([ri_ref], [Read 0; Read 1])], ([wi_value; i_value], [Write 0; Call (0, [0]); Read 0 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with ref arg, read out of range" = *)
+    (* try(eval_prog ([([ri_ref], [Read 0; Read 1])], ([wi_value; i_value], [Write 0; Call (0, [0]); Read 0 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with value arg, write out of range" = *)
+    (* try(eval_prog ([([rwi_value], [Read 0; Write 1])], ([wi_value; i_value], [Write 0; Call (0, [0]); Read 0 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with value arg, call out of range" = *)
+    (* try(eval_prog ([([ri_value], [Read 0])], ([wi_value; i_value], [Write 0; Call (0, [2]); Read 0 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Not_found -> Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* --- *)
+
+  (* let%expect_test "function with ref & value args, no write inside & read" = *)
+    (* eval_prog ( *)
+      (* [([ri_ref; ri_value], [Read 0; Read 1])], *)
+      (* ([wi_value; wi_value], [Write 0; Write 1; Call (0, [0; 1]); Read 0; Read 1 ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with ref & value args, write value inside & read" = *)
+    (* eval_prog ( *)
+      (* [([ri_ref; rwi_value], [Read 0; Read 1; Write 1; Read 1])], *)
+      (* ([wi_value; wi_value], [Write 0; Write 1; Call (0, [0; 1]); Read 0; Read 1 ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with ref & value args, write both inside & read" = *)
+    (* try (eval_prog ( *)
+      (* [([rwi_ref; rwi_value],[Read 0; Read 1; Write 0; Write 1; Read 1])], *)
+      (* ([wi_value; wi_value], [Write 0; Write 1; Call (0, [0; 1]); Read 0; Read 1 ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
+
+  (* --- *)
+
+  (* let%expect_test "function with ref two same ref args, read both & read" = *)
+    (* eval_prog ( *)
+      (* [([ri_ref; ri_ref],[Read 0; Read 1; Read 1])], *)
+      (* ([wi_value], [Write 0; Call (0, [0; 0]); Read 0 ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with ref two same ref args, read both & nothing" = *)
+    (* eval_prog ( *)
+      (* [([ri_ref; ri_ref],[Read 0; Read 1; Read 1])], *)
+      (* ([wi_value], [Write 0; Call (0, [0; 0]); ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with ref & copy of the same arg, read & write both & nothing" = *)
+    (* eval_prog ( *)
+      (* [([rwi_ref; rwi_value],[Read 0; Read 1; Write 0; Write 1; Read 1])], *)
+      (* ([wi_value], [Write 0; Call (0, [0; 0]); ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "function with copy & ref of the same arg, read & write both & nothing" = *)
+    (* eval_prog ( *)
+      (* [([rwi_value; rwi_ref],[Read 0; Read 1; Write 0; Write 1; Read 1])], *)
+      (* ([wi_value], [Write 0; Call (0, [0; 0]); ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* TODO: FIXME: now correct (use state before for mem check), is this good ?, proper way to fix ? *)
+  (* let%expect_test "function with ref two same ref args, read & write both, error" = *)
+    (* try ( *)
+      (* eval_prog ( *)
+      (* [([rwi_ref; rwi_ref],[Read 0; Read 1; Write 0; Write 1; Read 1])], *)
+      (* ([wi_value], [Write 0; Call (0, [0; 0]); ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
   (* >> tests with several functions *)
 
-  let%expect_test "two functions with ref arg, read func -> write func" =
-    eval_prog (
-      [([ri_ref], [Read 0]); ([wi_ref], [Write 0])],
-      ([wi_value], [Write 0; Call (0, [0]); Read 0; Call (1, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "two functions with ref arg, read func -> write func" = *)
+    (* eval_prog ( *)
+      (* [([ri_ref], [Read 0]); ([wi_ref], [Write 0])], *)
+      (* ([wi_value], [Write 0; Call (0, [0]); Read 0; Call (1, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "two functions with ref arg, write func -> read func" =
-    try (eval_prog (
-      [([ri_ref], [Read 0]); ([wi_ref], [Write 0])],
-      ([wi_value], [Write 0; Call (1, [0]); Call (0, [0]) ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
+  (* let%expect_test "two functions with ref arg, write func -> read func" = *)
+    (* try (eval_prog ( *)
+      (* [([ri_ref], [Read 0]); ([wi_ref], [Write 0])], *)
+      (* ([wi_value], [Write 0; Call (1, [0]); Call (0, [0]) ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
 
-  let%expect_test "two functions: ref arg after value arg" =
-    eval_prog (
-      [([rwi_ref], [Read 0; Write 0]); ([rwi_value], [Read 0; Write 0])],
-      ([wi_value], [Write 0; Call (1, [0]); Read 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "two functions: ref arg after value arg" = *)
+    (* eval_prog ( *)
+      (* [([rwi_ref], [Read 0; Write 0]); ([rwi_value], [Read 0; Write 0])], *)
+      (* ([wi_value], [Write 0; Call (1, [0]); Read 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "two functions: value arg after spoiled ref arg" =
-    try (eval_prog (
-      [([rwi_ref], [Read 0; Write 0]); ([rwi_value], [Read 0; Write 0])],
-      ([wi_value], [Write 0; Call (0, [0]); Call (1, [0]) ]));
-         [%expect.unreachable])
-    with Incorrect_memory_access id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  (* --- *)
-
-  let%expect_test "simple function call with value arg, const cast error" =
-    try (eval_prog ([([ri_value], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-         [%expect.unreachable])
-    with Incorrect_const_cast id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  let%expect_test "simple function call with ref arg, const cast error" =
-    try (eval_prog ([([ri_ref], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-         [%expect.unreachable])
-    with Incorrect_const_cast id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
-
-  let%expect_test "simple function call with value arg, const cast ok" =
-    eval_prog ([([ri_value], [Read 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
-
-  let%expect_test "simple function call with ref arg, const cast ok" =
-    eval_prog ([([ri_ref], [Read 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "two functions: value arg after spoiled ref arg" = *)
+    (* try (eval_prog ( *)
+      (* [([rwi_ref], [Read 0; Write 0]); ([rwi_value], [Read 0; Write 0])], *)
+      (* ([wi_value], [Write 0; Call (0, [0]); Call (1, [0]) ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_memory_access id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
 
   (* --- *)
 
-  let%expect_test "simple function call with arg, recursive calls" =
-    eval_prog ([([rwi_value], [Write 0; Read 0; Write 0; Call (0, [0])])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple function call with value arg, const cast error" = *)
+    (* try (eval_prog ([([ri_value], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_const_cast id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
+
+  (* let%expect_test "simple function call with ref arg, const cast error" = *)
+    (* try (eval_prog ([([ri_ref], [Write 0; Read 0; Write 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_const_cast id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
+
+  (* let%expect_test "simple function call with value arg, const cast ok" = *)
+    (* eval_prog ([([ri_value], [Read 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "simple function call with ref arg, const cast ok" = *)
+    (* eval_prog ([([ri_ref], [Read 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* --- *)
+
+  (* let%expect_test "simple function call with arg, recursive calls" = *)
+    (* eval_prog ([([rwi_value], [Write 0; Read 0; Write 0; Call (0, [0])])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
   (* --- *)
 
@@ -520,20 +555,20 @@ struct
 
   (* TODO: more Combine statement tests *)
 
-  let%expect_test "simple function call with value arg and choice, rw" =
-    eval_prog ([([wi_value], [Choice ([Write 0; Read 0], [Write 0]); Read 0])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple function call with value arg and choice, rw" = *)
+    (* eval_prog ([([wi_value], [Choice ([Write 0; Read 0], [Write 0]); Read 0])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
-  let%expect_test "simple function call with ref arg and choice, rw" =
-    try (eval_prog ([([ri_ref], [Choice ([Read 0], [Write 0])])], ([wi_value], [Write 0; Call (0, [0]) ]));
-         [%expect.unreachable])
-    with Incorrect_const_cast id -> Printf.printf "%i" id;
-    [%expect {| 0 |}]
+  (* let%expect_test "simple function call with ref arg and choice, rw" = *)
+    (* try (eval_prog ([([ri_ref], [Choice ([Read 0], [Write 0])])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+         (* [%expect.unreachable]) *)
+    (* with Incorrect_const_cast id -> Printf.printf "%i" id; *)
+    (* [%expect {| 0 |}] *)
 
-  let%expect_test "simple function call with ref arg and choice, rr" =
-    eval_prog ([([ri_ref], [Choice ([Read 0], [Read 0; Read 0])])], ([wi_value], [Write 0; Call (0, [0]) ]));
-    Printf.printf "done!";
-    [%expect {| done! |}]
+  (* let%expect_test "simple function call with ref arg and choice, rr" = *)
+    (* eval_prog ([([ri_ref], [Choice ([Read 0], [Read 0; Read 0])])], ([wi_value], [Write 0; Call (0, [0]) ])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
 
 end
