@@ -73,7 +73,7 @@
     {
       Or[$()$][simple type representing all primitive types] // `Unit`
       Or[\& #h(3pt) `mode` #h(3pt) `type`][reference to structure, contains copy / ref choice] // `Ref`
-      Or[$\[type+\]$][tuple type] // `Prod`
+      Or[$[type+]$][tuple type] // `Prod`
       // Or[`type` $times$ `type`][pair type, allows to make tuples] // `Prod`
       // Or[`type` $+$ `type`][union type (important in some way ???)] // `Sum` // TODO ?
 
@@ -89,7 +89,7 @@
       Or[$()$][value of simple type] // `Unit`
       Or[$path$][value from variable] // `Path`
       Or[$\& #h(3pt) expr$][reference expr] // `Ref`
-      Or[\[$expr+$\]][tuple expr] // `Prod`
+      Or[$[expr+]$][tuple expr] // `Prod`
       // NOTE: replaced with simple path value
       // Or[$lambda_path$][function value from variable] // `Fun`
     }
@@ -129,77 +129,193 @@
     `value`,
     {
       Or[$()$][value of simple type] // `Unit`
-      Or[$@ X$][function pointer value] // `Fun`
+      Or[$lambda_X$][function pointer value] // `Fun`
       Or[$\& #h(3pt) value$][reference value] // `Ref`
-      Or[\[$value+$\]][tuple value] // `Prod`
+      Or[$[value+]$][tuple value] // `Prod`
     }
   ),
 )
 
-$value$ - значения, которые могут лежать в переменных на семантическом уровне (то, во что вычисляется $expr$)
+$value$ - значения, которые могут лежать в переменных и передаваться как аргументы функций (то, во что вычисляется $expr$)
 
 == Memory Model
 
 // FIXME: check & add details
-#let memvalue = `memvalue`
-#let argmem = `argmem`
+#let memelem = `memelem`
+#let valuemem = `valuemem`
 #bnf(
   Prod(
-    `memvalue`,
+    `memelem`,
     {
       Or[$0$][cell with some value (always)]
-      Or[$X$][cell with possible value or $bot$]
+      Or[$\#$][cell with possible value or $bot$]
       Or[$bot$][spoiled cell (always)]
     }
   ),
   Prod(
-    `argmem`,
+    `valuemem`,
     {
-      Or[$@m$][memory id for simple type variable] // `Unit`
-      Or[\& #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
-      // Or[\& #h(3pt) `mode` #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
-      Or[$\[argmem+\]$][pair type, allows specify memory for tuples] // `Prod`
-      // Or[`argmem` $times$ `argmem`][pair type, allows specify memory for tuples] // `Prod`
-      // Or[`argmem` $+$ `argmem`][union type (important in some way ???)] // `Sum` // TODO ?
-
-      Or[$lambda$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
-      // Or[$F_m$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
+      Or[$()$][one unit of memory, for simple vars] // `Unit`
+      Or[$lambda$][memory for lambda or function pointer, is not important in the memory model, 0 units] // `Fun`
+      Or[$\& #h(3pt) LL valuemem$][reference to structure memory start] // `Ref`
+      Or[$[valuemem+]$][memory specification for each tuple member] // `Prod`
     }
   ),
 )
 
+#let mem = `mem`
+Память преставляется в виде стека из значений `memelem`:
+- $LL = NN$ - множество меток памяти
+- $mu : mem = LL -> V$ - память, частично определённая функция
+- $l in LL$ - длина используемого фрагмента памяти
+
+Каждому значению $value$ в соответствие ставится $valuemem$ - расположние этого значения в пaмяти
+
+Соответствие:
+- $() -> ()$
+- $lambda_X -> lambda$
+- $\& #h(3pt) value -> \& #h(3pt) LL valuemem$
+- $[value+] -> [valuemem+]$
+
+// TODO: move allocation semantics there ??
+
 == Semantics
+
+$V := memelem$ - значения памяти
+
+$X$ - можество переменных
+
+#let env = `env`
+$sigma : env = X -> valuemem times type$ - #[ позиции памяти, соответстующие переменным контекста, частично определённая функция ]
+
+$DD : X -> decl$ - глобальные определения, частично определённая функция
+
+$d in decl, s in stmt, f in X, x in X, a in X$
+
+$d space @ space overline(x)$ - запись применения функции (вида #decl) к аргументам
+
+=== Path Accessors
+
+Набор частично определённых фунций для работы с путями.
+Для удобства значение, получаемое из текущего применением пути, будем называть полем.
+// Все эти функции используются с префиксом `path.`.
+
+// FIXME: types & description for functios
+#let pathtype = `path.type`
+#let pathmem = `path.mem`
+#let pathmode = `path.mode`
+#let pathvar = `path.var`
+
+#let pathsize = `path.memsize`
+#let pathbasepos = `path.membasepos`
+#let pathoffset = `path.memoffset`
+#let pathpos = `path.mempos`
+
+#let pathenvtype = `path.envtype`
+#let pathenvmem = `path.envmem`
+#let pathenvmode = `path.envmode`
+
+#let pathenvpos = `path.envpos`
+#let pathenvval = `path.envval`
+
+- #[ Получение типа поля
+$ pathtype : type -> path -> type $
+$ pathtype(t, @x) = t $
+$ pathtype(\& #h(3pt) mode #h(3pt) t, *p) = pathtype(t, p) $
+$ pathtype([t_1, t_2, ..., t_n], p.i) = pathtype(t_i, p) $
+]
+- #[ Получение начала памяти поля (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
+$ pathmem : valuemem -> path -> LL $
+$ pathmem(\& #h(3pt) y m, @x) = y $ // NOTE: only memory for refsi in midel ?? // TODO: decide
+$ pathmem(\& #h(3pt) y m, *p) = pathmem(m, p) $
+$ pathmem([m_1, m_2, ..., m_n], p.i) = pathmem(m_i, p) $
+]
+- #[ Получения тега поля (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
+$ pathmode : type -> path -> mode $
+$ pathmode(\& #h(3pt) mode #h(3pt) t, @x) = mode $
+$ pathmode(\& #h(3pt) mode #h(3pt) t, *p) = pathmode(t, p) $
+$ pathmode([t_1, t_2, ..., t_n], p.i) = pathmode(t_i, p) $
+]
+- #[ Получение \"корневой\" переменной пути
+$ pathvar : path -> X $
+$ pathvar(@x) = x $
+$ pathvar(* p) = pathvar(p) $
+$ pathvar(p.i) = pathvar(p) $
+]
+- #[ Получение размера поля в памяти
+$ pathsize : valuemem -> path -> LL $
+$ pathsize((), @x) = 1 $
+$ pathsize(lambda, @x) = 0 $
+$ pathsize(\& #h(3pt) y m, @x) = 0 $ // TODO: FIXME ?? always disconnected location ??
+$ pathsize([m_1, m_2, ..., m_n], @x) = pathsize(m_1, @x) + ... + pathsize(m_n, @x) $
+$ pathsize(\& #h(3pt) y m, *p) = pathsize(m, p) $
+$ pathsize([m_1, m_2, ..., m_n], p.i) = pathsize(m_i, p) $
+]
+// TODO: FIXME ??
+- #[ Получение позиции последного ссылочного предка поля в пaмяти
+$ pathbasepos : value -> path -> X $
+// $ pathbasepos(m, @x) = bot $ // NOTE: trivial if not present ??
+$ pathbasepos(\& #h(3pt) y m, *p) = pathbasepos(m, p) | y $
+$ pathbasepos([m_1, m_2, ..., m_n], p.i) = pathbasepos(m_i, p) $
+]
+- #[ Получение смещения поля в последнем монолитном отрезке памяти
+$ pathoffset : value -> path -> X $
+$ pathoffset(m, @x) = 0 $
+$ pathoffset(\& #h(3pt) y m, *p) = pathoffset(m, p) $
+$ pathoffset([m_1, m_2, ..., m_n], p.i) = (i - 1) + pathoffset(m_i, p) $
+]
+- #[ Получение позиции поля в пaмяти
+$ pathpos : value -> path -> X $
+$ pathpos(m, p) = pathbasepos(m, p) + pathoffset(m, p)$
+]
+- #[ Получение типа поля по окружению
+$ pathenvtype : env -> path -> type $
+$ pathenvtype(sigma, p) = pathtype(sigma[pathvar(p)].2, p) $
+]
+- #[ Получение начала памяти поля по окружению (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
+$ pathenvmem : env -> path -> LL $
+$ pathenvmem(sigma, p) = pathmem(sigma[pathvar(p)].1, p) $
+]
+- #[ Получения тега поля по окружению (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
+$ pathenvmode : env -> path -> mode $
+$ pathenvmode(sigma, p) = pathmode(sigma[pathvar(p)].2, p) $
+]
+- #[ Получение позиции поля в пaмяти по окружению
+$ pathenvpos : env -> path -> X $
+$ pathenvpos(m, p) = pathpos(sigma[pathvar(p)].1, p)$
+]
+- #[ Получение поля в пaмяти
+$ pathenvval : env -> mem -> path -> memelem $
+$ pathenvval(sigma, mu, p) = mu[pathenvpos(sigma, p)]$
+]
+
+=== Mode Correctness
+
+Функции проверки тегов, имеют тип $mode -> #[bool]$:
+
+#let modevar = $(r space w space c space i space o)$
+
+$ isRead modevar = r == "Read" $
+$ isAlwaysWrite modevar = w == square "Write" $
+$ isPossibleWrite modevar = w == diamond "Write" || w == square "Write" $
+$ isRef modevar = c == "Ref" $
+$ isCopy modevar = c == "Copy" $
+$ isIn modevar = i == "In" $
+$ isOut modevar = o == "Out" $
+
+Требования к тегам:
+
+$ isOut mode -> isAlwaysWrite mode $
+$ isRead mode -> isIn mode $
+
+// TODO: rest conditions ??
+
+=== Eval Rules
 
 // FIXME: make connected to syntax
 *TODO*
 
 #h(10pt)
-
-$V := memvalue$ - значения памяти
-
-// FIXME: not required, remove
-// $L := NN$ - позиции в памяти
-
-$X$ - можество переменных
-
-$LL$ - множество меток памяти
-_пока решил использовать всё-таки $NN$ для того, чтобы работать с размером памяти
-и добавлением ячеек, может стоит поменять_
-
-$FF$  -множество меток функций
-
-$sigma : X -> argmem times type$ - #[ позиции памяти, соответстующие переменным контекста,
-                           частично определённая функция ]
-
-$mu : NN -> V$ - память, частично определённая функция
-
-$l in NN$ - длина используемого фрагмента памяти
-
-$DD : FF -> decl$ - определения функций, частично определённая функция
-
-$d in decl, s in stmt, f in FF, x in X, a in X$
-
-$d space @ space overline(x)$ - запись применения функции (вида #decl) к аргументам
 
 #let args = `args`
 
@@ -230,54 +346,6 @@ $d space @ space overline(x)$ - запись применения функции
 
 #h(10pt)
 
-=== Path
-
-// FIXME: types & description for functios
-#let pathtype = `pathtype`
-$ pathtype(t, @x) = t $
-$ pathtype(\& #h(3pt) mode #h(3pt) t, *p) = pathtype(t, p) $
-$ pathtype([t_1, t_2, ..., t_n], p.i) = pathtype(t_i, p) $
-
-#let pathmem = `pathmem`
-$ pathmem(@m, @x) = m $
-$ pathmem(\& #h(3pt) m, *p) = pathmem(m, p) $
-$ pathmem([m_1, m_2, ..., m_n], p.i) = pathmem(m_i, p) $
-
-// NOTE: is replaced with pathtype
-// #let pathfun = `pathfun`
-// $ pathfun(F_m, @x) = m $
-// $ pathfun(\& #h(3pt) m, *p) = pathfun(m, p) $
-// $ pathfun([m_1, m_2, ..., m_n], p.i) = pathfun(m_i, p) $
-
-#let pathtag = `pathtag`
-$ pathtag(\& #h(3pt) mode #h(3pt) t, @x) = mode $
-$ pathtag(\& #h(3pt) mode #h(3pt) t, *p) = pathtag(t, p) $
-$ pathtag([t_1, t_2, ..., t_n], p.i) = pathtag(t_i, p) $
-
-#let pathvar = `pathvar`
-$ pathvar(@x) = x $
-$ pathvar(* p) = pathvar(p) $
-$ pathvar(p.i) = pathvar(p) $
-
-#h(10pt)
-
-// $ pathtype({t_1, t_2, ..., t_n}, x -> i) = t_i$
-
-#let typeof = `typeof`
-$ typeof(sigma, p) = pathtype(sigma[pathvar(p)].2, p) $
-
-// TODO: two versions: write with change & read ??
-#let accessmem = `accessmem`
-$ accessmem(sigma, p) = pathmem(sigma[pathvar(p)].1, p) $
-
-#let argtag = `argtag`
-$ argtag(sigma, p) = pathtag(sigma[pathvar(p)].2, p) $
-
-#let access = `access`
-$ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
-
-#h(10pt)
-
 === Correctness
 
 // TODO: FIXME: well formatness for mode, extract
@@ -291,8 +359,8 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
     name: [ is correct],
     $isOut mode -> isAlwaysWrite mode$, // NOTE; strong requirment should write
     $isRead mode -> isIn mode$,
-    $isPossibleWrite mode and (isOut mode or not isCopy mode) -> isAlwaysWrite argtag(sigma, x)$, // NOTE: may mode => should sigma(x)
-    $isRead mode -> access(mu, sigma, x) != bot and access(mu, sigma, x) != X$,
+    $isPossibleWrite mode and (isOut mode or not isCopy mode) -> isAlwaysWrite pathenvmode(sigma, x)$, // NOTE: may mode => should sigma(x)
+    $isRead mode -> pathenvval(mu, sigma, x) != bot and pathenvval(mu, sigma, x) != X$,
 
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
   )
@@ -323,7 +391,7 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
     name: [ add paths field by copy],
 
     // TODO: check that access is what required ??
-    $cl sigma, mu, l cr xarrowSquiggly(p : ())_copy cl accessmem(sigma, p) <- l, mu [l <- 0], l + 1 cr$,
+    $cl sigma, mu, l cr xarrowSquiggly(p : ())_copy cl pathenvmem(sigma, p) <- l, mu [l <- 0], l + 1 cr$,
   )
 ))
 
@@ -418,7 +486,7 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : args)_sigma access(gamma, sigma, x) <- bot]$
+    $gamma stretch(=>)^((mode, x) : args)_sigma pathenvval(gamma, sigma, x) <- bot]$
   )
 ))
 
@@ -437,7 +505,7 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : args)_sigma access(gamma, sigma, x) <- 0]$
+    $gamma stretch(=>)^((mode, x) : args)_sigma pathenvval(gamma, sigma, x) <- 0]$
   )
 ))
 
@@ -541,7 +609,7 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
   rule(
     name: [ CALL_LAM $y space overline(x)$],
 
-    $typeof(sigma, y) = F_f$,
+    $pathenvtype(sigma, y) = F_f$,
 
     $cl sigma, mu, l cr
      xarrow("CALL" f space overline(x))
@@ -560,8 +628,8 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
   rule(
     name: [ READ $x$],
 
-    $access(mu, sigma, x) != bot$,
-    $access(mu, sigma, x) != X$,
+    $pathenvval(mu, sigma, x) != bot$,
+    $pathenvval(mu, sigma, x) != X$,
 
     $cl sigma, mu, l cr
      xarrow("READ" x)
@@ -580,7 +648,7 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
     $cl sigma, mu, l cr
      xarrow("WRITE" x)
-     cl sigma, access(mu, sigma, x) <- 0, l cr$,
+     cl sigma, pathenvval(mu, sigma, x) <- 0, l cr$,
   )
 ))
 
