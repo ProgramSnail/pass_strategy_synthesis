@@ -11,20 +11,7 @@
 
 // TODO: check correctnes for path, mem & type ??
 
-Нужно будет добавить во write-flag модальности: `not write` | `may write` | `always write`
-
-Добавление condition-исполнения - выбор из нескольких блоков. Варианты:
-- & of | of & -вложенные блоки ?
-- добавить несколько альтернативны тел функциям. Но тогда придётся при трансляции if-блоки выносить в функции
-
-Лямбды - нужно тоже будет как-то находить лямбды и ля них тоже синтезировать атрибуты
-вызов лямбд будет нужен в модели?
-- lambda-аргумент - вложенные теги?, должна быть одна и та же сигнтура
-можно ввести отдельные сигнатуры-определения?
-
-проблема простой семантики: вызов лямбд: могут быть модифицируемые функции
-
-== Синтаксис
+== Syntax
 
 #h(10pt)
 
@@ -38,18 +25,19 @@
 #let isIn = `isIn`
 #let isOut = `isOut`
 
-#let tag = `tag`
-#let value = `value`
+#let mode = `mode`
+#let expr = `expr`
 #let stmt = `stmt`
 #let decl = `decl`
 #let prog = `prog`
 #let path = `path`
-#let argtype = `argtype`
-#let argmem = `argmem`
+#let type = `type`
 #bnf(
   Prod(`read`,
+    // NOTE: not three modalities for write, because read does not change value
+    // => it is not important to observe rsult, no differenc between always and maybe
     { Or[Read][read passed value]
-      Or[Not Read][] } ),
+      Or[$not$ Read][] } ),
   Prod(`write`,
     { Or[$square$ Write][in all cases there is a write to passed variable] // always write, requre at least one write in each flow variant
       Or[$diamond$ Write][in some cases there is a write to passed variable] // possible write, no requirements (?)
@@ -59,18 +47,105 @@
       Or[Value][pass copy of the value] } ),
   Prod(`in`,
     { Or[In][parameter value used as input]
-      Or[Not In][] } ),
+      Or[$not$ In][] } ),
   Prod(`out`,
-    { Or[Out][parametr value returned]
-      Or[Not Out][] } ),
+    { Or[Out][parameter value returned]
+      Or[$not$ Out][] } ),
   Prod(
-    `tag`,
+    `mode`,
     {
       Or[`read` #h(3pt) `write` #h(3pt) `copy` #h(3pt) `in` #h(3pt) `out`][]
     }
   ),
   Prod(
+    `path`,
+    {
+      // NOTE: global vars & local vars names could be used with one constructor
+      // Or[$\#x$][funciton or global variable itself]
+      Or[$@ X$][function argument or variable itself]
+      Or[$* path$][reference insede path]
+      Or[$path . n$][access $n$-th cell of the tuple]
+      // Or[$path : n$][access $n$-th cell of the union] // TODO: another notation ??
+    }
+  ),
+  Prod(
+    `type`,
+    {
+      Or[$()$][simple type representing all primitive types] // `Unit`
+      Or[\& #h(3pt) `mode` #h(3pt) `type`][reference to structure, contains copy / ref choice] // `Ref`
+      Or[$\[type+\]$][tuple type] // `Prod`
+      // Or[`type` $times$ `type`][pair type, allows to make tuples] // `Prod`
+      // Or[`type` $+$ `type`][union type (important in some way ???)] // `Sum` // TODO ?
+
+      // NOTE: do not use names in type
+      // Or[$lambda_((x type)+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
+      Or[$lambda_(type+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
+    }
+  ),
+  // FIXME: replace with expr
+  Prod(
+    `expr`,
+    {
+      Or[$()$][value of simple type] // `Unit`
+      Or[$path$][value from variable] // `Path`
+      Or[$\& #h(3pt) expr$][reference expr] // `Ref`
+      Or[\[$expr+$\]][tuple expr] // `Prod`
+      // NOTE: replaced with simple path value
+      // Or[$lambda_path$][function value from variable] // `Fun`
+    }
+  ),
+  Prod(
+    `stmt`,
+    {
+      Or[`CALL` $f space expr+$][call function]
+      Or[`WRITE` $path$][write to variable]
+      Or[`READ` $path$][read from variable]
+      Or[$stmt ; stmt$][control flow operator, xecution ]
+      Or[$stmt | stmt$][control flow operator, excution of one statements]
+    }
+  ),
+  Prod(
+    `decl`,
+    {
+      // TODO: path not allowed ??
+      Or[$"var" X : type = expr$][global variable declaration]
+      Or[$"fun" X ((X : type)+) = stmt$][function declaration]
+    }
+  ),
+  Prod(
+    `prog`,
+    {
+      Or[$decl stmt$][declarations and executet statement]
+    }
+  ),
+)
+
+== Value Model
+
+// FIXME: check & add details
+#let value = `value`
+#bnf(
+  Prod(
     `value`,
+    {
+      Or[$()$][value of simple type] // `Unit`
+      Or[$@ X$][function pointer value] // `Fun`
+      Or[$\& #h(3pt) value$][reference value] // `Ref`
+      Or[\[$value+$\]][tuple value] // `Prod`
+    }
+  ),
+)
+
+$value$ - значения, которые могут лежать в переменных на семантическом уровне (то, во что вычисляется $expr$)
+
+== Memory Model
+
+// FIXME: check & add details
+#let memvalue = `memvalue`
+#let argmem = `argmem`
+#bnf(
+  Prod(
+    `memvalue`,
     {
       Or[$0$][cell with some value (always)]
       Or[$X$][cell with possible value or $bot$]
@@ -78,95 +153,51 @@
     }
   ),
   Prod(
-    `path`,
-    {
-      Or[$@x$][fuction argument or variable itself]
-      Or[$* path$][reference insede path]
-      Or[$path . n$][access $n$-th cell of the tuple]
-      // Or[$path : n$][access $n$-th cell of the union] // TODO: another notation ??
-    }
-  ),
-  Prod(
-    `argtype`,
-    {
-      Or[$()$][simple type representing all primitive types] // `Unit`
-      Or[\& #h(3pt) `tag` #h(3pt) `argtype`][reference to structure, contains copy / ref choice] // `Ref`
-      Or[\[#overline(`argtype`)\]][pair type, allows to make tuples] // `Prod`
-      // Or[`argtype` $times$ `argtype`][pair type, allows to make tuples] // `Prod`
-      // Or[`argtype` $+$ `argtype`][union type (important in some way ???)] // `Sum` // TODO ?
-      Or[$F_x$][type of lambda or function pointer, defined by function declaration id] // `Fun`
-    }
-  ),
-  Prod(
     `argmem`,
     {
       Or[$@m$][memory id for simple type variable] // `Unit`
       Or[\& #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
-      // Or[\& #h(3pt) `tag` #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
-      Or[\[#overline(`argmem`)\]][pair type, allows specify memory for tuples] // `Prod`
+      // Or[\& #h(3pt) `mode` #h(3pt) `argmem`][reference to structure, contains copy / ref choice] // `Ref`
+      Or[$\[argmem+\]$][pair type, allows specify memory for tuples] // `Prod`
       // Or[`argmem` $times$ `argmem`][pair type, allows specify memory for tuples] // `Prod`
       // Or[`argmem` $+$ `argmem`][union type (important in some way ???)] // `Sum` // TODO ?
-      Or[$F$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
+
+      Or[$lambda$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
       // Or[$F_m$][memory for lambda or function pointer, defined by function declaration id] // `Fun` // why separated ??
     }
   ),
-  // Prod(
-  //   `arg`,
-  //   {
-  //     Or[$0$][new value, no associated variable]
-  //     Or[$ amp d$][value from some variable]
-  //   }
-  // ),
-  Prod(
-    `stmt`,
-    {
-      Or[`CALL` $f space overline(path)$][call function by id]
-      Or[`CALL_LAM` $path space overline(path)$][call lambda funciton (variable or funcitona argument field)]
-      Or[`WRITE` $path$][write to variable]
-      Or[`READ` $path$][read from variable]
-      // TODO: or introduce block statement ?? // vars definiiton statment ??
-      // (for example, for same named vars in nested spaces)
-      Or[`CHOICE` #overline(`stmt`) #overline(`stmt`)][control flow operator, xecution of one of the blocks]
-      // NOTE: var: replaced with arguments (use rvalue as init) (?)
-      // Or[`VAR`][variables inside functions] // NOTE: no modifiers required, because it is in the new memory ?? // TODO: not required ??
-      // NOTE: lambda: compile to call to the funciton with CHOICE between possible lambda bodies <- do this analysis inside synthesizer ?
-    }
-  ),
-  Prod(
-    `decl`,
-    {
-      Or[$overline(stmt)$][function body]
-      Or[$lambda a : argtype.$ `decl`][argument with argument pass strategy annotation]
-    }
-  ),
-  Prod(
-    `prog`,
-    {
-      Or[`decl`][main function]
-      Or[`decl` `prog`][with supplimentary funcitons]
-    }
-  ),
 )
-== Семантика статического интерпретатора
+
+== Semantics
+
+// FIXME: make connected to syntax
+*TODO*
 
 #h(10pt)
 
-$V := value$ - значения памяти
+$V := memvalue$ - значения памяти
 
-$L := NN$ - позиции в памяти
+// FIXME: not required, remove
+// $L := NN$ - позиции в памяти
 
 $X$ - можество переменных
 
-$sigma : X -> argmem times argtype$ - #[ позиции памяти, соответстующие переменным контекста,
+$LL$ - множество меток памяти
+_пока решил использовать всё-таки $NN$ для того, чтобы работать с размером памяти
+и добавлением ячеек, может стоит поменять_
+
+$FF$  -множество меток функций
+
+$sigma : X -> argmem times type$ - #[ позиции памяти, соответстующие переменным контекста,
                            частично определённая функция ]
 
 $mu : NN -> V$ - память, частично определённая функция
 
 $l in NN$ - длина используемого фрагмента памяти
 
-$DD : NN -> decl$ - определения функций, частично определённая функция
+$DD : FF -> decl$ - определения функций, частично определённая функция
 
-$d in decl, s in stmt, f in NN, x in X, a in NN$
+$d in decl, s in stmt, f in FF, x in X, a in X$
 
 $d space @ space overline(x)$ - запись применения функции (вида #decl) к аргументам
 
@@ -201,9 +232,10 @@ $d space @ space overline(x)$ - запись применения функции
 
 === Path
 
+// FIXME: types & description for functios
 #let pathtype = `pathtype`
 $ pathtype(t, @x) = t $
-$ pathtype(\& #h(3pt) tag #h(3pt) t, *p) = pathtype(t, p) $
+$ pathtype(\& #h(3pt) mode #h(3pt) t, *p) = pathtype(t, p) $
 $ pathtype([t_1, t_2, ..., t_n], p.i) = pathtype(t_i, p) $
 
 #let pathmem = `pathmem`
@@ -218,8 +250,8 @@ $ pathmem([m_1, m_2, ..., m_n], p.i) = pathmem(m_i, p) $
 // $ pathfun([m_1, m_2, ..., m_n], p.i) = pathfun(m_i, p) $
 
 #let pathtag = `pathtag`
-$ pathtag(\& #h(3pt) tag #h(3pt) t, @x) = tag $
-$ pathtag(\& #h(3pt) tag #h(3pt) t, *p) = pathtag(t, p) $
+$ pathtag(\& #h(3pt) mode #h(3pt) t, @x) = mode $
+$ pathtag(\& #h(3pt) mode #h(3pt) t, *p) = pathtag(t, p) $
 $ pathtag([t_1, t_2, ..., t_n], p.i) = pathtag(t_i, p) $
 
 #let pathvar = `pathvar`
@@ -248,17 +280,21 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
 === Correctness
 
+// TODO: FIXME: well formatness for mode, extract
+// TODO: FIXME: check for mode, is recursion required ??
+// TODO: FIXME: check mode & access corectness in os correct
+
 // TODO: check all requirements
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ is correct],
-    $isOut tag -> isAlwaysWrite tag$, // NOTE; strong requirment should write
-    $isRead tag -> isIn tag$,
-    $isPossibleWrite tag and (isOut tag or not isCopy tag) -> isAlwaysWrite argtag(sigma, x)$, // NOTE: may tag => should sigma(x)
-    $isRead tag -> access(mu, sigma, x) != bot and access(mu, sigma, x) != X$,
+    $isOut mode -> isAlwaysWrite mode$, // NOTE; strong requirment should write
+    $isRead mode -> isIn mode$,
+    $isPossibleWrite mode and (isOut mode or not isCopy mode) -> isAlwaysWrite argtag(sigma, x)$, // NOTE: may mode => should sigma(x)
+    $isRead mode -> access(mu, sigma, x) != bot and access(mu, sigma, x) != X$,
 
-    $isCorrect_(cl sigma, mu cr) (tag, x)$,
+    $isCorrect_(cl sigma, mu cr) (mode, x)$,
   )
 ))
 
@@ -266,10 +302,10 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
 === Call Initialization
 
-Отсутствующий ижний индекс ($ref$, $copy$) означает произвольный индекс.
+Отсутствующий нижний индекс ($ref$, $copy$) означает произвольный индекс.
 Считается, что выбранный индекс одинаков в рамках одного правила.
 
-// NOTE: no empty argtype
+// NOTE: no empty type
 // #align(center, prooftree(
 //   vertical-spacing: 4pt,
 //   rule(
@@ -310,9 +346,9 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
   rule(
     name: [ add paths ref],
     $cl sigma, mu, l cr xarrowSquiggly(*p : t)_ref cl sigma', mu', l' cr$,
-    $isRef tag$,
+    $isRef mode$,
 
-    $cl sigma, mu, l cr xarrowSquiggly(p : \& tag t) cl sigma', mu', l' cr$,
+    $cl sigma, mu, l cr xarrowSquiggly(p : \& mode t) cl sigma', mu', l' cr$,
   )
 ))
 
@@ -323,9 +359,9 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
   rule(
     name: [ add paths ref],
     $cl sigma, mu, l cr xarrowSquiggly(*p : t)_copy cl sigma, mu, l cr$,
-    $isCopy tag$,
+    $isCopy mode$,
 
-    $cl sigma, mu, l cr xarrowSquiggly(p : \& tag t) cl sigma', mu', l' cr$,
+    $cl sigma, mu, l cr xarrowSquiggly(p : \& mode t) cl sigma', mu', l' cr$,
   )
 ))
 
@@ -375,14 +411,14 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
     $mu stretch(=>)^args_sigma gamma$,
 
-    $isPossibleWrite tag$, // NOTE: weak requirement: may write
-    $not isCopy tag$,
-    $not isOut tag$,
+    $isPossibleWrite mode$, // NOTE: weak requirement: may write
+    $not isCopy mode$,
+    $not isOut mode$,
 
-    $isCorrect_(cl sigma, mu cr) (tag, x)$,
+    $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((tag, x) : args)_sigma access(gamma, sigma, x) <- bot]$
+    $gamma stretch(=>)^((mode, x) : args)_sigma access(gamma, sigma, x) <- bot]$
   )
 ))
 
@@ -395,13 +431,13 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
 
     $mu stretch(=>)^args_sigma gamma$,
 
-    $isAlwaysWrite tag$, // NOTE: strong requirement: should write
-    $isOut tag$,
+    $isAlwaysWrite mode$, // NOTE: strong requirement: should write
+    $isOut mode$,
 
-    $isCorrect_(cl sigma, mu cr) (tag, x)$,
+    $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((tag, x) : args)_sigma access(gamma, sigma, x) <- 0]$
+    $gamma stretch(=>)^((mode, x) : args)_sigma access(gamma, sigma, x) <- 0]$
   )
 ))
 
@@ -417,10 +453,10 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
     $not "spoil step"$,
     $not "fix step"$,
 
-    $isCorrect_(cl sigma, mu cr) (tag, x)$,
+    $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // mu
-    $gamma stretch(=>)^((tag, x) : args)_sigma gamma$
+    $gamma stretch(=>)^((mode, x) : args)_sigma gamma$
   )
 ))
 
@@ -444,8 +480,8 @@ $ access(sigma, mu, p) = mu[accessmem(sigma, p)] $
      xarrowDashed(d space @ space overline(y))
      cl sigma'', mu'', l'' cr$,
 
-    $isRead tag$,
-    $not isCopy tag$,
+    $isRead mode$,
+    $not isCopy mode$,
 
     // NOTE: correctness checked in CALL f
 
