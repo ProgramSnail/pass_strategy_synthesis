@@ -79,7 +79,7 @@
 
       // NOTE: do not use names in type
       // Or[$lambda_((x type)+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
-      Or[$lambda_(type+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
+      Or[$lambda type+$][type of lambda or function pointer, defined by function declaration] // `Fun`
     }
   ),
   // FIXME: replace with expr
@@ -122,62 +122,70 @@
 
 == Value Model
 
+#let rf = $\& #h(3pt)$
+
 // FIXME: check & add details
+#let deepvalue = `deepvalue`
 #let value = `value`
 #bnf(
   Prod(
-    `value`,
+    $deepvalue$,
     {
-      Or[$()$][value of simple type] // `Unit`
-      Or[$lambda_X$][function pointer value] // `Fun`
-      Or[$\& #h(3pt) value$][reference value] // `Ref`
+      Or[$0$][valid value of simple type] // `Unit`
+      Or[$\#$][valid or spoiled value of simple type] // `Unit`
+      Or[$bot$][spoiled value of simple type] // `Unit`
+      Or[$lambda type+ stmt$][function pointer value] // `Fun`
+      Or[$rf deepvalue$][reference value, contains label of the value in the memory] // `Ref`
+      Or[$[deepvalue+]$][tuple value] // `Prod`
+    }
+  ),
+  Prod(
+    $value_mu$,
+    {
+      Or[$0$][valid value of simple type] // `Unit`
+      Or[$\#$][valid or spoiled value of simple type] // `Unit`
+      Or[$bot$][spoiled value of simple type] // `Unit`
+      Or[$lambda type+ stmt$][function pointer value] // `Fun`
+      Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
   ),
 )
 
-$value$ - значения, которые могут лежать в переменных и передаваться как аргументы функций (то, во что вычисляется $expr$)
+#deepvalue - полное значение, #value - слой значения, привязан к конкретной памяти $mu$
+
+Значения, могут лежать в переменных и передаваться как аргументы функций (то, во что вычисляется $expr$)
+
+$v in value$ - произвольное значение
+
+Получение #value по #deepvalue:
+- $rf LL xarrowSquiggly(mu)_#[deep] rf mu[LL]$
+- $* xarrowSquiggly(mu)_#[deep] *$
+где $*$ - произвольный конструктор значения кроме $rf$
 
 == Memory Model
 
-// FIXME: check & add details
-#let memelem = `memelem`
-#let valuemem = `valuemem`
-#bnf(
-  Prod(
-    `memelem`,
-    {
-      Or[$0$][cell with some value (always)]
-      Or[$\#$][cell with possible value or $bot$]
-      Or[$bot$][spoiled cell (always)]
-    }
-  ),
-  Prod(
-    `valuemem`,
-    {
-      Or[$()$][one unit of memory, for simple vars] // `Unit`
-      Or[$lambda$][memory for lambda or function pointer, is not important in the memory model, 0 units] // `Fun`
-      Or[$\& #h(3pt) LL valuemem$][reference to structure memory start] // `Ref`
-      Or[$[valuemem+]$][memory specification for each tuple member] // `Prod`
-    }
-  ),
-)
+#let cl = $chevron.l$
+#let cr = $chevron.r$
 
 #let mem = `mem`
-Память преставляется в виде стека из значений `memelem`:
-- $LL = NN$ - множество меток памяти
-- $mu : mem = LL -> V$ - память, частично определённая функция
-- $l in LL$ - длина используемого фрагмента памяти
 
-Каждому значению $value$ в соответствие ставится $valuemem$ - расположние этого значения в пaмяти
+- $LL$ - множество меток памяти
+- $mem := LL -> value, space mu : mem$ - память, частично определённая функция
+- $l in LL$ - новый тег памяти (ранее не использованный)
+- `next` - получение следующей неиспользованной метки
 
-Соответствие:
-- $() -> ()$
-- $lambda_X -> lambda$
-- $\& #h(3pt) value -> \& #h(3pt) LL valuemem$
-- $[value+] -> [valuemem+]$
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add value to memory],
 
-// TODO: move allocation semantics there ??
+    $l' = #[next] (l)$,
+
+    // TODO: check that access is what required ??
+    $cl mu, l cr xarrowSquiggly(v)_#[add] cl mu [l <- v], l' cr$,
+  )
+))
 
 == Semantics
 
@@ -185,14 +193,24 @@ $value$ - значения, которые могут лежать в перем
 
 $X$ - можество переменных
 
+// FIXME: TMP
+#let valuemem = `valuemem`
+#let memelem = `memelem`
+#let pathenvmode = `pathenvmode`
+#let pathenvval = `pathenvval`
+#let pathenvmem = `pathenvmem`
+#let pathenvtype = `pathenvtype`
+
 #let env = `env`
-$sigma : env = X -> valuemem times type$ - #[ позиции памяти, соответстующие переменным контекста, частично определённая функция ]
+$sigma : env := X -> LL times type, space sigma : env$ - #[ метки памяти и типы значений пеерменных контекста, частично определённая функция ]
 
-$DD : X -> decl$ - глобальные определения, частично определённая функция
+// $DD : X -> decl$ - глобальные определения, частично определённая функция
 
-$d in decl, s in stmt, f in X, x in X, a in X$
+// $d in decl, $
+$s in stmt, f in X, x in X, a in X$
 
-$d space @ space overline(x)$ - запись применения функции (вида #decl) к аргументам
+// FIXME ??
+// $d space @ space overline(x)$ - запись применения функции (вида #decl) к аргументам
 
 === Path Accessors
 
@@ -200,93 +218,215 @@ $d space @ space overline(x)$ - запись применения функции
 Для удобства значение, получаемое из текущего применением пути, будем называть полем.
 // Все эти функции используются с префиксом `path.`.
 
-// FIXME: types & description for functios
-#let pathtype = `path.type`
-#let pathmem = `path.mem`
-#let pathmode = `path.mode`
-#let pathvar = `path.var`
+#let eqmu = $attach(=, br: mu)$
+#let arrmu = $attach(->, br: mu)$
 
-#let pathsize = `path.memsize`
-#let pathbasepos = `path.membasepos`
-#let pathoffset = `path.memoffset`
-#let pathpos = `path.mempos`
+#let ttype = $attach(tack.r, br: type)$
+#let tpath = $attach(tack.r, br: path)$
+#let tmode = $attach(tack.r, br: mode)$
 
-#let pathenvtype = `path.envtype`
-#let pathenvmem = `path.envmem`
-#let pathenvmode = `path.envmode`
+#let val = `val`
+#let label = `label`
+#let tval = $attach(tack.r, br: val)$
+#let tlabel = $attach(tack.r, br: label)$
 
-#let pathenvpos = `path.envpos`
-#let pathenvval = `path.envval`
+#let tetype = $attach(tack.r.double, br: type)$
+#let temode = $attach(tack.r.double, br: mode)$
+
+#let teval = $attach(tack.r.double, br: val)$
+#let telabel = $attach(tack.r.double, br: label)$
+
+// TODO: env mem label ??, env mem value ??
+
+// TODO: FIXME: backwards, deconstruction ??
+- #[ Конструирование путей по переменой
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ variable path],
+
+    $x tpath @x$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ reference path],
+
+    $x tpath p$,
+    $x tpath rf p$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access path],
+
+    $x tpath p$,
+
+    $x tpath p.i$,
+  )
+))
+]
 
 - #[ Получение типа поля
-$ pathtype : type -> path -> type $
-$ pathtype(t, @x) = t $
-$ pathtype(\& #h(3pt) mode #h(3pt) t, *p) = pathtype(t, p) $
-$ pathtype([t_1, t_2, ..., t_n], p.i) = pathtype(t_i, p) $
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ variable typing],
+
+    $x : t_x ttype @x : t_x$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ reference typing],
+
+    $x tpath p$,
+    $x : t_x ttype p : rf mode t_p$,
+    $x : t_x ttype *p : t_p$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x : t_x ttype p : [t_1, ... t_n]$,
+    $x : t_x ttype p.i : t_i$,
+  )
+))
 ]
-- #[ Получение начала памяти поля (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
-$ pathmem : valuemem -> path -> LL $
-$ pathmem(\& #h(3pt) y m, @x) = y $ // NOTE: only memory for refsi in midel ?? // TODO: decide
-$ pathmem(\& #h(3pt) y m, *p) = pathmem(m, p) $
-$ pathmem([m_1, m_2, ..., m_n], p.i) = pathmem(m_i, p) $
+
+- #[ Получение тега поля
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ variable typing],
+
+    $t_x = rf mode t$,
+    $x : t_x tmode @x -> mode$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ reference typing],
+
+    $x tpath p$,
+    $x : t_x tmode p : rf mode t_p$,
+    $x : t_x tmode *p : t_p$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x : t_x tmode p : [t_1, ... t_n]$,
+    $x : t_x tmode p.i : t_i$,
+  )
+))
 ]
-- #[ Получения тега поля (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
-$ pathmode : type -> path -> mode $
-$ pathmode(\& #h(3pt) mode #h(3pt) t, @x) = mode $
-$ pathmode(\& #h(3pt) mode #h(3pt) t, *p) = pathmode(t, p) $
-$ pathmode([t_1, t_2, ..., t_n], p.i) = pathmode(t_i, p) $
+
+- #[ Получение значения поля
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ variable typing],
+
+    $x eqmu v_x tval @x eqmu v_x$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ reference typing],
+
+    $x tpath p$,
+    $x eqmu v_x tval p eqmu rf l$,
+    $x eqmu v_x tval *p eqmu mu[l]$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x eqmu v_x tmode p eqmu [v_1, ... v_n]$,
+    $x eqmu v_x tmode p.i eqmu v_i$,
+  )
+))
 ]
-- #[ Получение \"корневой\" переменной пути
-$ pathvar : path -> X $
-$ pathvar(@x) = x $
-$ pathvar(* p) = pathvar(p) $
-$ pathvar(p.i) = pathvar(p) $
+
+- #[ Получение метки поля
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ variable typing],
+
+    $v_x = rf l$,
+
+    $x eqmu v_x tval p eqmu rf l$,
+    $x eqmu v_x tmode p arrmu l$,
+  )
+))
 ]
-- #[ Получение размера поля в памяти
-$ pathsize : valuemem -> path -> LL $
-$ pathsize((), @x) = 1 $
-$ pathsize(lambda, @x) = 0 $
-$ pathsize(\& #h(3pt) y m, @x) = 0 $ // TODO: FIXME ?? always disconnected location ??
-$ pathsize([m_1, m_2, ..., m_n], @x) = pathsize(m_1, @x) + ... + pathsize(m_n, @x) $
-$ pathsize(\& #h(3pt) y m, *p) = pathsize(m, p) $
-$ pathsize([m_1, m_2, ..., m_n], p.i) = pathsize(m_i, p) $
-]
-// TODO: FIXME ??
-- #[ Получение позиции последного ссылочного предка поля в пaмяти
-$ pathbasepos : value -> path -> X $
-// $ pathbasepos(m, @x) = bot $ // NOTE: trivial if not present ??
-$ pathbasepos(\& #h(3pt) y m, *p) = pathbasepos(m, p) | y $
-$ pathbasepos([m_1, m_2, ..., m_n], p.i) = pathbasepos(m_i, p) $
-]
-- #[ Получение смещения поля в последнем монолитном отрезке памяти
-$ pathoffset : value -> path -> X $
-$ pathoffset(m, @x) = 0 $
-$ pathoffset(\& #h(3pt) y m, *p) = pathoffset(m, p) $
-$ pathoffset([m_1, m_2, ..., m_n], p.i) = (i - 1) + pathoffset(m_i, p) $
-]
-- #[ Получение позиции поля в пaмяти
-$ pathpos : value -> path -> X $
-$ pathpos(m, p) = pathbasepos(m, p) + pathoffset(m, p)$
-]
+
 - #[ Получение типа поля по окружению
-$ pathenvtype : env -> path -> type $
-$ pathenvtype(sigma, p) = pathtype(sigma[pathvar(p)].2, p) $
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x : sigma[x].2 ttype p : t$,
+    $sigma tetype p : t$,
+  )
+))
 ]
-- #[ Получение начала памяти поля по окружению (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
-$ pathenvmem : env -> path -> LL $
-$ pathenvmem(sigma, p) = pathmem(sigma[pathvar(p)].1, p) $
+
+- #[ Получение тега поля по окружению
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x : sigma[x].2 tmode p -> mode$,
+    $sigma temode p -> mode$,
+  )
+))
 ]
-- #[ Получения тега поля по окружению (предусловие: $pathtype(t, p) = \& #h(3pt) ...$)
-$ pathenvmode : env -> path -> mode $
-$ pathenvmode(sigma, p) = pathmode(sigma[pathvar(p)].2, p) $
+
+- #[ Получение значения поля по окружению
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x eqmu sigma[x].1 tval p eqmu v$,
+    $sigma, mu teval p eqmu x$,
+  )
+))
 ]
-- #[ Получение позиции поля в пaмяти по окружению
-$ pathenvpos : env -> path -> X $
-$ pathenvpos(m, p) = pathpos(sigma[pathvar(p)].1, p)$
-]
-- #[ Получение поля в пaмяти
-$ pathenvval : env -> mem -> path -> memelem $
-$ pathenvval(sigma, mu, p) = mu[pathenvpos(sigma, p)]$
+
+- #[ Получение метки поля по окружению
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ access typing],
+
+    $x tpath p$,
+    $x eqmu sigma[x].1 tlabel p arrmu l$,
+    $sigma, mu telabel p arrmu l$,
+  )
+))
 ]
 
 === Mode Correctness
@@ -324,9 +464,6 @@ $ isRead mode -> isIn mode $
 #let ref = `ref`
 #let copy = `copy`
 #let read = `read`
-
-#let cl = $chevron.l$
-#let cr = $chevron.r$
 
 // #align(center, grid(
 //   columns: 3,
