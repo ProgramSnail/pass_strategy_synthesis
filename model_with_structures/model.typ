@@ -27,13 +27,28 @@
 #let isIn = `isIn`
 #let isOut = `isOut`
 
+#let readTag = `read`
+#let writeTag = `write`
+#let copyTag = `copy`
+#let inTag = `in`
+#let outTag = `out`
 #let mode = `mode`
+
+#let Copy = `Copy`
+#let Ref = `Ref`
+#let MaybeWrite = [$diamond$ `Write`]
+#let AlwaysWrite = [$square$ `Write`]
+#let Read = `Read`
+#let In = `In`
+#let Out = `Out`
+
 #let expr = `expr`
 #let stmt = `stmt`
 #let decl = `decl`
 #let prog = `prog`
 #let path = `path`
 #let type = `type`
+#let modedType = `modedtype`
 #bnf(
   Prod(`read`,
     // NOTE: not three modalities for write, because read does not change value
@@ -56,7 +71,7 @@
   Prod(
     `mode`,
     {
-      Or[`read` #h(3pt) `write` #h(3pt) `copy` #h(3pt) `in` #h(3pt) `out`][]
+      Or[$inTag space outTag$][]
     }
   ),
   Prod(
@@ -73,15 +88,21 @@
   Prod(
     `type`,
     {
-      Or[$()$][simple type representing all primitive types] // `Unit`
-      Or[\& #h(3pt) `mode` #h(3pt) `type`][reference to structure, contains copy / ref choice] // `Ref`
+      Or[$readTag writeTag ()$][simple type representing all primitive types] // `Unit`
+      Or[$rf copyTag space type$][reference to structure, contains copy / ref choice] // `Ref`
       Or[$[type+]$][tuple type] // `Prod`
       // Or[`type` $times$ `type`][pair type, allows to make tuples] // `Prod`
       // Or[`type` $+$ `type`][union type (important in some way ???)] // `Sum` // TODO ?
 
       // NOTE: do not use names in type
       // Or[$lambda_((x type)+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
-      Or[$lambda type+$][type of lambda or function pointer, defined by function declaration] // `Fun`
+      Or[$lambda (modedType)+$][type of lambda or function pointer, defined by function declaration] // `Fun`
+    }
+  ),
+  Prod(
+    `modedtype`,
+    {
+      Or[$mode type$][type woth in and out modifiers]
     }
   ),
   Prod(
@@ -96,7 +117,7 @@
   Prod(
     `stmt`,
     {
-      Or[`CALL` $f space expr+$][call function]
+      Or[`CALL` $path space expr+$][call function]
       Or[`WRITE` $path$][write to variable]
       Or[`READ` $path$][read from variable]
       Or[$stmt ; stmt$][control flow operator, xecution ]
@@ -108,7 +129,7 @@
     {
       // TODO: path not allowed ??
       Or[$"var" X : type = expr$][global variable declaration]
-      Or[$"fun" X ((X : type)+) = stmt$][function declaration]
+      Or[$"fun" X ((X : modedType)+) = stmt$][function declaration]
     }
   ),
   Prod(
@@ -121,20 +142,19 @@
 
 == Value Model
 
-// FIXME: check & add details
-#let deepvalue = `deepvalue`
+#let deepValue = `deepvalue`
 #let value = `value`
-#let copy = `copy`
+
 #bnf(
   Prod(
-    $deepvalue$,
+    $deepValue$,
     {
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
       Or[$lambda type+ stmt$][function pointer value] // `Fun`
-      Or[$rf deepvalue$][reference value, contains label of the value in the memory] // `Ref`
-      Or[$[deepvalue+]$][tuple value] // `Prod`
+      Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
+      Or[$[deepValue+]$][tuple value] // `Prod`
     }
   ),
   Prod(
@@ -145,20 +165,20 @@
       Or[$bot$][spoiled value of simple type] // `Unit`
       Or[$lambda type+ stmt$][function pointer value] // `Fun`
       // FIXME: embed mode into value for simplification ??
-      Or[$rf copy LL$][reference value, contains label of the value in the memory] // `Ref`
+      Or[$rf copyTag LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
   ),
 )
 
-#deepvalue - полное значение, #value - слой значения, привязан к конкретной памяти $mu$
+#deepValue - полное значение, #value - слой значения, привязан к конкретной памяти $mu$
 
 Значения, могут лежать в переменных и передаваться как аргументы функций (то, во что вычисляется $expr$)
 
 $v in value$ - произвольное значение
 
-Получение #deepvalue по #value:
-- $rf copy LL xarrowSquiggly(mu)_#[deep] rf copy mu[LL]$
+Получение #deepValue по #value:
+- $rf c l xarrowSquiggly(mu)_#[deep] rf c mu[l]$
 - $* xarrowSquiggly(mu)_#[deep] *$
 где $*$ - произвольный конструктор значения, кроме $rf$
 
@@ -258,7 +278,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access path],
+    name: [ tuple access path],
 
     $x tpath p$,
 
@@ -271,7 +291,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ variable typing],
+    name: [ variable type access],
 
     $x : t_x ttype @x : t_x$,
   )
@@ -279,7 +299,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ reference typing],
+    name: [ reference type access],
 
     $x tpath p$,
     $x : t_x ttype p : rf mode t_p$,
@@ -289,7 +309,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ tuple type access],
 
     $x tpath p$,
     $x : t_x ttype p : [t_1, ... t_n]$,
@@ -298,34 +318,34 @@ $s in stmt, f in X, x in X, a in X$
 ))
 ]
 
-- #[ Получение тега поля
+- #[ Получение read-write тега поля
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ variable typing],
+    name: [ variable rw tag access],
 
-    $t_x = rf mode t$,
-    $x : t_x tmode @x -> mode$,
+    $t_x = r w ()$,
+    $x : t_x tmode @x -> cr r w cl$,
   )
 ))
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ reference typing],
+    name: [ reference rw tag access],
 
     $x tpath p$,
-    $x : t_x tmode p : rf mode t_p$,
-    $x : t_x tmode *p : t_p$,
+    $x : t_x tmode p -> cr r w cl$,
+    $x : t_x tmode *p ->  cr r w cl$,
   )
 ))
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ tuple rw tag access],
 
     $x tpath p$,
-    $x : t_x tmode p : [t_1, ... t_n]$,
-    $x : t_x tmode p.i : t_i$,
+    $x : t_x tmode p ->  cr r w cl$,
+    $x : t_x tmode p.i -> cr r w cl$,
   )
 ))
 ]
@@ -334,7 +354,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ variable typing],
+    name: [ variable value access],
 
     $x eqmu v_x tval @x eqmu v_x$,
   )
@@ -342,7 +362,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ reference typing],
+    name: [ reference value access],
 
     $x tpath p$,
     $x eqmu v_x tval p eqmu rf l$,
@@ -352,7 +372,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ tuple value access],
 
     $x tpath p$,
     $x eqmu v_x tmode p eqmu [v_1, ... v_n]$,
@@ -365,11 +385,11 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ variable typing],
+    name: [ access],
 
     $v_x = rf l$,
-
     $x eqmu v_x tval p eqmu rf l$,
+
     $x eqmu v_x tmode p arrmu l$,
   )
 ))
@@ -379,7 +399,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ access],
 
     $x tpath p$,
     $x : sigma[x].2 ttype p : t$,
@@ -388,15 +408,15 @@ $s in stmt, f in X, x in X, a in X$
 ))
 ]
 
-- #[ Получение тега поля по окружению
+- #[ Получение read-write тега поля по окружению
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ access],
 
     $x tpath p$,
-    $x : sigma[x].2 tmode p -> mode$,
-    $sigma temode p -> mode$,
+    $x : sigma[x].2 tmode p -> cr r space w cl$,
+    $sigma temode p -> cr r space w cl$,
   )
 ))
 ]
@@ -405,7 +425,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ access],
 
     $x tpath p$,
     $x eqmu sigma[x].1 tval p eqmu v$,
@@ -418,7 +438,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ access typing],
+    name: [ access],
 
     $x tpath p$,
     $x eqmu sigma[x].1 tlabel p arrmu l$,
@@ -427,33 +447,36 @@ $s in stmt, f in X, x in X, a in X$
 ))
 ]
 
-=== Mode Correctness
+=== Mode Accessors
 
-Функции проверки тегов, имеют тип $mode -> #[bool]$:
+#let modevar = $(i space o)$
 
-#let modevar = $(r space w space c space i space o)$
+$ isIn modevar = i == In $
+$ isOut modevar = o == Out $
 
-$ isRead modevar = r == "Read" $
-$ isAlwaysWrite modevar = w == square "Write" $
-$ isPossibleWrite modevar = w == diamond "Write" || w == square "Write" $
-$ isRef modevar = c == "Ref" $
-$ isCopy modevar = c == "Copy" $
-$ isIn modevar = i == "In" $
-$ isOut modevar = o == "Out" $
+// FIXME: move to new mode model
+// === Mode Correctness
 
-Требования к тегам:
+// Функции проверки тегов, имеют тип $mode -> #[bool]$:
 
-$ isOut mode -> isAlwaysWrite mode $
-$ isRead mode -> isIn mode $
+// #let modevar = $(r space w space c space i space o)$
+
+// $ isRead modevar = r == "Read" $
+// $ isAlwaysWrite modevar = w == square "Write" $
+// $ isPossibleWrite modevar = w == diamond "Write" || w == square "Write" $
+// $ isRef modevar = c == "Ref" $
+// $ isCopy modevar = c == "Copy" $
+// $ isIn modevar = i == "In" $
+// $ isOut modevar = o == "Out" $
+
+// Требования к тегам:
+
+// $ isOut mode -> isAlwaysWrite mode $
+// $ isRead mode -> isIn mode $
 
 // TODO: rest conditions ??
 
 === Eval Rules
-
-// FIXME: make connected to syntax
-*TODO*
-
-#h(10pt)
 
 #let args = `args`
 
@@ -479,28 +502,77 @@ $ isRead mode -> isIn mode $
 
 // TODO: introduce spep env argument ??
 
-#h(10pt)
+=== Moded Type Correctness
 
-=== Correctness
-
-*TODO*
+#let tcorrect = $attach(tack.r, br: #[correct])$
 
 // TODO: FIXME: well formatness for mode, extract
 // TODO: FIXME: check for mode, is recursion required ??
 // TODO: FIXME: check mode & access corectness in os correct
 
-// TODO: check all requirements
+$ sigma in env, space mu in mem, space m in mode,
+  space c in copyTag, space r, r' in readTag, space w, w' in writeTag,
+  space v in value, space t, t' in type $
+
+#h(10pt)
+
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ is correct],
-    // NOTE: moved to general mode requirements
-    // $isOut mode -> isAlwaysWrite mode$, // NOTE; strong requirment should write
-    // $isRead mode -> isIn mode$,
-    $isPossibleWrite mode and (isOut mode or not isCopy mode) -> isAlwaysWrite pathenvmode(sigma, x)$, // NOTE: may mode => should sigma(x)
-    $isRead mode -> pathenvval(mu, sigma, x) != bot and pathenvval(mu, sigma, x) != X$,
+    name: [ unit assignment tags correctness],
 
-    $isCorrect_(cl sigma, mu cr) (mode, x)$,
+    $r = Read => isIn m$, 
+    $isOut m => w = AlwaysWrite$,
+    // $sigma temode x -> cr r' space w' cl$, // NOTE: not required, value passed
+    $(w = AlwaysWrite or w = MaybeWrite) and (isOut m or c = Ref) => w' = AlwaysWrite$,
+
+    // $sigma, mu teval x eqmu v$, // NOTE: not required, value passed
+    $v in {0, \#, bot}$,
+    $r = Read => v = 0$,
+
+    $sigma, mu, m, c tcorrect v : r' space w' () -> r space w ()$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ ref assignment tags correctness],
+
+    $sigma, mu, m, c_r tcorrect v : t -> t'$,
+
+    // TODO: FIXME: which tag translations are correct ?? <- only assignee?
+    $sigma, mu, m, c tcorrect rf c_r space v : rf c' space t -> rf c_r space t'$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ tuple assignmenttags correctness],
+
+    $sigma, mu, m, c tcorrect v_1 : t_1 -> t'_1$,
+
+    $...$,
+
+    $sigma, mu, m, c tcorrect v_n : t_n -> t'_n$,
+
+    $sigma, mu, m, c tcorrect [v_1, ... v_n] : [t_1, ..., t_n] -> [t'_1, t'_n]$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ function pointer tags correctness],
+
+    $sigma, mu, m, c tcorrect lambda space overline(t) space s : lambda space overline(t) -> lambda space overline(t)$,
   )
 ))
 
@@ -509,8 +581,6 @@ $ isRead mode -> isIn mode $
 === Value Construction
 
 #let new = `new`
-#let Copy = `Copy`
-#let Ref = `Ref`
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -555,7 +625,7 @@ $ isRead mode -> isIn mode $
   rule(
     name: [ new reference ref value],
 
-    $cl rf Ref space l, mu cr xarrowSquiggly(space)_new cl rf Ref space l, mu cr$,
+    $cl rf Ref l, mu cr xarrowSquiggly(space)_new cl rf Ref l, mu cr$,
   )
 ))
 
@@ -568,7 +638,7 @@ $ isRead mode -> isIn mode $
 
     $cl mu_v cr xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
 
-    $cl rf Copy space l, mu cr xarrowSquiggly(space)_new cl rf copy space l', mu_a cr$,
+    $cl rf Copy l, mu cr xarrowSquiggly(space)_new cl rf Copy l', mu_a cr$,
   )
 ))
 
@@ -585,7 +655,16 @@ $ isRead mode -> isIn mode $
   )
 ))
 
+=== Value Update
+
+#let write = `write`
+
+*TODO: write to value*
+
 === Call Finalization
+
+// FIXME: make connected to syntax
+*TODO*
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -658,6 +737,9 @@ $ isRead mode -> isIn mode $
 
 === Function Evaluation
 
+// FIXME: make connected to syntax
+*TODO*
+
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
@@ -707,22 +789,22 @@ $ isRead mode -> isIn mode $
 
 === Statement Evaluation
 
+// FIXME: make connected to syntax
+*TODO: check type of lambda?, args from type?*
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ CALL $f space overline(x)$],
+    name: [ CALL $f space overline(p)$],
 
     $cl [], mu, l cr
-     xarrowDashed(d space @ space overline(x))
+     xarrowDashed(f space @ space overline(p))
      cl sigma', mu', l' cr$,
 
     // TODO: FIXME define args in some way
     $mu attach(stretch(=>)^args_sigma, tr: *) gamma$,
 
-    $DD(f) := d$,
-
     $cl sigma, mu, l cr
-     xarrow("CALL" f space overline(x))
+     xarrow("CALL" f space overline(p))
      cl sigma, gamma, l cr$,
   )
 ))
@@ -732,32 +814,12 @@ $ isRead mode -> isIn mode $
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ CALL_LAM $y space overline(x)$],
+    name: [ READ $p$],
 
-    $pathenvtype(sigma, y) = F_f$,
-
-    $cl sigma, mu, l cr
-     xarrow("CALL" f space overline(x))
-     cl sigma, gamma, l cr$,
+    $mu, sigma teval p eqmu 0$,
 
     $cl sigma, mu, l cr
-     xarrow("CALL_LAM" y space overline(x))
-     cl sigma, gamma, l cr$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ READ $x$],
-
-    $pathenvval(mu, sigma, x) != bot$,
-    $pathenvval(mu, sigma, x) != X$,
-
-    $cl sigma, mu, l cr
-     xarrow("READ" x)
+     xarrow("READ" p)
      cl sigma, mu, l cr$,
   )
 ))
@@ -769,11 +831,38 @@ $ isRead mode -> isIn mode $
   rule(
     name: [ WRITE $x$],
 
-    $isPossibleWrite sigma(x)$,
+    $sigma temode p -> cr r space w cl$,
 
-    $cl sigma, mu, l cr
-     xarrow("WRITE" x)
-     cl sigma, pathenvval(mu, sigma, x) <- 0, l cr$,
+    $w == MaybeWrite or w == AlwaysWrite$,
+
+    $x tpath p$,
+
+    $mu[x] xarrowSquiggly(p)_write v$,
+
+    $cl sigma, mu cr
+     xarrow("WRITE" p)
+     cl sigma, mu[x <- v] cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ $s \; t$],
+
+    $cl sigma, mu cr
+     stretch(->)^s
+     cl sigma_s, mu_s cr$,
+
+    $cl sigma, mu cr
+     stretch(->)^t
+     cl sigma_t, mu_t cr$,
+
+    $cl sigma, mu, cr
+     xarrow(s \; t)
+     cl sigma_t, mu_t cr$,
   )
 ))
 
@@ -781,26 +870,27 @@ $ isRead mode -> isIn mode $
 
 #let combine = `combine`
 
+*TODO: combine replacement* // FIXME
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ CHOICE $overline(s)$ $overline(t)$],
+    name: [ $s | t$],
 
     $cl sigma, mu, l cr
-     attach(stretch(->)^overline(s), tr: *)
+     stretch(->)^s
      cl sigma_s, mu_s, l_s cr$,
 
     $cl sigma, mu, l cr
-     attach(stretch(->)^overline(t), tr: *)
+     stretch(->)^t
      cl sigma_t, mu_t, l_t cr$,
 
-    $l_t = l_s$,
     $sigma_s = sigma_t$,
+    $mu' = combine(mu_s, mu_t)$,
 
     // TODO changes ?? two ways ??
-    $cl sigma, mu, l cr
-     xarrow("CHOICE" overline(s) space overline(t))
-     cl sigma, combine(mu_s, mu_t), l cr$,
+    $cl sigma, mu cr
+     xarrow(s | t)
+     cl sigma_t, mu' cr$,
   )
 ))
 
@@ -808,9 +898,16 @@ $ isRead mode -> isIn mode $
 
 === Combination
 
+*TODO: rewrite as rules, fix* // FIXME
+
 $ combine(mu_1, mu_2)[i] = combine_e (mu_1[i], mu_2[i]) $
 $ combine_e (bot, bot) = bot $
 $ combine_e (0, 0) = 0 $
-$ combine_e (\_, \_) = X $
+$ combine_e (\_, \_) = \# $
+// FIXME: ref to combined memory
+$ combine_e (rf c l_1, rf c' l_2) | c == c' = rf c combine_e(mu_1[l_1], mu_2[l_2])$
+$ combine_e (v^1_1, ... v^1_n, v^2_1 ... v^2_n) = [combine_e(v^1_1, v^2_1), ..., combine_e(v^1_n, v^2_n)]$
+$ combine_e (lambda space overline(t_1) space s_1, lambda space overline(t_2) space s_2) | overline(t_1) == overline(t_2)  = lambda space overline(t_1) space s_1 $
+// TODO: FIXME: statemient in lambda is not important ??
 
 ]
