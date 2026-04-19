@@ -15,6 +15,8 @@
 
 #h(10pt)
 
+#let rf = $\& #h(3pt)$
+
 #let isCorrect = `isCorrect`
 
 #let isRead = `isRead`
@@ -82,16 +84,13 @@
       Or[$lambda type+$][type of lambda or function pointer, defined by function declaration] // `Fun`
     }
   ),
-  // FIXME: replace with expr
   Prod(
     `expr`,
     {
       Or[$()$][value of simple type] // `Unit`
       Or[$path$][value from variable] // `Path`
-      Or[$\& #h(3pt) expr$][reference expr] // `Ref`
+      Or[$rf expr$][reference expr] // `Ref`
       Or[$[expr+]$][tuple expr] // `Prod`
-      // NOTE: replaced with simple path value
-      // Or[$lambda_path$][function value from variable] // `Fun`
     }
   ),
   Prod(
@@ -122,11 +121,10 @@
 
 == Value Model
 
-#let rf = $\& #h(3pt)$
-
 // FIXME: check & add details
 #let deepvalue = `deepvalue`
 #let value = `value`
+#let copy = `copy`
 #bnf(
   Prod(
     $deepvalue$,
@@ -146,7 +144,8 @@
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
       Or[$lambda type+ stmt$][function pointer value] // `Fun`
-      Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
+      // FIXME: embed mode into value for simplification ??
+      Or[$rf copy LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
   ),
@@ -158,10 +157,10 @@
 
 $v in value$ - произвольное значение
 
-Получение #value по #deepvalue:
-- $rf LL xarrowSquiggly(mu)_#[deep] rf mu[LL]$
+Получение #deepvalue по #value:
+- $rf copy LL xarrowSquiggly(mu)_#[deep] rf copy mu[LL]$
 - $* xarrowSquiggly(mu)_#[deep] *$
-где $*$ - произвольный конструктор значения кроме $rf$
+где $*$ - произвольный конструктор значения, кроме $rf$
 
 == Memory Model
 
@@ -173,17 +172,16 @@ $v in value$ - произвольное значение
 - $LL$ - множество меток памяти
 - $mem := LL -> value, space mu : mem$ - память, частично определённая функция
 - $l in LL$ - новый тег памяти (ранее не использованный)
-- `next` - получение следующей неиспользованной метки
+- `next` - получение следующей неиспользованной метки в памяти
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ add value to memory],
 
-    $l' = #[next] (l)$,
+    $l = #[next] (mu)$,
 
-    // TODO: check that access is what required ??
-    $cl mu, l cr xarrowSquiggly(v)_#[add] cl mu [l <- v], l' cr$,
+    $cl mu cr xarrowSquiggly(v)_#[add] cl l, mu [l <- v] cr$,
   )
 ))
 
@@ -485,6 +483,8 @@ $ isRead mode -> isIn mode $
 
 === Correctness
 
+*TODO*
+
 // TODO: FIXME: well formatness for mode, extract
 // TODO: FIXME: check for mode, is recursion required ??
 // TODO: FIXME: check mode & access corectness in os correct
@@ -494,8 +494,9 @@ $ isRead mode -> isIn mode $
   vertical-spacing: 4pt,
   rule(
     name: [ is correct],
-    $isOut mode -> isAlwaysWrite mode$, // NOTE; strong requirment should write
-    $isRead mode -> isIn mode$,
+    // NOTE: moved to general mode requirements
+    // $isOut mode -> isAlwaysWrite mode$, // NOTE; strong requirment should write
+    // $isRead mode -> isIn mode$,
     $isPossibleWrite mode and (isOut mode or not isCopy mode) -> isAlwaysWrite pathenvmode(sigma, x)$, // NOTE: may mode => should sigma(x)
     $isRead mode -> pathenvval(mu, sigma, x) != bot and pathenvval(mu, sigma, x) != X$,
 
@@ -505,97 +506,84 @@ $ isRead mode -> isIn mode $
 
 #h(10pt)
 
-=== Call Initialization
+=== Value Construction
 
-Отсутствующий нижний индекс ($ref$, $copy$) означает произвольный индекс.
-Считается, что выбранный индекс одинаков в рамках одного правила.
-
-// NOTE: no empty type
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ add paths init],
-
-//     $cl sigma, mu, l cr stretch(~>)^nothing cl sigma, mu, l cr$,
-//   )
-// ))
-
-// #h(10pt)
+#let new = `new`
+#let Copy = `Copy`
+#let Ref = `Ref`
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ add paths field by copy],
+    name: [ new $0$ value],
 
     // TODO: check that access is what required ??
-    $cl sigma, mu, l cr xarrowSquiggly(p : ())_copy cl pathenvmem(sigma, p) <- l, mu [l <- 0], l + 1 cr$,
+    $cl 0, mu cr xarrowSquiggly(space)_new cl 0, mu cr$,
   )
 ))
-
-#h(10pt)
-
-// NOTE: do nothing, ref init by default
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ add paths field by reference],
-
-    $cl sigma, mu, l cr xarrowSquiggly(p : ())_ref cl sigma, mu, l cr$,
-  )
-))
-
-#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ add paths ref],
-    $cl sigma, mu, l cr xarrowSquiggly(*p : t)_ref cl sigma', mu', l' cr$,
-    $isRef mode$,
+    name: [ new $\#$ value],
 
-    $cl sigma, mu, l cr xarrowSquiggly(p : \& mode t) cl sigma', mu', l' cr$,
+    // TODO: check that access is what required ??
+    $cl \#, mu cr xarrowSquiggly(space)_new cl \#, mu cr$,
   )
 ))
-
-#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ add paths ref],
-    $cl sigma, mu, l cr xarrowSquiggly(*p : t)_copy cl sigma, mu, l cr$,
-    $isCopy mode$,
+    name: [ new $bot$ value],
 
-    $cl sigma, mu, l cr xarrowSquiggly(p : \& mode t) cl sigma', mu', l' cr$,
+    $cl bot, mu cr xarrowSquiggly(space)_new cl bot, mu cr$,
   )
 ))
-
-#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ add paths tuple],
-    $cl sigma, mu, l cr xarrowSquiggly(p.1 : t_1) cl sigma_1, mu_1, l_1 cr$,
+    name: [ new funciton pointer value],
+
+    $cl lambda overline(t) s, mu cr xarrowSquiggly(space)_new cl lambda overline(t) s, mu cr$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ new reference ref value],
+
+    $cl rf Ref space l, mu cr xarrowSquiggly(space)_new cl rf Ref space l, mu cr$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ new reference copy value],
+
+    $cl mu[l], mu cr xarrowSquiggly(space)_new cl v, mu_v cr$,
+
+    $cl mu_v cr xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
+
+    $cl rf Copy space l, mu cr xarrowSquiggly(space)_new cl rf copy space l', mu_a cr$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ new tuple value],
+
+    $cl v_1, mu_0 cr xarrowSquiggly(space)_new cl lambda v'_1, mu_1 cr$,
     $...$,
-    $cl sigma_(n - 1), mu_(n - 1), l_(n - 1) cr xarrowSquiggly(p.n : t_n) cl sigma_n, mu_n, l_n cr$,
+    $cl v_n, mu_(n - 1) cr xarrowSquiggly(space)_new cl lambda v'_n, mu_n cr$,
 
-    $cl sigma, mu, l cr xarrowSquiggly(p : [t_1, ... t_n]) cl sigma_n, mu_n, l_n cr$,
+    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly(space)_new cl [v'_1, ... v'_n], mu_n cr$,
   )
 ))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ add paths funciton pointer],
-
-    $cl sigma, mu, l cr xarrowSquiggly(F_x) cl sigma, mu, l cr$,
-  )
-))
-
-#h(10pt)
 
 === Call Finalization
 
