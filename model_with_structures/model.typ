@@ -9,7 +9,7 @@
 
 #h(10pt)
 
-// TODO: check correctnes for path, mem & type ??
+// TODO: check correctness for path, mem & type ??
 
 == Syntax
 
@@ -462,7 +462,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ new $0$ value],
 
-    $cl 0, mu cr xarrowSquiggly(cl r\, w cr)_new cl 0, mu cr$,
+    $cl 0, mu cr xarrowSquiggly(cl r \, w cr)_new cl 0, mu cr$,
   )
 ))
 
@@ -471,7 +471,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ new $\#$ value],
 
-    $cl \#, mu cr xarrowSquiggly(cl r\, w cr)_new cl \#, mu cr$,
+    $cl \#, mu cr xarrowSquiggly(cl r \, w cr)_new cl \#, mu cr$,
   )
 ))
 
@@ -480,7 +480,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ new $bot$ value],
 
-    $cl bot, mu cr xarrowSquiggly(cl r\, w cr)_new cl bot, mu cr$,
+    $cl bot, mu cr xarrowSquiggly(cl r \, w cr)_new cl bot, mu cr$,
   )
 ))
 
@@ -564,7 +564,6 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ modify tuple value],
 
-    $v in {0, \#, bot}$,
     $cl v_i, mu cr xarrowSquiggly(cl p \, b cr)_modify cl v'_i, mu', cr$,
     $cl [v_1, ... v_i, ... v_n], mu cr xarrowSquiggly(cl p.i \, b cr)_modify cl [v_1, ... v'_i, ... v_n], mu' cr$,
   )
@@ -675,24 +674,20 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 === Call Finalization
 
-// FIXME: make connected to syntax
-*TODO*
+#let spoil = `spoil`
+
+// FIXME
+*TODO: embed correctness*
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ spoil step],
 
-    $mu stretch(=>)^"args"_sigma gamma$,
-
-    $isPossibleWrite mode$, // NOTE: weak requirement: may write
-    $not isCopy mode$,
-    $mode = (\_, not Out)$,
-
-    $isCorrect_(cl sigma, mu cr) (mode, x)$,
-
-    // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : "args")_sigma "pathenvval"(gamma, sigma, x) <- bot]$
+    $w = AlwaysWrite or w = MaybeWrite$,
+    // TODO: $isCorrect_(cl sigma, mu cr) (mode, x)$,
+    $v in {0, \#, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, not Copy)_spoil cl bot, mu cr$,
   )
 ))
 
@@ -703,17 +698,10 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ fix step],
 
-    $mu stretch(=>)^"args"_sigma gamma$,
-
-    $isAlwaysWrite mode$, // NOTE: strong requirement: should write
-    $mode = (\_, not Out)$,
-
-    // NOTE: correctness looks like this
-    // $types, vals, mu, m, c tcorrect v : cl r', w' cr -> cl r, w cr$,
-    $isCorrect_(cl sigma, mu cr) (mode, x)$,
-
-    // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : "args")_sigma "pathenvval"(gamma, sigma, x) <- 0]$
+    $w = AlwaysWrite$,
+    // TODO: $isCorrect_(cl sigma, mu cr) (mode, x)$,
+    $v in {0, \#, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, (\_, Out) \, c)_spoil cl 0, mu cr$,
   )
 ))
 
@@ -724,18 +712,51 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ skip step],
 
-    $mu stretch(=>)^"args"_sigma gamma$,
-
     $not "spoil step"$,
     $not "fix step"$,
-
-    $isCorrect_(cl sigma, mu cr) (mode, x)$,
-
-    // mu
-    $gamma stretch(=>)^((mode, x) : "args")_sigma gamma$
+    // TODO: $isCorrect_(cl sigma, mu cr) (mode, x)$,
+    $v in {0, \#, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, c)_spoil cl v, mu cr$,
   )
 ))
 
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ lambda step],
+
+    $cl lambda, mu cr xarrowSquiggly(lambda overline(t) \, m \, c)_spoil cl lambda, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ reference step],
+
+    $cl mu[l], mu cr xarrowSquiggly(t \, m \, c')_spoil cl v', mu' cr$,
+    $cl rf l, mu cr xarrowSquiggly(rf c' space  t \, m \, c)_spoil cl rf l, mu'[l <- v'] cr$,
+  )
+))
+
+#h(10pt)
+
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ tuple step],
+
+    $cl v_1, mu cr xarrowSquiggly(t_1 \, m \, c)_spoil cl v'_1, mu cr$,
+    $...$,
+    $cl v_n, mu cr xarrowSquiggly(t_n \, m \, c)_spoil cl v'_n, mu cr$,
+    $cl [v_1, ... v_n], mu cr xarrowSquiggly([t_1, ... t_n] \, m \, c)_spoil cl [v'_1, ... v'_n], mu' cr$,
+  )
+))
 
 #h(10pt)
 
