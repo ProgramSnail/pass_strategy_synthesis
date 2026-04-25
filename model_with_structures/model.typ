@@ -42,6 +42,9 @@
 #let In = `In`
 #let Out = `Out`
 
+#let cl = $chevron.l$
+#let cr = $chevron.r$
+
 #let expr = `expr`
 #let stmt = `stmt`
 #let decl = `decl`
@@ -56,9 +59,9 @@
     { Or[Read][read passed value]
       Or[$not$ Read][] } ),
   Prod(`write`,
-    { Or[$square$ Write][in all cases there is a write to passed variable] // always write, requre at least one write in each flow variant
-      Or[$diamond$ Write][in some cases there is a write to passed variable] // possible write, no requirements (?)
-      Or[$not$ Write][] } ), // no write, require n owrites in all flow variants
+    { Or[$square$ Write][in all cases there is a write to the variable] // always write, requre at least one write in each flow variant
+      Or[$diamond$ Write][in some cases there is a write to the variable] // possible write, no requirements (?)
+      Or[$not$ Write][in none cases there is a write to the variable ] } ), // no write, require n owrites in all flow variants
   Prod(`copy`,
     { Or[Ref][pass reference to the value]
       Or[Value][pass copy of the value] } ),
@@ -88,8 +91,8 @@
   Prod(
     `type`,
     {
-      Or[$readTag writeTag ()$][simple type representing all primitive types] // `Unit`
-      Or[$rf copyTag space type$][reference to structure, contains copy / ref choice] // `Ref`
+      Or[$cl readTag, writeTag cr$][simple type representing all primitive types] // `Unit`
+      Or[$rf copyTag type$][reference to structure, contains copy / ref choice] // `Ref`
       Or[$[type+]$][tuple type] // `Prod`
       // Or[`type` $times$ `type`][pair type, allows to make tuples] // `Prod`
       // Or[`type` $+$ `type`][union type (important in some way ???)] // `Sum` // TODO ?
@@ -152,7 +155,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda type+ stmt$][function pointer value] // `Fun`
+      Or[$lambda$][function pointer value] // `Fun`
       Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[deepValue+]$][tuple value] // `Prod`
     }
@@ -163,9 +166,8 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda type+ stmt$][function pointer value] // `Fun`
-      // FIXME: embed mode into value for simplification ??
-      Or[$rf copyTag LL$][reference value, contains label of the value in the memory] // `Ref`
+      Or[$lambda$][function pointer value] // `Fun`
+      Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
   ),
@@ -178,14 +180,11 @@
 $v in value$ - произвольное значение
 
 Получение #deepValue по #value:
-- $rf c l xarrowSquiggly(mu)_#[deep] rf c mu[l]$
+- $rf l xarrowSquiggly(mu)_#[deep] rf mu[l]$
 - $* xarrowSquiggly(mu)_#[deep] *$
 где $*$ - произвольный конструктор значения, кроме $rf$
 
 == Memory Model
-
-#let cl = $chevron.l$
-#let cr = $chevron.r$
 
 #let mem = `mem`
 
@@ -219,8 +218,12 @@ $X$ - можество переменных
 #let pathenvmem = `pathenvmem`
 #let pathenvtype = `pathenvtype`
 
-#let env = `env`
-$sigma : env := X -> LL times type, space sigma : env$ - #[ метки памяти и типы значений пеерменных контекста, частично определённая функция ]
+#let vals = $Sigma$
+#let types = $Gamma$
+#let envv = $#[env]_Sigma$
+#let envt = $#[env]_Gamma$
+$sigma : envv := X -> LL, space vals : envv$ - #[ метки памяти перменных контекста, частично определённая функция ]
+$sigma : envt := X -> type, space types : envt$ - #[ типы значений перменных контекста, частично определённая функция ]
 
 // $DD : X -> decl$ - глобальные определения, частично определённая функция
 
@@ -239,8 +242,9 @@ $s in stmt, f in X, x in X, a in X$
 #let eqmu = $attach(=, br: mu)$
 #let arrmu = $attach(->, br: mu)$
 
+#let arrpath = $xarrowSquiggly(mu)_path$
+
 #let ttype = $attach(tack.r, br: type)$
-#let tpath = $attach(tack.r, br: path)$
 #let tmode = $attach(tack.r, br: mode)$
 
 #let val = `val`
@@ -248,22 +252,22 @@ $s in stmt, f in X, x in X, a in X$
 #let tval = $attach(tack.r, br: val)$
 #let tlabel = $attach(tack.r, br: label)$
 
-#let tetype = $attach(tack.r.double, br: type)$
-#let temode = $attach(tack.r.double, br: mode)$
+// TODO: TMP, deprecated
+// #let tetype = $attach(tack.r.double, br: type)$
+// #let temode = $attach(tack.r.double, br: mode)$
+// #let telabel = $attach(tack.r.double, br: label)$
 
 #let teval = $attach(tack.r.double, br: val)$
-#let telabel = $attach(tack.r.double, br: label)$
 
 // TODO: env mem label ??, env mem value ??
 
-// TODO: FIXME: backwards, deconstruction ??
 - #[ Конструирование путей по переменой
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ variable path],
 
-    $x tpath @x$,
+    $@x arrpath x$,
   )
 ))
 #align(center, prooftree(
@@ -271,8 +275,8 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ reference path],
 
-    $x tpath p$,
-    $x tpath rf p$,
+    $p arrpath x$,
+    $rf p arrpath x$,
   )
 ))
 #align(center, prooftree(
@@ -280,9 +284,9 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ tuple access path],
 
-    $x tpath p$,
+    $p arrpath x$,
 
-    $x tpath p.i$,
+    $p.i arrpath x$,
   )
 ))
 ]
@@ -293,7 +297,8 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ variable type access],
 
-    $x : t_x ttype @x : t_x$,
+    $x : t_x in types$,
+    $types ttype @x : t_x$,
   )
 ))
 #align(center, prooftree(
@@ -301,9 +306,8 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ reference type access],
 
-    $x tpath p$,
-    $x : t_x ttype p : rf mode t_p$,
-    $x : t_x ttype *p : t_p$,
+    $types ttype p : rf mode t_p$,
+    $types ttype *p : t_p$,
   )
 ))
 #align(center, prooftree(
@@ -311,44 +315,24 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ tuple type access],
 
-    $x tpath p$,
-    $x : t_x ttype p : [t_1, ... t_n]$,
-    $x : t_x ttype p.i : t_i$,
+    $types ttype p : [t_1, ... t_n]$,
+    $types ttype p.i : t_i$,
   )
 ))
 ]
 
-- #[ Получение read-write тега поля
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ variable rw tag access],
+// TODO: not required (trivial) ??
+// - #[ Получение read-write тега поля
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ rw tag access],
 
-    $t_x = r w ()$,
-    $x : t_x tmode @x -> cr r w cl$,
-  )
-))
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ reference rw tag access],
-
-    $x tpath p$,
-    $x : t_x tmode p -> cr r w cl$,
-    $x : t_x tmode *p ->  cr r w cl$,
-  )
-))
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ tuple rw tag access],
-
-    $x tpath p$,
-    $x : t_x tmode p ->  cr r w cl$,
-    $x : t_x tmode p.i -> cr r w cl$,
-  )
-))
-]
+//     $types ttype p : cl r, w cr$,
+//     $types tmode p -> cl r, w cr$,
+//   )
+// ))
+// ]
 
 - #[ Получение значения поля
 #align(center, prooftree(
@@ -356,7 +340,9 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ variable value access],
 
-    $x eqmu v_x tval @x eqmu v_x$,
+    $x -> l in vals$,
+    $mu[l] = v$,
+    $vals, mu tval x eqmu v$,
   )
 ))
 #align(center, prooftree(
@@ -364,9 +350,8 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ reference value access],
 
-    $x tpath p$,
-    $x eqmu v_x tval p eqmu rf l$,
-    $x eqmu v_x tval *p eqmu mu[l]$,
+    $vals, mu tval p eqmu rf l$,
+    $vals, mu tval *p eqmu mu[l]$,
   )
 ))
 #align(center, prooftree(
@@ -374,52 +359,37 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ tuple value access],
 
-    $x tpath p$,
-    $x eqmu v_x tmode p eqmu [v_1, ... v_n]$,
-    $x eqmu v_x tmode p.i eqmu v_i$,
+    $vals, mu tval p eqmu [v_1, ... v_n]$,
+    $vals, mu tval p.i eqmu v_i$,
   )
 ))
 ]
 
-- #[ Получение метки поля
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ access],
+// TODO: FIXME: not required (trivial) ??
+// - #[ Получение метки поля
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ access],
 
-    $v_x = rf l$,
-    $x eqmu v_x tval p eqmu rf l$,
+//     $vals, mu tval p eqmu rf l$,
+//     $vals, mu tmode p arrmu l$,
+//   )
+// ))
+// ]
 
-    $x eqmu v_x tmode p arrmu l$,
-  )
-))
-]
+// TODO: not required (trivial) ??
+// - #[ Получение read-write тега поля по окружению
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ access],
 
-- #[ Получение типа поля по окружению
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ access],
-
-    $x tpath p$,
-    $x : sigma[x].2 ttype p : t$,
-    $sigma tetype p : t$,
-  )
-))
-]
-
-- #[ Получение read-write тега поля по окружению
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ access],
-
-    $x tpath p$,
-    $x : sigma[x].2 tmode p -> cr r space w cl$,
-    $sigma temode p -> cr r space w cl$,
-  )
-))
-]
+//     $x : types[x] tmode p -> cr r space w cl$,
+//     $sigma temode p -> cr r space w cl$,
+//   )
+// ))
+// ]
 
 - #[ Получение значения поля по окружению
 #align(center, prooftree(
@@ -427,22 +397,8 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ access],
 
-    $x tpath p$,
-    $x eqmu sigma[x].1 tval p eqmu v$,
-    $sigma, mu teval p eqmu x$,
-  )
-))
-]
-
-- #[ Получение метки поля по окружению
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ access],
-
-    $x tpath p$,
-    $x eqmu sigma[x].1 tlabel p arrmu l$,
-    $sigma, mu telabel p arrmu l$,
+    $x eqmu vals[x] tval p eqmu v$,
+    $types, vals, mu teval p eqmu x$,
   )
 ))
 ]
@@ -451,8 +407,8 @@ $s in stmt, f in X, x in X, a in X$
 
 #let modevar = $(i space o)$
 
-$ isIn modevar = i == In $
-$ isOut modevar = o == Out $
+$ isIn modevar = (i = In) $
+$ isOut modevar = (o = Out) $
 
 // FIXME: move to new mode model
 // === Mode Correctness
@@ -510,12 +466,14 @@ $ isOut modevar = o == Out $
 // TODO: FIXME: check for mode, is recursion required ??
 // TODO: FIXME: check mode & access corectness in os correct
 
-$ sigma in env, space mu in mem, space m in mode,
+$ vals in envv, types in envt, space mu in mem, space m in mode,
   space c in copyTag, space r, r' in readTag, space w, w' in writeTag,
   space v in value, space t, t' in type $
 
 #h(10pt)
 
+// TODO: FIXME: complete rule check
+// + add part about ref -> not copy later
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
@@ -530,38 +488,7 @@ $ sigma in env, space mu in mem, space m in mode,
     $v in {0, \#, bot}$,
     $r = Read => v = 0$,
 
-    $sigma, mu, m, c tcorrect v : r' space w' () -> r space w ()$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ ref assignment tags correctness],
-
-    $sigma, mu, m, c_r tcorrect v : t -> t'$,
-
-    // TODO: FIXME: which tag translations are correct ?? <- only assignee?
-    $sigma, mu, m, c tcorrect rf c_r space v : rf c' space t -> rf c_r space t'$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ tuple assignmenttags correctness],
-
-    $sigma, mu, m, c tcorrect v_1 : t_1 -> t'_1$,
-
-    $...$,
-
-    $sigma, mu, m, c tcorrect v_n : t_n -> t'_n$,
-
-    $sigma, mu, m, c tcorrect [v_1, ... v_n] : [t_1, ..., t_n] -> [t'_1, t'_n]$,
+    $types, vals, mu, m, c tcorrect v : cl r', w' cr -> cl r, w cr$,
   )
 ))
 
@@ -572,13 +499,46 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ function pointer tags correctness],
 
-    $sigma, mu, m, c tcorrect lambda space overline(t) space s : lambda space overline(t) -> lambda space overline(t)$,
+    $types, vals, mu, m, c tcorrect lambda : lambda space overline(t) -> lambda space overline(t)$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ ref assignment tags correctness],
+
+    $types, vals, mu, m, c_r tcorrect v : t -> t'$,
+
+    // TODO: FIXME: which tag translations are correct ?? <- only assignee?
+    $types, vals, mu, m, c tcorrect rf space v : rf c' space t -> rf c_r space t'$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ tuple assignmenttags correctness],
+
+    $types, vals, mu, m, c tcorrect v_1 : t_1 -> t'_1$,
+
+    $...$,
+
+    $types, vals, mu, m, c tcorrect v_n : t_n -> t'_n$,
+
+    $types, vals, mu, m, c tcorrect [v_1, ... v_n] : [t_1, ..., t_n] -> [t'_1, ... t'_n]$,
   )
 ))
 
 #h(10pt)
 
 === Value Construction
+
+// TODO: FIXME:add ref / copy modes correctness check
 
 #let new = `new`
 
@@ -588,7 +548,7 @@ $ sigma in env, space mu in mem, space m in mode,
     name: [ new $0$ value],
 
     // TODO: check that access is what required ??
-    $cl 0, mu cr xarrowSquiggly(space)_new cl 0, mu cr$,
+    $cl 0, mu cr xarrowSquiggly(cl r\, w cr)_new cl 0, mu cr$,
   )
 ))
 
@@ -598,7 +558,7 @@ $ sigma in env, space mu in mem, space m in mode,
     name: [ new $\#$ value],
 
     // TODO: check that access is what required ??
-    $cl \#, mu cr xarrowSquiggly(space)_new cl \#, mu cr$,
+    $cl \#, mu cr xarrowSquiggly(cl r\, w cr)_new cl \#, mu cr$,
   )
 ))
 
@@ -607,7 +567,7 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ new $bot$ value],
 
-    $cl bot, mu cr xarrowSquiggly(space)_new cl bot, mu cr$,
+    $cl bot, mu cr xarrowSquiggly(cl r\, w cr)_new cl bot, mu cr$,
   )
 ))
 
@@ -625,7 +585,10 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ new reference ref value],
 
-    $cl rf Ref l, mu cr xarrowSquiggly(space)_new cl rf Ref l, mu cr$,
+    // TODO: FIXME: recursive copy ?? (what heppens if ref field has copy substructure ??)
+    // frbidden ??
+
+    $cl rf l, mu cr xarrowSquiggly(rf Ref t)_new cl rf l, mu cr$,
   )
 ))
 
@@ -634,11 +597,11 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ new reference copy value],
 
-    $cl mu[l], mu cr xarrowSquiggly(space)_new cl v, mu_v cr$,
+    $cl mu[l], mu cr xarrowSquiggly(t)_new cl v, mu_v cr$,
 
     $cl mu_v cr xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
 
-    $cl rf Copy l, mu cr xarrowSquiggly(space)_new cl rf Copy l', mu_a cr$,
+    $cl rf l, mu cr xarrowSquiggly(rf Copy t)_new cl rf l', mu_a cr$,
   )
 ))
 
@@ -647,11 +610,11 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ new tuple value],
 
-    $cl v_1, mu_0 cr xarrowSquiggly(space)_new cl lambda v'_1, mu_1 cr$,
+    $cl v_1, mu_0 cr xarrowSquiggly(t_1)_new cl lambda v'_1, mu_1 cr$,
     $...$,
-    $cl v_n, mu_(n - 1) cr xarrowSquiggly(space)_new cl lambda v'_n, mu_n cr$,
+    $cl v_n, mu_(n - 1) cr xarrowSquiggly(t_n)_new cl lambda v'_n, mu_n cr$,
 
-    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly(space)_new cl [v'_1, ... v'_n], mu_n cr$,
+    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly([t_1, ... t_n])_new cl [v'_1, ... v'_n], mu_n cr$,
   )
 ))
 
@@ -816,11 +779,11 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ READ $p$],
 
-    $mu, sigma teval p eqmu 0$,
+    $mu, types, vals teval p eqmu 0$,
 
-    $cl sigma, mu, l cr
+    $cl types, vals, mu cr
      xarrow("READ" p)
-     cl sigma, mu, l cr$,
+     cl types, vals, mu cr$,
   )
 ))
 
@@ -831,17 +794,14 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ WRITE $x$],
 
-    $sigma temode p -> cr r space w cl$,
-
-    $w == MaybeWrite or w == AlwaysWrite$,
-
-    $x tpath p$,
-
+    $types ttype p : cl r, w cr$,
+    $w = MaybeWrite or w = AlwaysWrite$,
+    $p arrpath x$,
     $mu[x] xarrowSquiggly(p)_write v$,
 
-    $cl sigma, mu cr
+    $cl types, vals, mu cr
      xarrow("WRITE" p)
-     cl sigma, mu[x <- v] cr$,
+     cl types, vals, mu[x <- v] cr$,
   )
 ))
 
@@ -852,17 +812,17 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ $s \; t$],
 
-    $cl sigma, mu cr
+    $cl types, vals, mu cr
      stretch(->)^s
-     cl sigma_s, mu_s cr$,
+     cl types_s, vals_s, mu_s cr$,
 
-    $cl sigma, mu cr
+    $cl types_s, vals_s, mu_s cr
      stretch(->)^t
-     cl sigma_t, mu_t cr$,
+     cl types_t, vals_t, mu_t cr$,
 
-    $cl sigma, mu, cr
+    $cl types, vals, mu, cr
      xarrow(s \; t)
-     cl sigma_t, mu_t cr$,
+     cl types_t, vals_t, mu_t cr$,
   )
 ))
 
@@ -876,21 +836,22 @@ $ sigma in env, space mu in mem, space m in mode,
   rule(
     name: [ $s | t$],
 
-    $cl sigma, mu, l cr
+    $cl types, vals, mu cr
      stretch(->)^s
-     cl sigma_s, mu_s, l_s cr$,
+     cl types_s, vals_s, mu_s cr$,
 
-    $cl sigma, mu, l cr
+    $cl types, vals, mu cr
      stretch(->)^t
-     cl sigma_t, mu_t, l_t cr$,
+     cl types_t, vals_t, mu_t cr$,
 
-    $sigma_s = sigma_t$,
+    $types_s = types_t$,
+    $vals_s = vals_t$,
     $mu' = combine(mu_s, mu_t)$,
 
     // TODO changes ?? two ways ??
-    $cl sigma, mu cr
+    $cl types, vals, mu cr
      xarrow(s | t)
-     cl sigma_t, mu' cr$,
+     cl types_t, vals_t, mu' cr$,
   )
 ))
 
