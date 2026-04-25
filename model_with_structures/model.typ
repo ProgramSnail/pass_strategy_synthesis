@@ -375,6 +375,8 @@ $s in stmt, f in X, x in X, a in X$
 
 === Moded Type Correctness
 
+*NOTE: скорее всего не нужна в таком виде, перенесено в spoil*
+
 #let tcorrect = $attach(tack.r, br: #[correct])$
 
 // TODO: FIXME: well formatness for mode, extract
@@ -528,12 +530,23 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 #let modify = `modify`
 
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ modify trivial value],
+
+//     $v in {0, \#, bot}$,
+//     $cl v, mu cr xarrowSquiggly(cl \@ x \, b cr)_modify cl b, mu cr$,
+//   )
+// ))
+
+// TODO: add type check ??
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ modify trivial value],
+    name: [ modify end value],
 
-    $v in {0, \#, bot}$,
+    // $v in {0, \#, bot}$,
     $cl v, mu cr xarrowSquiggly(cl \@ x \, b cr)_modify cl b, mu cr$,
   )
 ))
@@ -669,18 +682,36 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 #let spoil = `spoil`
 
-// FIXME
-*TODO: embed correctness*
+// TODO: FIXME: complete rule check
+#let tcorrectnew = $attach(tack.r.double, br: #[correct])$
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ correctness],
+
+    $r = Read => v = 0$,
+    $r = Read => m = (In, \_)$, 
+    $m = (\_, Out) => w = AlwaysWrite$,
+    $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
+
+    $v in {0, \#, bot}$,
+
+    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
+  )
+))
+
+// TODO: extract correctness
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ spoil step],
 
+    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
+
     $w = AlwaysWrite or w = MaybeWrite$,
-    // TODO: $isCorrect_(cl sigma, mu cr) (mode, x)$,
     $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, not Copy)_spoil cl bot, mu cr$,
+    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \, (\_, not Out) \, not Copy)_spoil cl bot, mu cr$,
   )
 ))
 
@@ -691,10 +722,11 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ fix step],
 
+    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
+
     $w = AlwaysWrite$,
-    // TODO: $isCorrect_(cl sigma, mu cr) (mode, x)$,
     $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, (\_, Out) \, c)_spoil cl 0, mu cr$,
+    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \,  (\_, Out) \, c)_spoil cl 0, mu cr$,
   )
 ))
 
@@ -705,11 +737,12 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ skip step],
 
+    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
+
     $not "spoil step"$,
     $not "fix step"$,
-    // TODO: $isCorrect_(cl sigma, mu cr) (mode, x)$,
     $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, c)_spoil cl v, mu cr$,
+    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \, (\_, not Out) \, c)_spoil cl v, mu cr$,
   )
 ))
 
@@ -720,7 +753,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ lambda step],
 
-    $cl lambda, mu cr xarrowSquiggly(lambda overline(t) \, m \, c)_spoil cl lambda, mu cr$,
+    $cl lambda, mu cr xarrowSquiggly(lambda overline(t) \, lambda overline(t) \, m \, c)_spoil cl lambda, mu cr$,
   )
 ))
 
@@ -731,8 +764,9 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ reference step],
 
-    $cl mu[l], mu cr xarrowSquiggly(t \, m \, c')_spoil cl v', mu' cr$,
-    $cl rf l, mu cr xarrowSquiggly(rf c' space  t \, m \, c)_spoil cl rf l, mu'[l <- v'] cr$,
+    $cl mu[l], mu cr xarrowSquiggly(t \, t' m \, c')_spoil cl v', mu' cr$,
+    // NOTE: copy mode of assigned type is not important (c'')
+    $cl rf l, mu cr xarrowSquiggly(rf c' space  t \, rf c'' space  t' \, m \, c)_spoil cl rf l, mu'[l <- v'] cr$,
   )
 ))
 
@@ -744,10 +778,30 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ tuple step],
 
-    $cl v_1, mu cr xarrowSquiggly(t_1 \, m \, c)_spoil cl v'_1, mu cr$,
+    $cl v_1, mu cr xarrowSquiggly(t_1 \, t'_1 \, m \, c)_spoil cl v'_1, mu cr$,
     $...$,
-    $cl v_n, mu cr xarrowSquiggly(t_n \, m \, c)_spoil cl v'_n, mu cr$,
-    $cl [v_1, ... v_n], mu cr xarrowSquiggly([t_1, ... t_n] \, m \, c)_spoil cl [v'_1, ... v'_n], mu' cr$,
+    $cl v_n, mu cr xarrowSquiggly(t_n \, t'_n \, m \, c)_spoil cl v'_n, mu cr$,
+    $cl [v_1, ... v_n], mu cr xarrowSquiggly([t_1, ... t_n] \, [t'_1, ... t'_n] \, m \, c)_spoil cl [v'_1, ... v'_n], mu' cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ full spoil],
+
+    $p arrpath x$,
+    $l = vals[x]$,
+    $vals, mu tval p eqmu b$,
+    $types ttype p : t'$,
+    // TODO: FIXME: Ref or Copy ?? in root <- Ref ??, because otherwise there could not b any Refs
+    // FIXME depends on parent ??
+    $cl b, mu cr xarrowSquiggly(t \, t' \, m \, Ref)_spoil cl b', mu' cr$,
+    $cl mu[l], mu cr xarrowSquiggly(cl p \, b' cr)_modify cl v', mu' cr$,
+
+    $mu stretch(=>)^(m space t space p)_(cl vals, types cr) mu'[l <- v']$,
   )
 ))
 
@@ -911,9 +965,9 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     // NOTE: thick arrow to "spoil" context
     $gamma_0 = mu$,
-    $gamma_0 stretch(=>)^(x_1 space m_1 space t_1)_(cl vals, types cr) gamma_1$,
+    $gamma_0 stretch(=>)^(x_1 space m_1 space t_1 space p_1)_(cl vals, types cr) gamma_1$,
     $...$,
-    $gamma_(n - 1) stretch(=>)^(x_n space m_n space t_n)_(cl vals, types cr) gamma_n$,
+    $gamma_(n - 1) stretch(=>)^(m_n space t_n space p_n)_(cl vals, types cr) gamma_n$,
 
     $cl vals, types, mu, l cr
      xarrow("CALL" f space [p_1, ... p_n])
