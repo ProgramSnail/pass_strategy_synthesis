@@ -36,6 +36,7 @@
 #let Ref = `Ref`
 #let MaybeWrite = [$diamond$ `Write`]
 #let AlwaysWrite = [$square$ `Write`]
+#let NotWrite = [$not$ `Write`]
 #let Read = `Read`
 #let In = `In`
 #let Out = `Out`
@@ -111,7 +112,8 @@
     {
       Or[$()$][value of simple type] // `Unit`
       Or[$path$][value from variable] // `Path`
-      Or[$rf expr$][reference expr] // `Ref`
+      // TODO: FIXME: decide what is the result of ref expr eval
+      // Or[$rf expr$][reference expr] // `Ref`
       Or[$[expr+]$][tuple expr] // `Prod`
     }
   ),
@@ -241,18 +243,7 @@ $s in stmt, f in X, x in X, a in X$
 #let tmode = $attach(tack.r, br: mode)$
 
 #let val = `val`
-#let label = `label`
 #let tval = $attach(tack.r, br: val)$
-#let tlabel = $attach(tack.r, br: label)$
-
-// TODO: TMP, deprecated
-// #let tetype = $attach(tack.r.double, br: type)$
-// #let temode = $attach(tack.r.double, br: mode)$
-// #let telabel = $attach(tack.r.double, br: label)$
-
-#let teval = $attach(tack.r.double, br: val)$
-
-// TODO: env mem label ??, env mem value ??
 
 - #[ Конструирование путей по переменой
 #align(center, prooftree(
@@ -357,66 +348,6 @@ $s in stmt, f in X, x in X, a in X$
   )
 ))
 ]
-
-// TODO: FIXME: not required (trivial) ??
-// - #[ Получение метки поля
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ access],
-
-//     $vals, mu tval p eqmu rf l$,
-//     $vals, mu tmode p arrmu l$,
-//   )
-// ))
-// ]
-
-// TODO: not required (trivial) ??
-// - #[ Получение read-write тега поля по окружению
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ access],
-
-//     $x : types[x] tmode p -> cr r space w cl$,
-//     $sigma temode p -> cr r space w cl$,
-//   )
-// ))
-// ]
-
-- #[ Получение значения поля по окружению
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ access],
-
-    $x eqmu vals[x] tval p eqmu v$,
-    $types, vals, mu teval p eqmu x$,
-  )
-))
-]
-
-// FIXME: move to new mode model
-// === Mode Correctness
-
-// Функции проверки тегов, имеют тип $mode -> #[bool]$:
-
-// #let modevar = $(r space w space c space i space o)$
-
-// $ isRead modevar = r == "Read" $
-// $ isAlwaysWrite modevar = w == square "Write" $
-// $ isPossibleWrite modevar = w == diamond "Write" || w == square "Write" $
-// $ isRef modevar = c == "Ref" $
-// $ isCopy modevar = c == "Copy" $
-// $ isIn modevar = i == "In" $
-// $ isOut modevar = o == "Out" $
-
-// Требования к тегам:
-
-// $ isOut mode -> isAlwaysWrite mode $
-// $ isRead mode -> isIn mode $
-
-// TODO: rest conditions ??
 
 === Eval Rules
 
@@ -812,11 +743,106 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 === Expression Evaluation
 
-*TODO*
+// TODO: check
+
+#let eval = `eval`
+#let texpre = $attach(tack.r.double, br: eval)$
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ path type],
+
+    $vals, mu tval p eqmu v$,
+    $vals, mu texpre p eqmu v$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $vals, mu texpre () eqmu 0$,
+  )
+))
+
+// NOTE: tmp removed
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ unit value type],
+
+//     $vals, mu texpre e : t$,
+
+//     [*TODO*],
+
+//     // TODO: reference to what ??
+//     $vals, mu texpre rf e eqmu rf ??$,
+//   )
+// ))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $vals, mu texpre e_1 eqmu v_1$,
+    $...$,
+    $vals, mu texpre e_n eqmu v_n$,
+    $vals, mu texpre [e_1, ... e_n] eqmu [v_1, ... v_n]$,
+  )
+))
+
 
 === Expresion Typing
 
-*TODO*
+// TODO: check
+
+#let texprt = $attach(tack.r.double, br: type)$
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ path type],
+
+    $types ttype p : t$,
+    $types texprt p : t$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $types texprt () : cl Read, NotWrite cr$,
+  )
+))
+
+// NOTE: tmp removed
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ unit value type],
+
+//     $types texprt e : t$,
+//     // TODO: why Ref mode ?? <- due to immutability ??
+//     $types texprt rf e : rf Ref t$,
+//   )
+// ))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $types texprt e_1 : t_1$,
+    $...$,
+    $types texprt e_n : t_n$,
+    $types texprt [e_1, ... e_n] : [t_1, ... t_n]$,
+  )
+))
 
 === Function Evaluation
 
@@ -919,7 +945,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ READ $p$],
 
-    $mu, types, vals teval p eqmu 0$,
+    $mu, types, vals tval p eqmu 0$,
 
     $cl types, vals, mu cr
      xarrow("READ" p)
