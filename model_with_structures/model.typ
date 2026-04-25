@@ -529,7 +529,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 === Value Construction
 
-// TODO: FIXME:add ref / copy modes correctness check
+// TODO: FIXME:add ref / copy modes correctness check ??
 
 #let new = `new`
 
@@ -538,7 +538,6 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ new $0$ value],
 
-    // TODO: check that access is what required ??
     $cl 0, mu cr xarrowSquiggly(cl r\, w cr)_new cl 0, mu cr$,
   )
 ))
@@ -548,7 +547,6 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ new $\#$ value],
 
-    // TODO: check that access is what required ??
     $cl \#, mu cr xarrowSquiggly(cl r\, w cr)_new cl \#, mu cr$,
   )
 ))
@@ -611,9 +609,125 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 === Value Update
 
-#let write = `write`
+#let modify = `modify`
 
-*TODO: write to value*
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ modify trivial value],
+
+    $v in {0, \#, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl \@ x \, b cr)_modify cl b, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ new reference copy value],
+
+    $cl mu[l], mu cr xarrowSquiggly(cl p \, b cr)_modify cl v', mu' cr$,
+    $cl rf l, mu cr xarrowSquiggly(cl *p \, b cr)_modify cl rf l, mu'[l <- v'] cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ modify tuple value],
+
+    $v in {0, \#, bot}$,
+    $cl v_i, mu cr xarrowSquiggly(cl p \, b cr)_modify cl v'_i, mu', cr$,
+    $cl [v_1, ... v_i, ... v_n], mu cr xarrowSquiggly(cl p.i \, b cr)_modify cl [v_1, ... v'_i, ... v_n], mu' cr$,
+  )
+))
+
+#h(10pt)
+
+=== Value Combination
+
+#let combine = `combine`
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine trivial $0$ values],
+
+    $mu xarrowSquiggly(cl 0 \, 0 cr)_combine cl 0, mu cr$
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine trivial $bot$ values],
+
+    $mu xarrowSquiggly(cl bot \, bot cr)_combine cl bot, mu cr$
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine other trivial values],
+
+    $v_1 in {0, \#, bot}$,
+    $v_2 in {0, \#, bot}$,
+    $v_1 != v_2$,
+    $mu xarrowSquiggly(cl v_1 \, v_2 cr)_combine cl \#, mu cr$
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine lambda values],
+
+    $mu xarrowSquiggly(cl lambda \, lambda cr)_combine cl lambda, mu cr$
+  )
+))
+
+#h(10pt)
+
+// NOTE: combine inplace, destroy values (actually only the first value)
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine reference values (inplace)],
+
+    $mu xarrowSquiggly(cl mu[l_1] \, mu[l_2] cr)_combine cl v', mu' cr$,
+    // NOTE: not inplace variant // TODO FIXME: choose variant
+    // $mu' xarrowSquiggly(v')_#[add] cl rf l', mu'' cr$,
+    // $mu xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l', mu'' cr$
+    $mu xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l_1, mu'[l_1 <- v'] cr$
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine tuple values],
+
+    $mu_0 xarrowSquiggly(cl v^1_1 \, v^2_1 cr)_combine cl v'_1, mu_1 cr$,
+    $...$,
+    $mu_(n - 1) xarrowSquiggly(cl v^1_n \, v^2_n cr)_combine cl v'_n, mu_n cr$,
+    $mu_0 xarrowSquiggly(cl [v^1_1, ... v^1_n] \, [v^2_1 ... v^2_n] cr)_combine cl [v'_1, ... v'_n], mu_n cr$
+  )
+))
+
+#h(10pt)
 
 === Call Finalization
 
@@ -788,11 +902,11 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $types ttype p : cl r, w cr$,
     $w = MaybeWrite or w = AlwaysWrite$,
     $p arrpath x$,
-    $mu[x] xarrowSquiggly(p)_write v$,
+    $mu[x] xarrowSquiggly(p)_modify v'$,
 
     $cl types, vals, mu cr
      xarrow("WRITE" p)
-     cl types, vals, mu[x <- v] cr$,
+     cl types, vals, mu[x <- v'] cr$,
   )
 ))
 
@@ -819,8 +933,6 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 #h(10pt)
 
-#let combine = `combine`
-
 *TODO: combine replacement* // FIXME
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -845,21 +957,5 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
      cl types_t, vals_t, mu' cr$,
   )
 ))
-
-#h(10pt)
-
-=== Combination
-
-*TODO: rewrite as rules, fix* // FIXME
-
-$ combine(mu_1, mu_2)[i] = combine_e (mu_1[i], mu_2[i]) $
-$ combine_e (bot, bot) = bot $
-$ combine_e (0, 0) = 0 $
-$ combine_e (\_, \_) = \# $
-// FIXME: ref to combined memory
-$ combine_e (rf c l_1, rf c' l_2) | c == c' = rf c combine_e(mu_1[l_1], mu_2[l_2])$
-$ combine_e (v^1_1, ... v^1_n, v^2_1 ... v^2_n) = [combine_e(v^1_1, v^2_1), ..., combine_e(v^1_n, v^2_n)]$
-$ combine_e (lambda space overline(t_1) space s_1, lambda space overline(t_2) space s_2) | overline(t_1) == overline(t_2)  = lambda space overline(t_1) space s_1 $
-// TODO: FIXME: statemient in lambda is not important ??
 
 ]
