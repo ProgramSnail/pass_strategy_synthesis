@@ -118,7 +118,7 @@
   Prod(
     `stmt`,
     {
-      Or[`CALL` $path space expr+$][call function]
+      Or[`CALL` $path expr+$][call function]
       Or[`WRITE` $path$][write to variable]
       Or[`READ` $path$][read from variable]
       Or[$stmt ; stmt$][control flow operator, xecution ]
@@ -153,7 +153,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda$][function pointer value] // `Fun`
+      Or[$lambda overline(x) space stmt$][function pointer value] // `Fun`
       Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[deepValue+]$][tuple value] // `Prod`
     }
@@ -164,7 +164,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda$][function pointer value] // `Fun`
+      Or[$lambda overline(x) space stmt$][function pointer value] // `Fun`
       Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
@@ -204,17 +204,12 @@ $v in value$ - произвольное значение
 
 == Semantics
 
+// TODO: FIXME: add vars & funcs from global context in the beginnning
+
 // $V := memelem$ - значения памяти
 
 $X$ - можество переменных
 
-// FIXME: TMP
-#let valuemem = `valuemem`
-#let memelem = `memelem`
-#let pathenvmode = `pathenvmode`
-#let pathenvval = `pathenvval`
-#let pathenvmem = `pathenvmem`
-#let pathenvtype = `pathenvtype`
 
 #let vals = $Sigma$
 #let types = $Gamma$
@@ -734,7 +729,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine tuple values],
 
-    $mu'_0 = nothing$,
+    $mu'_0 = []$,
     // NOTE: same labels required
     $mu_1 = {l_1 -> v^1_1, ... l_n -> v^1_n}$,
     $mu_2 = {l_1 -> v^2_1, ... l_n -> v^2_n}$,
@@ -757,16 +752,6 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ spoil init],
-    $mu stretch(=>)^nothing_(cl sigma, mu cr) mu$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
     name: [ spoil step],
 
     $mu stretch(=>)^args_sigma gamma$,
@@ -778,7 +763,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : args)_sigma pathenvval(gamma, sigma, x) <- bot]$
+    $gamma stretch(=>)^((mode, x) : args)_sigma "pathenvval"(gamma, sigma, x) <- bot]$
   )
 ))
 
@@ -794,10 +779,12 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $isAlwaysWrite mode$, // NOTE: strong requirement: should write
     $mode = (\_, not Out)$,
 
+    // NOTE: correctness looks like this
+    // $types, vals, mu, m, c tcorrect v : cl r', w' cr -> cl r, w cr$,
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : args)_sigma pathenvval(gamma, sigma, x) <- 0]$
+    $gamma stretch(=>)^((mode, x) : args)_sigma "pathenvval"(gamma, sigma, x) <- 0]$
   )
 ))
 
@@ -823,52 +810,55 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 #h(10pt)
 
+=== Expression Evaluation
+
+*TODO*
+
+=== Expresion Typing
+
+*TODO*
+
 === Function Evaluation
 
 // FIXME: make connected to syntax
 *TODO*
 
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ $(lambda a : t. d) m$],
+
+//     // TODO: verify that type of m is t ??
+
+//     $cl sigma [a <- (m, t)], mu, l cr
+//      xarrowSquiggly(t)
+//      cl sigma', mu', l' cr$,
+
+//     $cl sigma', mu', l' cr
+//      xarrowDashed(d space @ space overline(y))
+//      cl sigma'', mu'', l'' cr$,
+
+//     $isRead mode$,
+//     $not isCopy mode$,
+
+//     // NOTE: correctness checked in CALL f
+
+//     $cl sigma, mu, l cr
+//      xarrowDashed()
+//      cl sigma'', mu'', l'' cr$,
+//   )
+// ))
+
+// TODO: FIXME: arrow to eval expr to value ??
+// TODO: fixme 
+
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ $(lambda a : t. d) m$],
-
-    // TODO: verify that type of m is t ??
-
-    $cl sigma [a <- (m, t)], mu, l cr
-     xarrowSquiggly(t)
-     cl sigma', mu', l' cr$,
-
-    $cl sigma', mu', l' cr
-     xarrowDashed(d space @ space overline(y))
-     cl sigma'', mu'', l'' cr$,
-
-    $isRead mode$,
-    $not isCopy mode$,
-
-    // NOTE: correctness checked in CALL f
+    name: [ add argument],
 
     $cl sigma, mu, l cr
-     xarrowDashed((lambda a. d) space @ space x space overline(y))
-     cl sigma'', mu'', l'' cr$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [decl body],
-
-    $cl sigma, mu, l cr
-     attach(stretch(->)^overline(s), tr: *)
-     cl sigma', mu', l' cr$,
-
-    $d = overline(s)$,
-
-    $cl sigma, mu, l cr
-     xarrowDashed(d space @)
+     xarrowDashed(x space m space t space p)
      cl sigma', mu', l' cr$,
   )
 ))
@@ -877,23 +867,48 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 === Statement Evaluation
 
-// FIXME: make connected to syntax
-*TODO: check type of lambda?, args from type?*
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ CALL $f space overline(p)$],
 
-    $cl [], mu, l cr
-     xarrowDashed(f space @ space overline(p))
-     cl sigma', mu', l' cr$,
+    // TODO: FIXME: take corresponding statement & var names
+    // use eval ??
+    [*TODO: statement (from value?) + x'es \<\- expr eval ? *],
 
-    // TODO: FIXME define args in some way
-    $mu attach(stretch(=>)^args_sigma, tr: *) gamma$,
+    $types ttype f : lambda args $,
+    $args = [m_1 t_1, ... m_n t_n]$,
+    $overline(p) = [p_1, ... p_n]$,
+    $overline(x) = [x_1, ... x_n]$,
 
-    $cl sigma, mu, l cr
+    // TODO: add args before statement eval
+
+    $types_0 = []$,
+    $vals_0 = []$,
+    $mu_0 = mu$,
+
+    // NOTE: dashed arrow to fill context
+    $cl types_0, vals_0,  mu_0, l cr
+     xarrowDashed(x_1 space m_1 space t_1 space p_1)
+     cl types', vals_1, mu_1, l' cr$,
+    $...$,
+    $cl types_(n - 1), vals_(n - 1),  mu_(n - 1), l cr
+     xarrowDashed(x_n space m_n space t_n space p_n)
+     cl types', vals_n, mu_n, l' cr$,
+
+    $cl types_n, vals_n,  mu_n, l cr
+     xarrow(s)
+     cl types', vals', mu', l' cr$,
+
+    // NOTE: thick arrow to "spoil" context
+    $gamma_0 = mu$,
+    $gamma_0 stretch(=>)^(x_1 space m_1 space t_1)_(cl vals, types cr) gamma_1$,
+    $...$,
+    $gamma_(n - 1) stretch(=>)^(x_n space m_n space t_n)_(cl vals, types cr) gamma_n$,
+
+    $cl vals, types, mu, l cr
      xarrow("CALL" f space overline(p))
-     cl sigma, gamma, l cr$,
+     cl vals, types, gamma_n, l cr$,
   )
 ))
 
@@ -917,16 +932,17 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ WRITE $x$],
+    name: [ WRITE $p$],
 
     $types ttype p : cl r, w cr$,
     $w = MaybeWrite or w = AlwaysWrite$,
     $p arrpath x$,
-    $mu[x] xarrowSquiggly(p)_modify v'$,
+    $l = vals(x)$,
+    $mu[l] xarrowSquiggly(cl p \, 0 cr)_modify v'$,
 
     $cl types, vals, mu cr
      xarrow("WRITE" p)
-     cl types, vals, mu[x <- v'] cr$,
+     cl types, vals, mu[l <- v'] cr$,
   )
 ))
 
