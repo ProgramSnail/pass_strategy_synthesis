@@ -24,8 +24,6 @@
 #let isPossibleWrite = `isPossibleWrite`
 #let isRef = `isRef`
 #let isCopy = `isCopy`
-#let isIn = `isIn`
-#let isOut = `isOut`
 
 #let readTag = `read`
 #let writeTag = `write`
@@ -403,13 +401,6 @@ $s in stmt, f in X, x in X, a in X$
 ))
 ]
 
-=== Mode Accessors
-
-#let modevar = $(i space o)$
-
-$ isIn modevar = (i = In) $
-$ isOut modevar = (o = Out) $
-
 // FIXME: move to new mode model
 // === Mode Correctness
 
@@ -479,10 +470,10 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ unit assignment tags correctness],
 
-    $r = Read => isIn m$, 
-    $isOut m => w = AlwaysWrite$,
+    $r = Read => m = (In, \_)$, 
+    $m = (\_, Out) => w = AlwaysWrite$,
     // $sigma temode x -> cr r' space w' cl$, // NOTE: not required, value passed
-    $(w = AlwaysWrite or w = MaybeWrite) and (isOut m or c = Ref) => w' = AlwaysWrite$,
+    $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
 
     // $sigma, mu teval x eqmu v$, // NOTE: not required, value passed
     $v in {0, \#, bot}$,
@@ -648,7 +639,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     $isPossibleWrite mode$, // NOTE: weak requirement: may write
     $not isCopy mode$,
-    $not isOut mode$,
+    $mode = (\_, not Out)$,
 
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
@@ -667,7 +658,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $mu stretch(=>)^args_sigma gamma$,
 
     $isAlwaysWrite mode$, // NOTE: strong requirement: should write
-    $isOut mode$,
+    $mode = (\_, not Out)$,
 
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
