@@ -657,7 +657,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine trivial $0$ values],
 
-    $mu xarrowSquiggly(cl 0 \, 0 cr)_combine cl 0, mu cr$
+    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl 0 \, 0 cr)_combine cl 0, mu cr$
   )
 ))
 
@@ -668,7 +668,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine trivial $bot$ values],
 
-    $mu xarrowSquiggly(cl bot \, bot cr)_combine cl bot, mu cr$
+    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl bot \, bot cr)_combine cl bot, mu cr$
   )
 ))
 
@@ -682,7 +682,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $v_1 in {0, \#, bot}$,
     $v_2 in {0, \#, bot}$,
     $v_1 != v_2$,
-    $mu xarrowSquiggly(cl v_1 \, v_2 cr)_combine cl \#, mu cr$
+    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl v_1 \, v_2 cr)_combine cl \#, mu cr$
   )
 ))
 
@@ -693,23 +693,25 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine lambda values],
 
-    $mu xarrowSquiggly(cl lambda \, lambda cr)_combine cl lambda, mu cr$
+    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl lambda \, lambda cr)_combine cl lambda, mu cr$
   )
 ))
 
 #h(10pt)
 
-// NOTE: combine inplace, destroy values (actually only the first value)
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ combine reference values (inplace)],
 
-    $mu xarrowSquiggly(cl mu[l_1] \, mu[l_2] cr)_combine cl v', mu' cr$,
-    // NOTE: not inplace variant // TODO FIXME: choose variant
+    // NOTE: standalome version
+    // $cl mu_1, mu_2, mu cr xarrowSquiggly(cl mu_1[l_1] \, mu_2[l_2] cr)_combine cl v', mu' cr$,
     // $mu' xarrowSquiggly(v')_#[add] cl rf l', mu'' cr$,
-    // $mu xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l', mu'' cr$
-    $mu xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l_1, mu'[l_1 <- v'] cr$
+    // $cl mu_1, mu_2, mu cr xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l', mu'' cr$
+
+    // NOTE: version to use with "combine all"
+    $l_1 = l_2$,
+    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l_1, mu cr$
   )
 ))
 
@@ -720,10 +722,28 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine tuple values],
 
-    $mu_0 xarrowSquiggly(cl v^1_1 \, v^2_1 cr)_combine cl v'_1, mu_1 cr$,
+    $cl mu_1, mu_2, mu'_0 cr xarrowSquiggly(cl v^1_1 \, v^2_1 cr)_combine cl v'_1, mu'_1 cr$,
     $...$,
-    $mu_(n - 1) xarrowSquiggly(cl v^1_n \, v^2_n cr)_combine cl v'_n, mu_n cr$,
-    $mu_0 xarrowSquiggly(cl [v^1_1, ... v^1_n] \, [v^2_1 ... v^2_n] cr)_combine cl [v'_1, ... v'_n], mu_n cr$
+    $cl mu_1, mu_2, mu'_(n - 1) cr xarrowSquiggly(cl v^1_n \, v^2_n cr)_combine cl v'_n, mu'_n cr$,
+    $cl mu_1, mu_2, mu'_0 cr xarrowSquiggly(cl [v^1_1, ... v^1_n] \, [v^2_1 ... v^2_n] cr)_combine cl [v'_1, ... v'_n], mu'_n cr$
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ combine tuple values],
+
+    $mu'_0 = nothing$,
+    // NOTE: same labels required
+    $mu_1 = {l_1 -> v^1_1, ... l_n -> v^1_n}$,
+    $mu_2 = {l_1 -> v^2_1, ... l_n -> v^2_n}$,
+
+    $cl mu_1, mu_2, mu'_0 cr xarrowSquiggly(cl v^1_1 \, v^2_1 cr)_combine cl v'_1, mu'_1 cr$,
+    $...$,
+    $cl mu_1, mu_2, mu'_(n - 1) cr xarrowSquiggly(cl v^1_n \, v^2_n cr)_combine cl v'_n, mu'_n cr$,
+
+    $cl mu_1, mu_2 cr xarrowSquiggly(space)_#[combine all] mu'_n cr$
   )
 ))
 
@@ -933,7 +953,6 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 #h(10pt)
 
-*TODO: combine replacement* // FIXME
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
@@ -949,7 +968,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     $types_s = types_t$,
     $vals_s = vals_t$,
-    $mu' = combine(mu_s, mu_t)$,
+    $cl mu_s, mu_t cr xarrowSquiggly(space)_#[combine all] mu'$,
 
     // TODO changes ?? two ways ??
     $cl types, vals, mu cr
