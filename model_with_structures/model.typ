@@ -351,8 +351,6 @@ $s in stmt, f in X, x in X, a in X$
 
 === Eval Rules
 
-#let args = `args`
-
 #[
 
 #let ref = `ref`
@@ -685,7 +683,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ spoil step],
 
-    $mu stretch(=>)^args_sigma gamma$,
+    $mu stretch(=>)^"args"_sigma gamma$,
 
     $isPossibleWrite mode$, // NOTE: weak requirement: may write
     $not isCopy mode$,
@@ -694,7 +692,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : args)_sigma "pathenvval"(gamma, sigma, x) <- bot]$
+    $gamma stretch(=>)^((mode, x) : "args")_sigma "pathenvval"(gamma, sigma, x) <- bot]$
   )
 ))
 
@@ -705,7 +703,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ fix step],
 
-    $mu stretch(=>)^args_sigma gamma$,
+    $mu stretch(=>)^"args"_sigma gamma$,
 
     $isAlwaysWrite mode$, // NOTE: strong requirement: should write
     $mode = (\_, not Out)$,
@@ -715,7 +713,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // gamma - memory (as mu)
-    $gamma stretch(=>)^((mode, x) : args)_sigma "pathenvval"(gamma, sigma, x) <- 0]$
+    $gamma stretch(=>)^((mode, x) : "args")_sigma "pathenvval"(gamma, sigma, x) <- 0]$
   )
 ))
 
@@ -726,7 +724,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ skip step],
 
-    $mu stretch(=>)^args_sigma gamma$,
+    $mu stretch(=>)^"args"_sigma gamma$,
 
     $not "spoil step"$,
     $not "fix step"$,
@@ -734,7 +732,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $isCorrect_(cl sigma, mu cr) (mode, x)$,
 
     // mu
-    $gamma stretch(=>)^((mode, x) : args)_sigma gamma$
+    $gamma stretch(=>)^((mode, x) : "args")_sigma gamma$
   )
 ))
 
@@ -896,16 +894,10 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ CALL $f space overline(p)$],
+    name: [ CALL $f space [p_1, ... p_n]$],
 
-    // TODO: FIXME: take corresponding statement & var names
-    // use eval ??
-    [*TODO: statement (from value?) + x'es \<\- expr eval ? *],
-
-    $types ttype f : lambda args $,
-    $args = [m_1 t_1, ... m_n t_n]$,
-    $overline(p) = [p_1, ... p_n]$,
-    $overline(x) = [x_1, ... x_n]$,
+    $vals, mu texpre f eqmu lambda [x_1, ... x_n] space s$,
+    $types ttype f : lambda [m_1 t_1, ... m_n t_n] $,
 
     // TODO: add args before statement eval
 
@@ -933,7 +925,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     $gamma_(n - 1) stretch(=>)^(x_n space m_n space t_n)_(cl vals, types cr) gamma_n$,
 
     $cl vals, types, mu, l cr
-     xarrow("CALL" f space overline(p))
+     xarrow("CALL" f space [p_1, ... p_n])
      cl vals, types, gamma_n, l cr$,
   )
 ))
