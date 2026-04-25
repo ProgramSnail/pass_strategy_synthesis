@@ -460,27 +460,20 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ new $0$ value],
+    name: [ new trivial read value],
 
-    $cl 0, mu cr xarrowSquiggly(cl r \, w cr)_new cl 0, mu cr$,
+    $v in {0, \#, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl Read \, w cr)_new cl v, mu cr$,
   )
 ))
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ new $\#$ value],
+    name: [ new trivial $not$ read value],
 
-    $cl \#, mu cr xarrowSquiggly(cl r \, w cr)_new cl \#, mu cr$,
-  )
-))
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new $bot$ value],
-
-    $cl bot, mu cr xarrowSquiggly(cl r \, w cr)_new cl bot, mu cr$,
+    $v in {0, \#, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl Read \, w cr)_new cl bot, mu cr$,
   )
 ))
 
@@ -672,7 +665,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 #h(10pt)
 
-=== Call Finalization
+=== Call Values Spoil
 
 #let spoil = `spoil`
 
@@ -863,48 +856,25 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   )
 ))
 
-=== Function Evaluation
-
-// FIXME: make connected to syntax
-*TODO*
-
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ $(lambda a : t. d) m$],
-
-//     // TODO: verify that type of m is t ??
-
-//     $cl sigma [a <- (m, t)], mu, l cr
-//      xarrowSquiggly(t)
-//      cl sigma', mu', l' cr$,
-
-//     $cl sigma', mu', l' cr
-//      xarrowDashed(d space @ space overline(y))
-//      cl sigma'', mu'', l'' cr$,
-
-//     $isRead mode$,
-//     $not isCopy mode$,
-
-//     // NOTE: correctness checked in CALL f
-
-//     $cl sigma, mu, l cr
-//      xarrowDashed()
-//      cl sigma'', mu'', l'' cr$,
-//   )
-// ))
-
-// TODO: FIXME: arrow to eval expr to value ??
-// TODO: fixme 
+=== Function Argument Addition
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ add argument],
 
-    $cl sigma, mu, l cr
-     xarrowDashed(x space m space t space p)
-     cl sigma', mu', l' cr$,
+
+    $vals, mu tval p eqmu v$,
+    $types ttype p : t'$,
+    // TODO: FIXME: check type compatibility for t and type for path p (?)
+    [*TODO: check t ~ t' in sme way (?)*],
+    $cl v', mu cr xarrowSquiggly(t)_new cl v, mu' cr$,
+
+
+    // TODO save type mode somewhere ?? // <- not needed because is described by other params <- ??
+    $cl types, vals, mu cr
+     xarrowDashed(x space t space p)
+     cl types[x <- t], vals[x <- v], mu' cr$,
   )
 ))
 
@@ -928,11 +898,11 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     // NOTE: dashed arrow to fill context
     $cl types_0, vals_0,  mu_0, l cr
-     xarrowDashed(x_1 space m_1 space t_1 space p_1)
+     xarrowDashed(x_1 space t_1 space p_1)
      cl types', vals_1, mu_1, l' cr$,
     $...$,
     $cl types_(n - 1), vals_(n - 1),  mu_(n - 1), l cr
-     xarrowDashed(x_n space m_n space t_n space p_n)
+     xarrowDashed(x_n space t_n space p_n)
      cl types', vals_n, mu_n, l' cr$,
 
     $cl types_n, vals_n,  mu_n, l cr
