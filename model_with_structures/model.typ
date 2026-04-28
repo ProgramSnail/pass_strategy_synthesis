@@ -73,7 +73,7 @@
   Prod(
     `mode`,
     {
-      Or[$inTag space outTag$][]
+      Or[$inTag outTag$][]
     }
   ),
   Prod(
@@ -112,7 +112,7 @@
     {
       Or[$()$][value of simple type] // `Unit`
       Or[$path$][value from variable] // `Path`
-      // TODO: FIXME: decide what is the result of ref expr eval
+      // TODO: decide what is the result of ref expr eval
       // Or[$rf expr$][reference expr] // `Ref`
       Or[$[expr+]$][tuple expr] // `Prod`
     }
@@ -224,9 +224,6 @@ $sigma : envt := X -> type, space types : envt$ - #[ типы значений �
 
 // $d in decl, $
 $s in stmt, f in X, x in X, a in X$
-
-// FIXME ??
-// $d space @ space overline(x)$ - запись применения функции (вида #decl) к аргументам
 
 === Path Accessors
 
@@ -373,85 +370,61 @@ $s in stmt, f in X, x in X, a in X$
 
 // TODO: introduce spep env argument ??
 
-=== Moded Type Correctness
-
-*NOTE: скорее всего не нужна в таком виде, перенесено в spoil*
-
-#let tcorrect = $attach(tack.r, br: #[correct])$
-
-// TODO: FIXME: well formatness for mode, extract
-// TODO: FIXME: check for mode, is recursion required ??
-// TODO: FIXME: check mode & access corectness in os correct
-
-$ vals in envv, types in envt, space mu in mem, space m in mode,
-  space c in copyTag, space r, r' in readTag, space w, w' in writeTag,
-  space v in value, space t, t' in type $
-
-#h(10pt)
-
-// TODO: FIXME: complete rule check
-// + add part about ref -> not copy later
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ unit assignment tags correctness],
-
-    $r = Read => m = (In, \_)$, 
-    $m = (\_, Out) => w = AlwaysWrite$,
-    // $sigma temode x -> cr r' space w' cl$, // NOTE: not required, value passed
-    $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
-
-    // $sigma, mu teval x eqmu v$, // NOTE: not required, value passed
-    $v in {0, \#, bot}$,
-    $r = Read => v = 0$,
-
-    $types, vals, mu, m, c tcorrect v : cl r', w' cr -> cl r, w cr$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ function pointer tags correctness],
-
-    $types, vals, mu, m, c tcorrect lambda : lambda space overline(t) -> lambda space overline(t)$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ ref assignment tags correctness],
-
-    $types, vals, mu, m, c_r tcorrect v : t -> t'$,
-
-    // TODO: FIXME: which tag translations are correct ?? <- only assignee?
-    $types, vals, mu, m, c tcorrect rf space v : rf c' space t -> rf c_r space t'$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ tuple assignmenttags correctness],
-
-    $types, vals, mu, m, c tcorrect v_1 : t_1 -> t'_1$,
-
-    $...$,
-
-    $types, vals, mu, m, c tcorrect v_n : t_n -> t'_n$,
-
-    $types, vals, mu, m, c tcorrect [v_1, ... v_n] : [t_1, ..., t_n] -> [t'_1, ... t'_n]$,
-  )
-))
-
-#h(10pt)
+// --- >>> ---
+// === Moded Type Correctness
+// *NOTE: скорее всего не нужна в таком виде, перенесено в spoil*
+// #let tcorrect = $attach(tack.r, br: #[correct])$
+// $ vals in envv, types in envt, space mu in mem, space m in mode,
+//   space c in copyTag, space r, r' in readTag, space w, w' in writeTag,
+//   space v in value, space t, t' in type $
+// #h(10pt)
+// // TODO: FIXME: complete rule check
+// // + add part about ref -> not copy later
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ unit assignment tags correctness],
+//     $r = Read => m = (In, \_)$, 
+//     $m = (\_, Out) => w = AlwaysWrite$,
+//     // $sigma temode x -> cr r' space w' cl$, // NOTE: not required, value passed
+//     $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
+//     // $sigma, mu teval x eqmu v$, // NOTE: not required, value passed
+//     $v in {0, \#, bot}$,
+//     $r = Read => v = 0$,
+//     $types, vals, mu, m, c tcorrect v : cl r', w' cr -> cl r, w cr$,
+//   )
+// ))
+// #h(10pt)
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ function pointer tags correctness],
+//     $types, vals, mu, m, c tcorrect lambda : lambda space overline(t) -> lambda space overline(t)$,
+//   )
+// ))
+// #h(10pt)
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ ref assignment tags correctness],
+//     $types, vals, mu, m, c_r tcorrect v : t -> t'$,
+//     // TODO: FIXME: which tag translations are correct ?? <- only assignee?
+//     $types, vals, mu, m, c tcorrect rf space v : rf c' space t -> rf c_r space t'$,
+//   )
+// ))
+// #h(10pt)
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ tuple assignmenttags correctness],
+//     $types, vals, mu, m, c tcorrect v_1 : t_1 -> t'_1$,
+//     $...$,
+//     $types, vals, mu, m, c tcorrect v_n : t_n -> t'_n$,
+//     $types, vals, mu, m, c tcorrect [v_1, ... v_n] : [t_1, ..., t_n] -> [t'_1, ... t'_n]$,
+//   )
+// ))
+// #h(10pt)
+// --- <<< ---
 
 === Value Construction
 
@@ -475,7 +448,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     name: [ new trivial $not$ read value],
 
     $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl Read \, w cr)_new cl bot, mu cr$,
+    $cl v, mu cr xarrowSquiggly(cl not Read \, w cr)_new cl bot, mu cr$,
   )
 ))
 
@@ -484,7 +457,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ new funciton pointer value],
 
-    $cl lambda overline(t) s, mu cr xarrowSquiggly(space)_new cl lambda overline(t) s, mu cr$,
+    $cl lambda overline(t) s, mu cr xarrowSquiggly(lambda space c space overline(t))_new cl lambda overline(t) s, mu cr$,
   )
 ))
 
@@ -494,7 +467,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
     name: [ new reference ref value],
 
     // TODO: FIXME: recursive copy ?? (what heppens if ref field has copy substructure ??)
-    // frbidden ??
+    // <- forbidden ??
 
     $cl rf l, mu cr xarrowSquiggly(rf Ref t)_new cl rf l, mu cr$,
   )
@@ -579,14 +552,15 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
 === Value Combination
 
-#let combine = `combine`
-
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ combine trivial $0$ values],
+    name: [ combine same trivial values],
 
-    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl 0 \, 0 cr)_combine cl 0, mu cr$
+    $v_1 in {0, \#, bot}$,
+    $v_2 in {0, \#, bot}$,
+    $v_1 = v_2$,
+    $v_1 plus.o v_2 = v_1$
   )
 ))
 
@@ -595,23 +569,12 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ combine trivial $bot$ values],
-
-    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl bot \, bot cr)_combine cl bot, mu cr$
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ combine other trivial values],
+    name: [ combine different trivial values],
 
     $v_1 in {0, \#, bot}$,
     $v_2 in {0, \#, bot}$,
     $v_1 != v_2$,
-    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl v_1 \, v_2 cr)_combine cl \#, mu cr$
+    $v_1 plus.o v_2 = \#$
   )
 ))
 
@@ -622,7 +585,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine lambda values],
 
-    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl lambda \, lambda cr)_combine cl lambda, mu cr$
+    $lambda plus.o lambda = lambda$
   )
 ))
 
@@ -640,7 +603,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     // NOTE: version to use with "combine all"
     $l_1 = l_2$,
-    $cl mu_1, mu_2, mu cr xarrowSquiggly(cl rf l_1 \, rf l_2 cr)_combine cl rf l_1, mu cr$
+    $rf l_1 plus.o rf l_2 = rf l_1$
   )
 ))
 
@@ -651,28 +614,23 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
   rule(
     name: [ combine tuple values],
 
-    $cl mu_1, mu_2, mu'_0 cr xarrowSquiggly(cl v^1_1 \, v^2_1 cr)_combine cl v'_1, mu'_1 cr$,
+    $v^1_1 plus.o v^2_1 = v'_1$,
     $...$,
-    $cl mu_1, mu_2, mu'_(n - 1) cr xarrowSquiggly(cl v^1_n \, v^2_n cr)_combine cl v'_n, mu'_n cr$,
-    $cl mu_1, mu_2, mu'_0 cr xarrowSquiggly(cl [v^1_1, ... v^1_n] \, [v^2_1 ... v^2_n] cr)_combine cl [v'_1, ... v'_n], mu'_n cr$
+    $v^1_n plus.o v^2_n = v'_n$,
+    $[v^1_1, ... v^1_n] plus.o [v^2_1 ... v^2_n] = [v'_1, ... v'_n]$
   )
 ))
+
+#let dom = `dom`
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ combine tuple values],
+    name: [ combine memory],
 
-    $mu'_0 = []$,
-    // NOTE: same labels required
-    $mu_1 = {l_1 -> v^1_1, ... l_n -> v^1_n}$,
-    $mu_2 = {l_1 -> v^2_1, ... l_n -> v^2_n}$,
+    $dom mu_1 = dom mu_2$,
 
-    $cl mu_1, mu_2, mu'_0 cr xarrowSquiggly(cl v^1_1 \, v^2_1 cr)_combine cl v'_1, mu'_1 cr$,
-    $...$,
-    $cl mu_1, mu_2, mu'_(n - 1) cr xarrowSquiggly(cl v^1_n \, v^2_n cr)_combine cl v'_n, mu'_n cr$,
-
-    $cl mu_1, mu_2 cr xarrowSquiggly(space)_#[combine all] mu'_n cr$
+    $mu_1 plus.o mu_2 = l -> mu_1[l] plus.o mu_2[l]$
   )
 ))
 
@@ -920,8 +878,9 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     $vals, mu tval p eqmu v$,
     $types ttype p : t'$,
-    // TODO: FIXME: check type compatibility for t and type for path p (?)
-    [*TODO: check t ~ t' in sme way (?)*],
+    // TODO: check type compatibility for t and type for path p (?)
+    // [*TODO: check t ~ t' in sme way (?)*],
+    // <- programs considired to be well-typed
     $cl v', mu cr xarrowSquiggly(t)_new cl v, mu' cr$,
 
 
@@ -1047,7 +1006,7 @@ $ vals in envv, types in envt, space mu in mem, space m in mode,
 
     $types_s = types_t$,
     $vals_s = vals_t$,
-    $cl mu_s, mu_t cr xarrowSquiggly(space)_#[combine all] mu'$,
+    $mu_s plus.o mu_t = mu'$,
 
     // TODO changes ?? two ways ??
     $cl types, vals, mu cr
