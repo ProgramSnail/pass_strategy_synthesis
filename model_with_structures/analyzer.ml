@@ -1,50 +1,212 @@
 module Functional =
 struct
 
-  (* --- types --- *)
-
   type data = int
+  type memid = int
+
+  (* --- syntax --- *)
 
   type read_cap = Rd | NRd
+
   type write_cap = AlwaysWr | MayWr | NeverWr
-  type copy_cap = Cp | NCp
+  type copy_cap = Cp | Rf
 
   type in_cap = In | NIn
   type out_cap = Out | NOut
 
-  type tag = read_cap * write_cap * copy_cap * in_cap * out_cap
+  type mode = in_cap * out_cap
 
   type path = VarP of data | DerefP of path | AccessP of path * data
-  type argtype = UnitT | RefT of tag * argtype | TupleT of argtype list | FunT of data
-  type argmem = VarM of data | RefM of argmem | TupleM of argmem list | FunM
 
-  type stmt = Call of data * path list | CallLam of path * path list | Read of path | Write of path | Choice of stmt list * stmt list
-  type body = stmt list
+  type atype = UnitT of read_cap * write_cap
+             | RefT of copy_cap * atype
+             | TupleT of atype list
+             | FunT of data (* declaration id for ease of impl (?) *)
 
-  type fun_decl = argtype list * body
-  type prog = fun_decl list * fun_decl
+  type mtype = mode * atype
+
+  type expr = UnitE
+            | PathE of path
+            (* | RefE *)
+            | TupleE of expr list
+
+  type stmt = CallS of path * expr list
+            | WriteS of path
+            | ReadS of path
+            | SeqS of stmt * stmt
+            | ChoiceS of stmt * stmt
+
+  type decl = VarD of (* data * *) atype * expr
+            | FunD of (* data * *) (* (data * *) mtype (* )  *) list * stmt
+
+  type prog = decl list * stmt
 
   (* --- exceptions --- *)
 
-  exception Incorrect_memory_access of int
-  exception Ref_rvalue_argument of int
-  exception Incorrect_const_cast of int
-  exception Invalid_argument_tag of int
-  exception Incompatible_states
-  exception Incompatible_path_and_type
-  exception Incompatible_path_and_mem
-  exception Incompatible_path_and_type_for_tag
+  (* exception Incorrect_memory_access of int *)
+  (* exception Ref_rvalue_argument of int *)
+  (* exception Incorrect_const_cast of int *)
+  (* exception Invalid_argument_tag of int *)
+  (* exception Incompatible_states *)
+  (* exception Incompatible_path_and_type *)
+  (* exception Incompatible_path_and_mem *)
+  (* exception Incompatible_path_and_type_for_tag *)
+  exception Typing_error of string
 
-  (* --- static interpreter (no rec) --- *)
+  (* value model & memory model *)
 
-  (* TODO: allow data (rvalue) in calls ?? *)
-  type arg = RValue | LValue of path
-  type value = UnitV | UndefV | BotV
+  type deepvalue = ZeroDV
+                 | SmthDV
+                 | BotDV
+                 | FunDV of (* data list * *) stmt
+                 | RefDV of deepvalue
+                 | TupleDV of deepvalue list
 
-  type env = (int * (argmem * argtype)) list
+  type value = ZeroV
+             | SmthV
+             | BotV
+             | FunV of (* data list * *) stmt
+             | RefV of memid
+             | TupleV of value list
 
-  (* env * memory * last unused memory * visited functions *) 
-  type state = env * value list * int * int list
+  (* TODO: any additional difference between rvalue and lvalue now ?? *)
+
+  (* --- *)
+
+  type mem = (memid * value) list * memid (* NOTE: memory and first free elem *)
+  type types = (data * atype) list
+  type vals = (data * memid) list
+  type state = mem * types * vals
+
+  (* --- *)
+
+  (* TODO: FIXME: use list_replace for memory instead ?? *)
+  let mem_get (mem : mem) (id : memid) : value = List.assoc id (fst mem)
+  let mem_add (mem : mem) (v : value) : mem * memid =
+    (((snd mem, v) :: fst mem, snd mem + 1), snd mem)
+  let mem_set (mem : mem) (id : memid) (v : value) : mem =
+    ((id, v) :: fst mem, snd mem)
+
+  let rec v_to_deepv (mem : mem) (v : value) : deepvalue = match v with
+    | ZeroV -> ZeroDV
+    | SmthV -> SmthDV
+    | BotV -> BotDV
+    | FunV s -> FunDV s
+    | RefV id -> RefDV (v_to_deepv mem @@ mem_get mem id)
+    | TupleV vs -> TupleDV (List.map (v_to_deepv mem) vs)
+
+  let is_trivial_v (v : value) : bool = 
+    v == ZeroV || v == SmthV || v == BotV
+
+  (* --- path accessors --- *)
+
+  let rec pathvar (p : path) : data = match p with
+    | VarP x -> x
+    | DerefP p -> pathvar p
+    | AccessP (p, _) -> pathvar p
+
+  let rec pathtype (types : types) (p : path) : atype = match p with
+    | VarP x -> List.assoc x types
+    | DerefP p -> (match pathtype types p with
+                    | RefT (_, t) -> t
+                    | _ -> raise @@ Typing_error "pathtype: deref")
+    | AccessP (p, id) -> match pathtype types p with
+                           | TupleT ts -> (List.nth ts id)
+                           | _ -> raise @@ Typing_error "pathtype: access"
+
+  let rec pathval (mem :  mem) (vals : vals) (p : path) : value = match p with
+    | VarP x -> mem_get mem @@ List.assoc x vals
+    | DerefP p -> (match pathval mem vals p with
+                    | RefV id -> mem_get mem id
+                    | _ -> raise @@ Typing_error "pathval: deref")
+    | AccessP (p, id) -> match pathval mem vals p with
+                           | TupleV vs -> (List.nth vs id)
+                           | _ -> raise @@ Typing_error "pathval: access"
+
+  (* --- eval rules --- *)
+
+  (* - utils *)
+
+  let rec list_replace (xs : 'a list) (id : int) (y : 'a) : 'a list = match xs, id with
+   | _ :: xs, 0 -> y :: xs
+   | x :: xs, _ -> x :: list_replace xs (id - 1) y
+   | [], _ -> raise Not_found
+
+  (* - value construction *)
+
+  let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value = match t, v with
+    | UnitT (Rd, w), ZeroV -> (mem, v)
+    | UnitT (Rd, w), SmthV -> (mem, v)
+    | UnitT (Rd, w), BotV -> (mem, v)
+    | UnitT (NRd, w), ZeroV -> (mem, BotV)
+    | UnitT (NRd, w), SmthV -> (mem, BotV)
+    | UnitT (NRd, w), BotV -> (mem, BotV)
+    | FunT _, FunV _ -> (mem, v)
+    | RefT (Rf, _), RefV _ -> (mem, v)
+    | RefT (Cp, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
+                               let (mem'', id'') = mem_add mem' v' in
+                               (mem'', RefV id'') 
+    | TupleT ts, TupleV vs -> let folder = fun (mem, vs') v t -> let (mem', v') = valcopy mem v t in
+                                                                 mem, v' :: vs' in 
+                              let mem', vs' = List.fold_left2 folder (mem, []) vs ts in
+                              (mem', TupleV vs')
+    | _, _ -> raise @@ Typing_error "valcopy"
+
+  (* - value update *)
+
+  let rec valupd (mem : mem) (v : value) (p : path) (b : value) : mem * value = match p, v with
+    | VarP x, _ -> (mem, b)
+    | DerefP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p b in
+                           (mem_set mem' id v', RefV id)
+    | AccessP (p, id), TupleV vs -> let (mem', v') = valupd mem (List.nth vs id) p b in
+                                    (mem', TupleV (list_replace vs id v'))
+    | _, _ -> raise @@ Typing_error "valupd"
+
+  (* - value combination *)
+
+  let rec valcomb (u : value) (v : value) : value =
+    if is_trivial_v u && is_trivial_v v
+    then (if u == v then u else BotV)
+    else match u, v with
+      (* TODO: FIXME: combining semanticsfor funcitons statements *)
+      | FunV s, FunV t  -> if s == t then u else raise @@ Typing_error "valcomb: fun"
+      | RefV a, RefV b -> if a == b then u else raise @@ Typing_error "valcomb: ref"
+      | TupleV us, TupleV vs -> TupleV (List.map2 valcomb us vs)
+      | _, _ ->  raise @@ Typing_error "valcomb"
+
+  (* TODO: func for list memory, not assoc list *)
+  (* let rec memcomb (m : mem) (n : mem) : mem = *)
+    (* if snd m != snd n *)
+    (* then raise @@ Typing_error "memcomb" *)
+    (* else (List.map2 valcomb (fst m) (fst n), snd m) *)
+
+  (* - call values spoil *)
+
+  (* TODO: check all cases *)
+  let is_correct_tags (v : value) (r : read_cap) (w : write_cap)
+                      (r' : read_cap) (w' : write_cap) (m : mode)
+                      (c : copy_cap) : bool =
+    (r != Rd || v == ZeroV) &&
+    (r != Rd || fst m == In) &&
+    (o != Out || w == AlwaysWr) &&
+    (* TODO: check *)
+    ((not @@ (w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf)) || w' == AlwaysWr) &&
+    is_trivial_v v
+
+  let rec valspoil (mem : mem) (v : value) (t : atype)
+                   (u : atype) (m : mode) (c : copy_cap)
+                   : mem * value = match t, u, v with
+    | UnitT (r, w), UnitT (r', w'), _ -> (* TODO FIXME *) raise Not_found
+    | FunT ts, FunT us, FunV _ -> if ts == us then (mem, v) else raise @@ Typing_error "valspoil: fun"
+    | RefT (ct, t), RefT (cu, u), RefV id ->
+      let (mem', v') = valspoil mem (mem_get mem id) t u m ct in
+      (mem_set mem id v', RefV id)
+    | TupleT ts, TupleT us, TupleV vs -> (* TODO FIXME *) raise Not_found
+    | _, _, _ ->  raise @@ Typing_error "valspoil"
+
+(* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
+
+  (* let rec argsspoil (* full spoil *) *)
 
   (* --- *)
 
@@ -277,12 +439,12 @@ struct
   let wi_value : tag = (NRd, AlwaysWr, Cp, In, NOut)
   let mwi_value : tag = (NRd, MayWr, Cp, In, NOut)
   let i_value : tag = (NRd, NeverWr, Cp, In, NOut)
-  let rwi_ref : tag = (Rd, AlwaysWr, NCp, In, NOut)
-  let rmwi_ref : tag = (Rd, MayWr, NCp, In, NOut)
-  let ri_ref : tag = (Rd, NeverWr, NCp, In, NOut)
-  let wi_ref : tag = (NRd, AlwaysWr, NCp, In, NOut)
-  let mwi_ref : tag = (NRd, MayWr, NCp, In, NOut)
-  let i_ref : tag = (NRd, NeverWr, NCp, In, NOut)
+  let rwi_ref : tag = (Rd, AlwaysWr, Rf, In, NOut)
+  let rmwi_ref : tag = (Rd, MayWr, Rf, In, NOut)
+  let ri_ref : tag = (Rd, NeverWr, Rf, In, NOut)
+  let wi_ref : tag = (NRd, AlwaysWr, Rf, In, NOut)
+  let mwi_ref : tag = (NRd, MayWr, Rf, In, NOut)
+  let i_ref : tag = (NRd, NeverWr, Rf, In, NOut)
 
   (* >> tests without functions *)
 

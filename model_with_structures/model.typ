@@ -138,7 +138,7 @@
   Prod(
     `prog`,
     {
-      Or[$decl stmt$][declarations and executet statement]
+      Or[$decl+ space stmt$][declarations and executed statement]
     }
   ),
 )
@@ -155,7 +155,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda overline(x) space stmt$][function pointer value] // `Fun`
+      Or[$lambda space overline(x) stmt$][function pointer value] // `Fun`
       Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[deepValue+]$][tuple value] // `Prod`
     }
@@ -166,7 +166,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda overline(x) space stmt$][function pointer value] // `Fun`
+      Or[$lambda space overline(x) stmt$][function pointer value] // `Fun`
       Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
@@ -585,7 +585,11 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ combine lambda values],
 
-    $lambda plus.o lambda = lambda$
+    // TODO: FIXME: how to combine statments in the right way? should check both
+    [*TODO: combining semantics for lambda values (sets?)*],
+    $overline(x_1) = overline(x_2)$,
+    $s_1 = s_2$,
+    $lambda space overline(x_1) space s_2 plus.o lambda space overline(x_2) space s_2 = lambda$
   )
 ))
 
@@ -711,7 +715,8 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ lambda step],
 
-    $cl lambda, mu cr xarrowSquiggly(lambda overline(t) \, lambda overline(t) \, m \, c)_spoil cl lambda, mu cr$,
+    $overline(t) = overline(t')$,
+    $cl lambda, mu cr xarrowSquiggly(lambda overline(t) \, lambda overline(t') \, m \, c)_spoil cl lambda, mu cr$,
   )
 ))
 
@@ -736,10 +741,10 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ tuple step],
 
-    $cl v_1, mu cr xarrowSquiggly(t_1 \, t'_1 \, m \, c)_spoil cl v'_1, mu cr$,
+    $cl v_1, mu_0 cr xarrowSquiggly(t_1 \, t'_1 \, m \, c)_spoil cl v'_1, mu_1 cr$,
     $...$,
-    $cl v_n, mu cr xarrowSquiggly(t_n \, t'_n \, m \, c)_spoil cl v'_n, mu cr$,
-    $cl [v_1, ... v_n], mu cr xarrowSquiggly([t_1, ... t_n] \, [t'_1, ... t'_n] \, m \, c)_spoil cl [v'_1, ... v'_n], mu' cr$,
+    $cl v_n, mu_(n - 1) cr xarrowSquiggly(t_n \, t'_n \, m \, c)_spoil cl v'_n, mu_n cr$,
+    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly([t_1, ... t_n] \, [t'_1, ... t'_n] \, m \, c)_spoil cl [v'_1, ... v'_n], mu_n cr$,
   )
 ))
 
