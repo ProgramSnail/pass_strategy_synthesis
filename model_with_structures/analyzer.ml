@@ -52,6 +52,8 @@ struct
   (* exception Incompatible_path_and_mem *)
   (* exception Incompatible_path_and_type_for_tag *)
   exception Typing_error of string
+  exception Eval_error of string
+  exception Cant_fold3_error
 
   (* value model & memory model *)
 
@@ -73,19 +75,31 @@ struct
 
   (* --- *)
 
-  type mem = (memid * value) list * memid (* NOTE: memory and first free elem *)
+  type mem = value list * memid (* NOTE: memory and first free elem *)
   type types = (data * atype) list
   type vals = (data * memid) list
   type state = mem * types * vals
 
   (* --- *)
 
-  (* TODO: FIXME: use list_replace for memory instead ?? *)
-  let mem_get (mem : mem) (id : memid) : value = List.assoc id (fst mem)
+  (* - utils *)
+
+  let rec list_replace (xs : 'a list) (id : int) (y : 'a) : 'a list = match xs, id with
+   | _ :: xs, 0 -> y :: xs
+   | x :: xs, _ -> x :: list_replace xs (id - 1) y
+   | [], _ -> raise Not_found
+
+  (* NOTE: old variant with assoc array *)
+  (* let mem_get (mem : mem) (id : memid) : value = List.assoc id (fst mem) *)
+  (* let mem_add (mem : mem) (v : value) : mem * memid = *)
+    (* (((snd mem, v) :: fst mem, snd mem + 1), snd mem) *)
+  (* let mem_set (mem : mem) (id : memid) (v : value) : mem = *)
+    (* ((id, v) :: fst mem, snd mem) *)
+  let mem_get (mem : mem) (id : memid) : value = List.nth (fst mem) id
   let mem_add (mem : mem) (v : value) : mem * memid =
-    (((snd mem, v) :: fst mem, snd mem + 1), snd mem)
+    ((v :: fst mem, snd mem + 1), snd mem)
   let mem_set (mem : mem) (id : memid) (v : value) : mem =
-    ((id, v) :: fst mem, snd mem)
+    (list_replace (fst mem) id v, snd mem)
 
   let rec v_to_deepv (mem : mem) (v : value) : deepvalue = match v with
     | ZeroV -> ZeroDV
@@ -125,12 +139,11 @@ struct
 
   (* --- eval rules --- *)
 
-  (* - utils *)
-
-  let rec list_replace (xs : 'a list) (id : int) (y : 'a) : 'a list = match xs, id with
-   | _ :: xs, 0 -> y :: xs
-   | x :: xs, _ -> x :: list_replace xs (id - 1) y
-   | [], _ -> raise Not_found
+  (* TODO: FIXME :check if this foldl or foldr *)
+  let rec list_foldl3 f (acc : 'a) (xs : 'b list) (ys : 'c list) (zs : 'd list) : 'a = match xs, ys, zs with
+    | x :: xs, y :: ys, z :: zs -> list_foldl3 f (f acc x y z) xs ys zs 
+    | [], [], [] -> acc
+    | _, _, _ -> raise Cant_fold3_error
 
   (* - value construction *)
 
@@ -168,17 +181,16 @@ struct
     if is_trivial_v u && is_trivial_v v
     then (if u == v then u else BotV)
     else match u, v with
-      (* TODO: FIXME: combining semanticsfor funcitons statements *)
+      (* TODO: FIXME: combining semantics for funcitons statements *)
       | FunV s, FunV t  -> if s == t then u else raise @@ Typing_error "valcomb: fun"
       | RefV a, RefV b -> if a == b then u else raise @@ Typing_error "valcomb: ref"
       | TupleV us, TupleV vs -> TupleV (List.map2 valcomb us vs)
-      | _, _ ->  raise @@ Typing_error "valcomb"
+      | _, _ -> raise @@ Typing_error "valcomb"
 
-  (* TODO: func for list memory, not assoc list *)
-  (* let rec memcomb (m : mem) (n : mem) : mem = *)
-    (* if snd m != snd n *)
-    (* then raise @@ Typing_error "memcomb" *)
-    (* else (List.map2 valcomb (fst m) (fst n), snd m) *)
+  let rec memcomb (m : mem) (n : mem) : mem =
+    if snd m != snd n
+    then raise @@ Typing_error "memcomb"
+    else (List.map2 valcomb (fst m) (fst n), snd m)
 
   (* - call values spoil *)
 
@@ -188,7 +200,7 @@ struct
                       (c : copy_cap) : bool =
     (r != Rd || v == ZeroV) &&
     (r != Rd || fst m == In) &&
-    (o != Out || w == AlwaysWr) &&
+    (snd m != Out || w == AlwaysWr) &&
     (* TODO: check *)
     ((not @@ (w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf)) || w' == AlwaysWr) &&
     is_trivial_v v
@@ -196,17 +208,88 @@ struct
   let rec valspoil (mem : mem) (v : value) (t : atype)
                    (u : atype) (m : mode) (c : copy_cap)
                    : mem * value = match t, u, v with
-    | UnitT (r, w), UnitT (r', w'), _ -> (* TODO FIXME *) raise Not_found
+    | UnitT (r, w), UnitT (r', w'), _ ->
+      if not @@ is_trivial_v v
+        then raise @@ Typing_error "valspoil: unit, not trivial"
+      else if not @@ is_correct_tags v r w r' w' m c
+        then raise @@ Typing_error "valspoil: unit, not correct"
+      else if snd m == NOut && c == Rf && (w == AlwaysWr || w == MayWr)
+        then (mem, BotV)
+      else if snd m == Out && w == AlwaysWr
+        then (mem, ZeroV)
+      else (mem, v)
     | FunT ts, FunT us, FunV _ -> if ts == us then (mem, v) else raise @@ Typing_error "valspoil: fun"
     | RefT (ct, t), RefT (cu, u), RefV id ->
       let (mem', v') = valspoil mem (mem_get mem id) t u m ct in
       (mem_set mem id v', RefV id)
-    | TupleT ts, TupleT us, TupleV vs -> (* TODO FIXME *) raise Not_found
+    | TupleT ts, TupleT us, TupleV vs ->
+        let folder = fun (mem, vs') t u v ->
+          let (mem', v') = valspoil mem v t u m c in (mem', v' :: vs') in
+        let (mem', vs') = list_foldl3 folder (mem, []) ts us vs in
+        (mem', TupleV vs')
     | _, _, _ ->  raise @@ Typing_error "valspoil"
 
-(* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
+  (* full spoil *)
+  let rec argsspoil (state : state) (m : mode) (t : atype) (p : path) : mem =
+    match state with (mem, types, vals) ->
+    let x = pathvar p in
+    let id = List.assoc x vals in
+    let b = pathval mem vals p in
+    let t' = pathtype types p in
+    let (mem', b') = valspoil mem b t t' m Rf in
+    let (mem'', v'') = valupd mem' (mem_get mem' id) p b' in
+    mem_set mem'' id v''
 
-  (* let rec argsspoil (* full spoil *) *)
+  (* - expression evaluation *)
+
+  let rec exprval (mem : mem) (vals : vals) (e : expr) : value = match e with
+    | UnitE -> ZeroV
+    | PathE p -> pathval mem vals p
+    | TupleE es -> TupleV (List.map (exprval mem vals) es)
+
+  (* - expression typing *)
+
+  let rec exprtype (types : types) (e : expr) : atype = match e with
+    | UnitE -> UnitT (Rd, NeverWr)
+    | PathE p -> pathtype types p
+    | TupleE es -> TupleT (List.map (exprtype types) es)
+
+  (* - funciton argument addition *)
+
+  let addarg (state : state) (x : data) (t : atype) (p : path) : state =
+    match state with (mem, types, vals) ->
+    let v = pathval mem vals p in
+    (* let t' = pathtype types p in *)
+    let (mem', v') = valcopy mem v t in
+    let (mem'', id) = mem_add mem' v in
+    (mem', (x, t) :: types, (x, id) :: vals)
+
+  let rec stmt_eval (state : state) (s : stmt) : state =
+    match state with (mem, types, vals) -> match s with
+    | CallS (f, ps) -> raise Not_found (* TODO: FIXME: write call *)
+    | WriteS p -> (match pathtype types p with
+                     | UnitT (_, w) ->
+                       if w == NeverWr
+                       then raise @@ Eval_error "write: write tag"
+                       else let x = pathvar p in
+                            let id = List.assoc x vals in
+                            let (mem', v') = valupd mem (mem_get mem id) p ZeroV in
+                            (mem_set mem' id v', types, vals)
+                     | _ -> raise @@ Eval_error "write: type")
+    | ReadS p -> if pathval mem vals p != ZeroV
+                 then raise @@ Eval_error "read"
+                 else state
+    | SeqS (sl, sr) -> let statel = stmt_eval state sl in
+                       stmt_eval statel sr
+    | ChoiceS (sl, sr) -> let statel = stmt_eval state sl in
+                          let stater = stmt_eval state sr in
+                          match statel with (meml, typesl, valsl) ->
+                          match stater with (memr, typesr, valsr) ->
+                          if typesl != typesr || valsl != valsr
+                          then raise @@ Eval_error "choice"
+                          else (memcomb meml memr, typesl, valsl)
+
+  (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 
   (* --- *)
 

@@ -200,7 +200,7 @@ $v in value$ - произвольное значение
 
     $l = #[next] (mu)$,
 
-    $cl mu cr xarrowSquiggly(v)_#[add] cl l, mu [l <- v] cr$,
+    $mu xarrowSquiggly(v)_#[add] cl l, mu [l <- v] cr$,
   )
 ))
 
@@ -234,7 +234,7 @@ $s in stmt, f in X, x in X, a in X$
 #let eqmu = $attach(=, br: mu)$
 #let arrmu = $attach(->, br: mu)$
 
-#let arrpath = $xarrowSquiggly(mu)_path$
+#let arrpath = $xarrowSquiggly(space)_path$
 
 #let ttype = $attach(tack.r, br: type)$
 #let tmode = $attach(tack.r, br: mode)$
@@ -480,7 +480,7 @@ $s in stmt, f in X, x in X, a in X$
 
     $cl mu[l], mu cr xarrowSquiggly(t)_new cl v, mu_v cr$,
 
-    $cl mu_v cr xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
+    $mu_v xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
 
     $cl rf l, mu cr xarrowSquiggly(rf Copy t)_new cl rf l', mu_a cr$,
   )
@@ -762,9 +762,9 @@ $s in stmt, f in X, x in X, a in X$
     // TODO: FIXME: Ref or Copy ?? in root <- Ref ??, because otherwise there could not b any Refs
     // FIXME depends on parent ??
     $cl b, mu cr xarrowSquiggly(t \, t' \, m \, Ref)_spoil cl b', mu' cr$,
-    $cl mu[l], mu cr xarrowSquiggly(cl p \, b' cr)_modify cl v', mu' cr$,
+    $cl mu'[l], mu' cr xarrowSquiggly(cl p \, b' cr)_modify cl v'', mu'' cr$,
 
-    $mu stretch(=>)^(m space t space p)_(cl vals, types cr) mu'[l <- v']$,
+    $mu stretch(=>)^(m space t space p)_(cl vals, types cr) mu''[l <- v'']$,
   )
 ))
 
@@ -780,19 +780,19 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ path type],
+    name: [ unit value type],
 
-    $vals, mu tval p eqmu v$,
-    $vals, mu texpre p eqmu v$,
+    $vals, mu texpre () eqmu 0$,
   )
 ))
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ path type],
 
-    $vals, mu texpre () eqmu 0$,
+    $vals, mu tval p eqmu v$,
+    $vals, mu texpre p eqmu v$,
   )
 ))
 
@@ -833,19 +833,19 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ path type],
+    name: [ unit value type],
 
-    $types ttype p : t$,
-    $types texprt p : t$,
+    $types texprt () : cl Read, NotWrite cr$,
   )
 ))
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ path type],
 
-    $types texprt () : cl Read, NotWrite cr$,
+    $types ttype p : t$,
+    $types texprt p : t$,
   )
 ))
 
@@ -882,17 +882,17 @@ $s in stmt, f in X, x in X, a in X$
 
 
     $vals, mu tval p eqmu v$,
-    $types ttype p : t'$,
+    // $types ttype p : t'$, // TODO: not required if there is no check
     // TODO: check type compatibility for t and type for path p (?)
     // [*TODO: check t ~ t' in sme way (?)*],
     // <- programs considired to be well-typed
-    $cl v', mu cr xarrowSquiggly(t)_new cl v, mu' cr$,
-
+    $cl v, mu cr xarrowSquiggly(t)_new cl v', mu' cr$,
+    $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
 
     // TODO save type mode somewhere ?? // <- not needed because is described by other params <- ??
     $cl types, vals, mu cr
      xarrowDashed(x space t space p)
-     cl types[x <- t], vals[x <- v], mu' cr$,
+     cl types[x <- t], vals[x <- l], mu'' cr$,
   )
 ))
 
@@ -933,9 +933,9 @@ $s in stmt, f in X, x in X, a in X$
     $...$,
     $gamma_(n - 1) stretch(=>)^(m_n space t_n space p_n)_(cl vals, types cr) gamma_n$,
 
-    $cl vals, types, mu, l cr
+    $cl vals, types, mu cr
      xarrow("CALL" f space [p_1, ... p_n])
-     cl vals, types, gamma_n, l cr$,
+     cl vals, types, gamma_n cr$,
   )
 ))
 
@@ -946,7 +946,7 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ READ $p$],
 
-    $mu, types, vals tval p eqmu 0$,
+    $vals, mu tval p eqmu 0$,
 
     $cl types, vals, mu cr
      xarrow("READ" p)
@@ -964,7 +964,7 @@ $s in stmt, f in X, x in X, a in X$
     $types ttype p : cl r, w cr$,
     $w = MaybeWrite or w = AlwaysWrite$,
     $p arrpath x$,
-    $l = vals(x)$,
+    $l = vals[x]$,
     $mu[l] xarrowSquiggly(cl p \, 0 cr)_modify v'$,
 
     $cl types, vals, mu cr
@@ -988,7 +988,7 @@ $s in stmt, f in X, x in X, a in X$
      stretch(->)^t
      cl types_t, vals_t, mu_t cr$,
 
-    $cl types, vals, mu, cr
+    $cl types, vals, mu cr
      xarrow(s \; t)
      cl types_t, vals_t, mu_t cr$,
   )
