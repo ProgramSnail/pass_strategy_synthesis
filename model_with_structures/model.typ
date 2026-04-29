@@ -756,7 +756,7 @@ $s in stmt, f in X, x in X, a in X$
     // expect well typed program
 
     $vals, mu texpre e eqmu v$,
-    $types texprt e : t'$,
+    // $types texprt e : t'$,
     $mu xarrowSquiggly(v)_#[add] cl l, mu' cr$,
 
     $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu' cr$
@@ -770,9 +770,11 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ add function declaration],
 
+    $mu xarrowSquiggly(lambda space [[x_1, ... x_n] s])_#[add] cl l, mu' cr$,
+
     $cl types, vals, mu cr
      xarrowSquiggly("fun" f (x_1 space : space m_1 t_1, ... space x_n space : space m_n t_n) space = space s)_init
-     cl types[f <- lambda space [t_1, ... t_n]], vals[f <- lambda space [[x_1, ... x_n] s], mu cr$
+     cl types[f <- lambda space [t_1, ... t_n]], vals[f <- l], mu' cr$
   )
 ))
 

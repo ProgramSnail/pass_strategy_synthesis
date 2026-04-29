@@ -205,6 +205,24 @@ struct
     | PathE p -> pathtype types p
     | TupleE es -> TupleT (List.map (exprtype types) es)
 
+  (* - context initialization *)
+
+  let add_decl (state : state) (x : data) (d : decl) : state =
+    match state with (mem, types, vals) -> match d with
+    | VarD (t, e) -> let v = exprval mem vals e in
+                     let (mem', id) = mem_add mem v in
+                     (mem', (x, t) :: types, (x, id) :: vals)
+    | FunD (ts, s)  -> let (mem', id) = mem_add mem (FunV [s]) in
+                       (mem', (x, FunT ts) :: types, (x, id) :: vals)
+
+  let empty_state : state = (([], 0), [], [])
+
+  let prog_init (prog : prog) : state =
+    match prog with (decls, _) -> fst @@ List.fold_left (* TODO: FIXME: check x's order *)
+                                    (fun (st, x) d -> (add_decl st x d, x + 1))
+                                    (empty_state, 0)
+                                    decls
+
   (* - call values spoil *)
 
   (* TODO: check all cases *)
@@ -243,6 +261,7 @@ struct
     | _, _, _ ->  raise @@ Typing_error "valspoil"
 
   (* full spoil *)
+
   let rec argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
     match state with (mem, types, vals) ->
     let x = pathvar p in
