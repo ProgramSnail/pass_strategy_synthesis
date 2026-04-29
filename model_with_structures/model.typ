@@ -743,6 +743,41 @@ $s in stmt, f in X, x in X, a in X$
   )
 ))
 
+===  Context Initialization
+
+#let init = `init`
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add variable declaration],
+
+    // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
+    // expect well typed program
+
+    $vals, mu texpre e eqmu v$,
+    $types texprt e : t'$,
+    $mu xarrowSquiggly(v)_#[add] cl l, mu' cr$,
+
+    $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu' cr$
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add function declaration],
+
+    $cl types, vals, mu cr
+     xarrowSquiggly("fun" f (x_1 space : space m_1 t_1, ... space x_n space : space m_n t_n) space = space s)_init
+     cl types[f <- lambda space [t_1, ... t_n]], vals[f <- lambda space [[x_1, ... x_n] s], mu cr$
+  )
+))
+
+#h(10pt)
+
 === Call Values Spoil
 
 #let spoil = `spoil`
