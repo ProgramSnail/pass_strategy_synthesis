@@ -640,6 +640,109 @@ $s in stmt, f in X, x in X, a in X$
 
 #h(10pt)
 
+=== Expression Evaluation
+
+// TODO: check
+
+#let eval = `eval`
+#let texpre = $attach(tack.r.double, br: eval)$
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $vals, mu texpre () eqmu 0$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ path type],
+
+    $vals, mu tval p eqmu v$,
+    $vals, mu texpre p eqmu v$,
+  )
+))
+
+// NOTE: tmp removed
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ unit value type],
+
+//     $vals, mu texpre e : t$,
+
+//     [*TODO*],
+
+//     // TODO: reference to what ??
+//     $vals, mu texpre rf e eqmu rf ??$,
+//   )
+// ))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $vals, mu texpre e_1 eqmu v_1$,
+    $...$,
+    $vals, mu texpre e_n eqmu v_n$,
+    $vals, mu texpre [e_1, ... e_n] eqmu [v_1, ... v_n]$,
+  )
+))
+
+
+=== Expresion Typing
+
+// TODO: check
+
+#let texprt = $attach(tack.r.double, br: type)$
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $types texprt () : cl Read, NotWrite cr$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ path type],
+
+    $types ttype p : t$,
+    $types texprt p : t$,
+  )
+))
+
+// NOTE: tmp removed
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ unit value type],
+
+//     $types texprt e : t$,
+//     // TODO: why Ref mode ?? <- due to immutability ??
+//     $types texprt rf e : rf Ref t$,
+//   )
+// ))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ unit value type],
+
+    $types texprt e_1 : t_1$,
+    $...$,
+    $types texprt e_n : t_n$,
+    $types texprt [e_1, ... e_n] : [t_1, ... t_n]$,
+  )
+))
+
 === Call Values Spoil
 
 #let spoil = `spoil`
@@ -753,11 +856,23 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ full spoil],
+    name: [ full spoil for unit expr],
 
+    $mu stretch(=>)^(m space cl r, w cr space ())_(cl vals, types cr) mu$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ full spoil for path expr],
+
+    $p : path$,
     $p arrpath x$,
     $l = vals[x]$,
-    $vals, mu tval p eqmu b$,
+    $vals, mu texpre p eqmu b$,
     $types ttype p : t'$,
     // TODO: FIXME: Ref or Copy ?? in root <- Ref ??, because otherwise there could not b any Refs
     // FIXME depends on parent ??
@@ -770,108 +885,21 @@ $s in stmt, f in X, x in X, a in X$
 
 #h(10pt)
 
-=== Expression Evaluation
-
-// TODO: check
-
-#let eval = `eval`
-#let texpre = $attach(tack.r.double, br: eval)$
-
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ full spoil for tuple expr],
 
-    $vals, mu texpre () eqmu 0$,
-  )
-))
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ path type],
-
-    $vals, mu tval p eqmu v$,
-    $vals, mu texpre p eqmu v$,
-  )
-))
-
-// NOTE: tmp removed
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ unit value type],
-
-//     $vals, mu texpre e : t$,
-
-//     [*TODO*],
-
-//     // TODO: reference to what ??
-//     $vals, mu texpre rf e eqmu rf ??$,
-//   )
-// ))
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ unit value type],
-
-    $vals, mu texpre e_1 eqmu v_1$,
+    $e = [e_1, ... e_n]$,
+    $mu_0 stretch(=>)^(m space t_1 space e_1)_(cl vals, types cr) mu_1$,
     $...$,
-    $vals, mu texpre e_n eqmu v_n$,
-    $vals, mu texpre [e_1, ... e_n] eqmu [v_1, ... v_n]$,
+    $mu_(n - 1) stretch(=>)^(m space t_n space e_n)_(cl vals, types cr) mu_n$,
+
+    $mu_0 stretch(=>)^(m space [t_1, ... t_n] space [e_1, ... e_n]_(cl vals, types cr) mu_n$,
   )
 ))
 
-
-=== Expresion Typing
-
-// TODO: check
-
-#let texprt = $attach(tack.r.double, br: type)$
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ unit value type],
-
-    $types texprt () : cl Read, NotWrite cr$,
-  )
-))
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ path type],
-
-    $types ttype p : t$,
-    $types texprt p : t$,
-  )
-))
-
-// NOTE: tmp removed
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ unit value type],
-
-//     $types texprt e : t$,
-//     // TODO: why Ref mode ?? <- due to immutability ??
-//     $types texprt rf e : rf Ref t$,
-//   )
-// ))
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ unit value type],
-
-    $types texprt e_1 : t_1$,
-    $...$,
-    $types texprt e_n : t_n$,
-    $types texprt [e_1, ... e_n] : [t_1, ... t_n]$,
-  )
-))
+#h(10pt)
 
 === Function Argument Addition
 
@@ -881,7 +909,7 @@ $s in stmt, f in X, x in X, a in X$
     name: [ add argument],
 
 
-    $vals, mu tval p eqmu v$,
+    $vals, mu texpre e eqmu v$,
     // $types ttype p : t'$, // TODO: not required if there is no check
     // TODO: check type compatibility for t and type for path p (?)
     // [*TODO: check t ~ t' in sme way (?)*],
@@ -891,7 +919,7 @@ $s in stmt, f in X, x in X, a in X$
 
     // TODO save type mode somewhere ?? // <- not needed because is described by other params <- ??
     $cl types, vals, mu cr
-     xarrowDashed(x space t space p)
+     xarrowDashed(x space t space e)
      cl types[x <- t], vals[x <- l], mu'' cr$,
   )
 ))
@@ -903,9 +931,10 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ CALL $f space [p_1, ... p_n]$],
+    name: [ CALL $f space [e_1, ... e_n]$],
 
-    $vals, mu texpre f eqmu lambda [x_1, ... x_n] space s$,
+    // TODO: why there was texpre ? // texpre is unrequired ?
+    $vals, mu tval f eqmu lambda [x_1, ... x_n] space s$,
     $types ttype f : lambda [m_1 t_1, ... m_n t_n] $,
 
     // TODO: add args before statement eval
@@ -915,26 +944,26 @@ $s in stmt, f in X, x in X, a in X$
     $mu_0 = mu$,
 
     // NOTE: dashed arrow to fill context
-    $cl types_0, vals_0,  mu_0, l cr
-     xarrowDashed(x_1 space t_1 space p_1)
-     cl types', vals_1, mu_1, l' cr$,
+    $cl types_0, vals_0,  mu_0 cr
+     xarrowDashed(x_1 space t_1 space e_1)
+     cl types', vals_1, mu_1 cr$,
     $...$,
-    $cl types_(n - 1), vals_(n - 1),  mu_(n - 1), l cr
-     xarrowDashed(x_n space t_n space p_n)
-     cl types', vals_n, mu_n, l' cr$,
+    $cl types_(n - 1), vals_(n - 1),  mu_(n - 1) cr
+     xarrowDashed(x_n space t_n space e_n)
+     cl types_n, vals_n, mu_n cr$,
 
-    $cl types_n, vals_n,  mu_n, l cr
+    $cl types_n, vals_n,  mu_n cr
      xarrow(s)
-     cl types', vals', mu', l' cr$,
+     cl types', vals', mu' cr$,
 
     // NOTE: thick arrow to "spoil" context
     $gamma_0 = mu$,
-    $gamma_0 stretch(=>)^(x_1 space m_1 space t_1 space p_1)_(cl vals, types cr) gamma_1$,
+    $gamma_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) gamma_1$,
     $...$,
-    $gamma_(n - 1) stretch(=>)^(m_n space t_n space p_n)_(cl vals, types cr) gamma_n$,
+    $gamma_(n - 1) stretch(=>)^(m_n space t_n space e_n)_(cl vals, types cr) gamma_n$,
 
     $cl vals, types, mu cr
-     xarrow("CALL" f space [p_1, ... p_n])
+     xarrow("CALL" f space [e_1, ... e_n])
      cl vals, types, gamma_n cr$,
   )
 ))

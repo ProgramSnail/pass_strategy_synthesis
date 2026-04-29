@@ -21,7 +21,7 @@ struct
   type atype = UnitT of read_cap * write_cap
              | RefT of copy_cap * atype
              | TupleT of atype list
-             | FunT of data (* declaration id for ease of impl (?) *)
+             | FunT of (mode * atype) list (* TODO: declaration id for ease of impl / performance instead (?) *)
 
   type mtype = mode * atype
 
@@ -139,7 +139,7 @@ struct
 
   (* --- eval rules --- *)
 
-  (* TODO: FIXME :check if this foldl or foldr *)
+  (* TODO: FIXME: check if this foldl or foldr *)
   let rec list_foldl3 f (acc : 'a) (xs : 'b list) (ys : 'c list) (zs : 'd list) : 'a = match xs, ys, zs with
     | x :: xs, y :: ys, z :: zs -> list_foldl3 f (f acc x y z) xs ys zs 
     | [], [], [] -> acc
@@ -192,6 +192,20 @@ struct
     then raise @@ Typing_error "memcomb"
     else (List.map2 valcomb (fst m) (fst n), snd m)
 
+  (* - expression evaluation *)
+
+  let rec exprval (mem : mem) (vals : vals) (e : expr) : value = match e with
+    | UnitE -> ZeroV
+    | PathE p -> pathval mem vals p
+    | TupleE es -> TupleV (List.map (exprval mem vals) es)
+
+  (* - expression typing *)
+
+  let rec exprtype (types : types) (e : expr) : atype = match e with
+    | UnitE -> UnitT (Rd, NeverWr)
+    | PathE p -> pathtype types p
+    | TupleE es -> TupleT (List.map (exprtype types) es)
+
   (* - call values spoil *)
 
   (* TODO: check all cases *)
@@ -230,7 +244,7 @@ struct
     | _, _, _ ->  raise @@ Typing_error "valspoil"
 
   (* full spoil *)
-  let rec argsspoil (state : state) (m : mode) (t : atype) (p : path) : mem =
+  let rec argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
     match state with (mem, types, vals) ->
     let x = pathvar p in
     let id = List.assoc x vals in
@@ -240,33 +254,46 @@ struct
     let (mem'', v'') = valupd mem' (mem_get mem' id) p b' in
     mem_set mem'' id v''
 
-  (* - expression evaluation *)
-
-  let rec exprval (mem : mem) (vals : vals) (e : expr) : value = match e with
-    | UnitE -> ZeroV
-    | PathE p -> pathval mem vals p
-    | TupleE es -> TupleV (List.map (exprval mem vals) es)
-
-  (* - expression typing *)
-
-  let rec exprtype (types : types) (e : expr) : atype = match e with
-    | UnitE -> UnitT (Rd, NeverWr)
-    | PathE p -> pathtype types p
-    | TupleE es -> TupleT (List.map (exprtype types) es)
+  let rec argsspoile (state : state) (m : mode) (t : atype) (e : expr) : mem =
+    match state with (mem, types, vals) -> match e, t with
+      | UnitE, UnitT _ -> mem
+      | PathE p, t -> argsspoilp state m t p
+      | TupleE es, TupleT ts -> List.fold_left2
+                                  (fun mem' t' e' -> argsspoile (mem', types, vals) m t' e')
+                                  mem ts es
+      | _, _ ->  raise @@ Typing_error "valspoile"
 
   (* - funciton argument addition *)
 
-  let addarg (state : state) (x : data) (t : atype) (p : path) : state =
+  let addarg (state : state) (x : data) (t : atype) (e : expr) : state =
     match state with (mem, types, vals) ->
-    let v = pathval mem vals p in
+    let v = exprval mem vals e in
     (* let t' = pathtype types p in *)
     let (mem', v') = valcopy mem v t in
     let (mem'', id) = mem_add mem' v in
     (mem', (x, t) :: types, (x, id) :: vals)
 
+  (* - statement evaluation *)
+
   let rec stmt_eval (state : state) (s : stmt) : state =
     match state with (mem, types, vals) -> match s with
-    | CallS (f, ps) -> raise Not_found (* TODO: FIXME: write call *)
+    (* TODO: FIXME: Add memoisation *)
+    | CallS (f, es) -> let v = pathval mem vals f in
+                       let t = pathtype types f in
+                       let types' : types = [] in
+                       let vals' : vals = [] in
+                       (match v, t with
+                          | FunV (* xs, *) fs (* ) *), FunT ts ->
+                            (* TODO: memoisation of the called functions *)
+                            let (state_with_args, _) = List.fold_left2 (* TODO: FIXME: check x's order *)
+                              (fun (st, x) (m, t) p -> (addarg st x t p, x + 1))
+                              ((mem, types', vals'), 0) ts es in
+                            let _state_evaled = stmt_eval state_with_args fs in
+                            let mem_spoiled = List.fold_left2
+                              (fun mem (m, t) e -> argsspoile (mem, types, vals) m t e)
+                              mem ts es in
+                            (mem_spoiled, types, vals)
+                          | _, _ -> raise @@ Eval_error "call: function")
     | WriteS p -> (match pathtype types p with
                      | UnitT (_, w) ->
                        if w == NeverWr
