@@ -60,14 +60,14 @@ struct
   type deepvalue = ZeroDV
                  | SmthDV
                  | BotDV
-                 | FunDV of (* data list * *) stmt
+                 | FunDV of ((* data list * *) stmt) list
                  | RefDV of deepvalue
                  | TupleDV of deepvalue list
 
   type value = ZeroV
              | SmthV
              | BotV
-             | FunV of (* data list * *) stmt
+             | FunV of ((* data list * *) stmt) list
              | RefV of memid
              | TupleV of value list
 
@@ -181,8 +181,7 @@ struct
     if is_trivial_v u && is_trivial_v v
     then (if u == v then u else BotV)
     else match u, v with
-      (* TODO: FIXME: combining semantics for funcitons statements *)
-      | FunV s, FunV t  -> if s == t then u else raise @@ Typing_error "valcomb: fun"
+      | FunV ustmts, FunV vstmts  -> FunV (ustmts @ vstmts) 
       | RefV a, RefV b -> if a == b then u else raise @@ Typing_error "valcomb: ref"
       | TupleV us, TupleV vs -> TupleV (List.map2 valcomb us vs)
       | _, _ -> raise @@ Typing_error "valcomb"
@@ -273,6 +272,11 @@ struct
     let (mem'', id) = mem_add mem' v in
     (mem', (x, t) :: types, (x, id) :: vals)
 
+  (* - function evaluation *)
+
+  (* NOTE: not needed due to performed optimization in stmt_eval *)
+  (* let func_eval (mem : mem) (vals : vals) (s : stmt) (ts : mtype list) (es : expr list) = *)
+
   (* - statement evaluation *)
 
   let rec stmt_eval (state : state) (s : stmt) : state =
@@ -283,12 +287,13 @@ struct
                        let types' : types = [] in
                        let vals' : vals = [] in
                        (match v, t with
-                          | FunV (* xs, *) fs (* ) *), FunT ts ->
+                          | FunV (* xs, *) fstmts (* ) *), FunT ts ->
                             (* TODO: memoisation of the called functions *)
                             let (state_with_args, _) = List.fold_left2 (* TODO: FIXME: check x's order *)
                               (fun (st, x) (m, t) p -> (addarg st x t p, x + 1))
                               ((mem, types', vals'), 0) ts es in
-                            let _state_evaled = stmt_eval state_with_args fs in
+                            (* NOTE: same x's, so can use same args for all the statements *)
+                            let _states_evaled = List.map (stmt_eval state_with_args) fstmts in
                             let mem_spoiled = List.fold_left2
                               (fun mem (m, t) e -> argsspoile (mem, types, vals) m t e)
                               mem ts es in

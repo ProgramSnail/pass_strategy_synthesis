@@ -123,8 +123,8 @@
       Or[`CALL` $path expr+$][call function]
       Or[`WRITE` $path$][write to variable]
       Or[`READ` $path$][read from variable]
-      Or[$stmt ; stmt$][control flow operator, xecution ]
-      Or[$stmt | stmt$][control flow operator, excution of one statements]
+      Or[$stmt ; stmt$][sequence of two statements]
+      Or[$stmt | stmt$][choice between the statements]
     }
   ),
   Prod(
@@ -155,7 +155,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda space overline(x) stmt$][function pointer value] // `Fun`
+      Or[$lambda space (X+ stmt)+$][function pointer value, set of possible values] // `Fun`
       Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[deepValue+]$][tuple value] // `Prod`
     }
@@ -166,7 +166,7 @@
       Or[$0$][valid value of simple type] // `Unit`
       Or[$\#$][valid or spoiled value of simple type] // `Unit`
       Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda space overline(x) stmt$][function pointer value] // `Fun`
+      Or[$lambda space (X+ stmt)+$][function pointer value, set of possible values] // `Fun`
       Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
@@ -585,11 +585,12 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ combine lambda values],
 
-    // TODO: FIXME: how to combine statments in the right way? should check both
-    [*TODO: combining semantics for lambda values (sets?)*],
     $overline(x_1) = overline(x_2)$,
     $s_1 = s_2$,
-    $lambda space overline(x_1) space s_2 plus.o lambda space overline(x_2) space s_2 = lambda$
+    $lambda space [overline(x^1_1) space s^1_1, ... overline(x^n_1) space s^n_1]
+     plus.o lambda space [overline(x^1_2) space s^1_2, ... overline(x^m_2) space s^m_2]
+     = lambda space [overline(x^1_1) space s^1_1, ... overline(x^n_1) space s^n_1,
+                     overline(x^1_2) space s^1_2, ... overline(x^m_2) space s^m_2]$
   )
 ))
 
@@ -692,7 +693,6 @@ $s in stmt, f in X, x in X, a in X$
     $vals, mu texpre [e_1, ... e_n] eqmu [v_1, ... v_n]$,
   )
 ))
-
 
 === Expresion Typing
 
@@ -908,8 +908,7 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ add argument],
 
-
-    $vals, mu texpre e eqmu v$,
+    $vals_#[ctx], mu texpre e eqmu v$,
     // $types ttype p : t'$, // TODO: not required if there is no check
     // TODO: check type compatibility for t and type for path p (?)
     // [*TODO: check t ~ t' in sme way (?)*],
@@ -919,8 +918,38 @@ $s in stmt, f in X, x in X, a in X$
 
     // TODO save type mode somewhere ?? // <- not needed because is described by other params <- ??
     $cl types, vals, mu cr
-     xarrowDashed(x space t space e)
+     xarrowDashed(x space t space e)_(vals_#[ctx])
      cl types[x <- t], vals[x <- l], mu'' cr$,
+  )
+))
+
+#h(10pt)
+
+=== Function Evaluation
+
+#let tfunceval = $attach(tack.r.double, br: #[func eval])$
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ new reference copy value],
+
+    $types_0 = []$,
+    $vals_0 = []$,
+
+    // NOTE: dashed arrow to fill context
+    $cl types_0, vals_0,  mu_0 cr
+     xarrowDashed(x_1 space t_1 space e_1)_vals
+     cl types', vals_1, mu_1 cr$,
+    $...$,
+    $cl types_(n - 1), vals_(n - 1),  mu_(n - 1) cr
+     xarrowDashed(x_n space t_n space e_n)_vals
+     cl types_n, vals_n, mu_n cr$,
+
+    $cl types_n, vals_n,  mu_n cr
+     xarrow(s)
+     cl types', vals', mu' cr$,
+
+    $cl vals, mu_0 cr tfunceval cl s, [x_1, .. x_n], [t_1, ... t_n], [e_1, ... e_n] cr$,
   )
 ))
 
@@ -933,38 +962,22 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ CALL $f space [e_1, ... e_n]$],
 
-    // TODO: why there was texpre ? // texpre is unrequired ?
-    $vals, mu tval f eqmu lambda [x_1, ... x_n] space s$,
+    $vals, mu_0 tval f eqmu lambda [overline(x)_1 space s_1, ... overline(x)_n space s_n]$,
     $types ttype f : lambda [m_1 t_1, ... m_n t_n] $,
 
-    // TODO: add args before statement eval
-
-    $types_0 = []$,
-    $vals_0 = []$,
-    $mu_0 = mu$,
-
-    // NOTE: dashed arrow to fill context
-    $cl types_0, vals_0,  mu_0 cr
-     xarrowDashed(x_1 space t_1 space e_1)
-     cl types', vals_1, mu_1 cr$,
+    // NOTE: check that all the possible bodies are possible to eval
+    $cl vals, mu_0 cr tfunceval cl s_1, overline(x)_1, [t_1, ... t_n], [e_1, ... e_n] cr$,
     $...$,
-    $cl types_(n - 1), vals_(n - 1),  mu_(n - 1) cr
-     xarrowDashed(x_n space t_n space e_n)
-     cl types_n, vals_n, mu_n cr$,
-
-    $cl types_n, vals_n,  mu_n cr
-     xarrow(s)
-     cl types', vals', mu' cr$,
+    $cl vals, mu_0 cr tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
 
     // NOTE: thick arrow to "spoil" context
-    $gamma_0 = mu$,
-    $gamma_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) gamma_1$,
+    $mu_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) mu_1$,
     $...$,
-    $gamma_(n - 1) stretch(=>)^(m_n space t_n space e_n)_(cl vals, types cr) gamma_n$,
+    $mu_(n - 1) stretch(=>)^(m_n space t_n space e_n)_(cl vals, types cr) mu_n$,
 
-    $cl vals, types, mu cr
+    $cl types, vals, mu_0 cr
      xarrow("CALL" f space [e_1, ... e_n])
-     cl vals, types, gamma_n cr$,
+     cl types, vals, mu_n cr$,
   )
 ))
 
