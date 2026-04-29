@@ -30,7 +30,8 @@ struct
             (* | RefE *)
             | TupleE of expr list
 
-  type stmt = CallS of path * expr list
+  type stmt = SkipS
+            | CallS of path * expr list
             | WriteS of path
             | ReadS of path
             | SeqS of stmt * stmt
@@ -207,20 +208,27 @@ struct
 
   (* - context initialization *)
 
+  (* let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value = match t, v with *)
+  
+  (* TODO: check new in vars *)
   let add_decl (state : state) (x : data) (d : decl) : state =
     match state with (mem, types, vals) -> match d with
     | VarD (t, e) -> let v = exprval mem vals e in
-                     let (mem', id) = mem_add mem v in
-                     (mem', (x, t) :: types, (x, id) :: vals)
+                     let (mem', v') = valcopy mem v t in
+                     let (mem'', id) = mem_add mem' v' in
+                     (mem'', (x, t) :: types, (x, id) :: vals)
     | FunD (ts, s)  -> let (mem', id) = mem_add mem (FunV [s]) in
                        (mem', (x, FunT ts) :: types, (x, id) :: vals)
 
   let empty_state : state = (([], 0), [], [])
 
+  (* TODO: better way ??? *)
+  let globals_min_id : data = 1000
+
   let prog_init (prog : prog) : state =
     match prog with (decls, _) -> fst @@ List.fold_left (* TODO: FIXME: check x's order *)
                                     (fun (st, x) d -> (add_decl st x d, x + 1))
-                                    (empty_state, 0)
+                                    (empty_state, globals_min_id)
                                     decls
 
   (* - call values spoil *)
@@ -301,6 +309,7 @@ struct
   let rec stmt_eval (state : state) (s : stmt) : state =
     match state with (mem, types, vals) -> match s with
     (* TODO: FIXME: Add memoisation *)
+    | SkipS -> state
     | CallS (f, es) -> let v = pathval mem vals f in
                        let t = pathtype types f in
                        let types' : types = [] in
@@ -340,9 +349,39 @@ struct
                           then raise @@ Eval_error "choice"
                           else (memcomb meml memr, typesl, valsl)
 
+ (* --- program execution --- *)
+
+ let prog_eval (prog : prog) : state =
+   match prog with (decls, s) ->
+   let init_state = prog_init prog in
+   stmt_eval init_state s
+
+ let prog_eval_noret (prog : prog) : unit =
+   ignore @@ prog_eval prog
+
+  (* --- tests --- *)
+
+  (* - tests without functions *)
+
+  let%expect_test "empty" =
+    prog_eval_noret ([], SkipS);
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple var" =
+    prog_eval_noret ([VarD (UnitT (Rd, MayWr), UnitE)], ReadS (VarP globals_min_id));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple var, no read" =
+    try(prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], ReadS (VarP globals_min_id));
+         [%expect.unreachable]);
+    with Eval_error msg -> Printf.printf "%s" msg;
+    [%expect {| read |}]
+
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 
-  (* tests *)
+  (* --- tests --- *)
 
   (* let rwi_value : tag = (Rd, AlwaysWr, Cp, In, NOut) *)
   (* let rmwi_value : tag = (Rd, MayWr, Cp, In, NOut) *)

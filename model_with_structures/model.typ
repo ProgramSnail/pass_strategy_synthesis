@@ -120,6 +120,7 @@
   Prod(
     `stmt`,
     {
+      Or[`SKIP`][do nothing]
       Or[`CALL` $path expr+$][call function]
       Or[`WRITE` $path$][write to variable]
       Or[`READ` $path$][read from variable]
@@ -756,10 +757,10 @@ $s in stmt, f in X, x in X, a in X$
     // expect well typed program
 
     $vals, mu texpre e eqmu v$,
-    // $types texprt e : t'$,
-    $mu xarrowSquiggly(v)_#[add] cl l, mu' cr$,
+    $cl v, mu cr xarrowSquiggly(t)_new cl v', mu' cr$, // TODO: FIXME check (required?)
+    $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
 
-    $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu' cr$
+    $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu'' cr$
   )
 ))
 
@@ -993,6 +994,19 @@ $s in stmt, f in X, x in X, a in X$
 #h(10pt)
 
 === Statement Evaluation
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ SKIP],
+
+    $cl types, vals, mu cr
+     xarrow("SKIP")
+     cl types, vals, mu cr$,
+  )
+))
+
+#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
