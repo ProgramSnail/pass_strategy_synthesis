@@ -27,7 +27,8 @@ struct
 
   type expr = UnitE
             | PathE of path
-            (* | RefE *)
+            (* TODO: extend to include arbitrary path *)
+            | RefE of data
             | TupleE of expr list
 
   type stmt = SkipS
@@ -96,11 +97,11 @@ struct
     (* (((snd mem, v) :: fst mem, snd mem + 1), snd mem) *)
   (* let mem_set (mem : mem) (id : memid) (v : value) : mem = *)
     (* ((id, v) :: fst mem, snd mem) *)
-  let mem_get (mem : mem) (id : memid) : value = List.nth (fst mem) id
+  let mem_get (mem : mem) (id : memid) : value = (* FIXME TMP Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1); *) List.nth (fst mem) (snd mem - id - 1)
   let mem_add (mem : mem) (v : value) : mem * memid =
     ((v :: fst mem, snd mem + 1), snd mem)
   let mem_set (mem : mem) (id : memid) (v : value) : mem =
-    (list_replace (fst mem) id v, snd mem)
+    (list_replace (fst mem) (snd mem - id - 1) v, snd mem)
 
   let rec v_to_deepv (mem : mem) (v : value) : deepvalue = match v with
     | ZeroV -> ZeroDV
@@ -130,7 +131,12 @@ struct
                            | _ -> raise @@ Typing_error "pathtype: access"
 
   let rec pathval (mem :  mem) (vals : vals) (p : path) : value = match p with
-    | VarP x -> mem_get mem @@ List.assoc x vals
+    | VarP x -> mem_get mem @@ ((* Printf.printf "%i: " x; (* FIXME TMP *)
+                                ignore @@ List.map (fun (x, _) -> Printf.printf "%i " x) vals;
+                                Printf.printf "mem size: %i, " (List.length (fst mem));
+                                Printf.printf "mem size stored: %i " (snd mem);
+                                Printf.printf "\n"; *)
+                                List.assoc x vals)
     | DerefP p -> (match pathval mem vals p with
                     | RefV id -> mem_get mem id
                     | _ -> raise @@ Typing_error "pathval: deref")
@@ -197,6 +203,7 @@ struct
   let rec exprval (mem : mem) (vals : vals) (e : expr) : value = match e with
     | UnitE -> ZeroV
     | PathE p -> pathval mem vals p
+    | RefE x -> RefV (List.assoc x vals)
     | TupleE es -> TupleV (List.map (exprval mem vals) es)
 
   (* - expression typing *)
@@ -204,6 +211,7 @@ struct
   let rec exprtype (types : types) (e : expr) : atype = match e with
     | UnitE -> UnitT (Rd, NeverWr)
     | PathE p -> pathtype types p
+    | RefE x -> RefT (Rf, List.assoc x types)
     | TupleE es -> TupleT (List.map (exprtype types) es)
 
   (* - context initialization *)
@@ -220,7 +228,8 @@ struct
     | FunD (ts, s)  -> let (mem', id) = mem_add mem (FunV [s]) in
                        (mem', (x, FunT ts) :: types, (x, id) :: vals)
 
-  let empty_state : state = (([], 0), [], [])
+  let empty_mem : mem = ([], 0)
+  let empty_state : state = (empty_mem, [], [])
 
   (* TODO: better way ??? *)
   let globals_min_id : data = 1000
@@ -237,11 +246,18 @@ struct
   let is_correct_tags (v : value) (r : read_cap) (w : write_cap)
                       (r' : read_cap) (w' : write_cap) (m : mode)
                       (c : copy_cap) : bool =
+    (* FIXME TMP
+    Printf.printf "%b %b %b %b %b\n"
+      (r != Rd || v == ZeroV)
+      (r != Rd || fst m == In)
+      (snd m != Out || w == AlwaysWr)
+      (((not @@ (w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf)) || w' == AlwaysWr))
+      (is_trivial_v v); *)
     (r != Rd || v == ZeroV) &&
     (r != Rd || fst m == In) &&
     (snd m != Out || w == AlwaysWr) &&
     (* TODO: check *)
-    ((not @@ (w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf)) || w' == AlwaysWr) &&
+    ((not ((w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf))) || w' == AlwaysWr) &&
     is_trivial_v v
 
   let rec valspoil (mem : mem) (v : value) (t : atype)
@@ -291,13 +307,13 @@ struct
 
   (* - funciton argument addition *)
 
-  let addarg (state : state) (x : data) (t : atype) (e : expr) : state =
+  let addarg (state : state) (oldvals : vals) (x : data) (t : atype) (e : expr) : state =
     match state with (mem, types, vals) ->
-    let v = exprval mem vals e in
+    let v = exprval mem oldvals e in
     (* let t' = pathtype types p in *)
     let (mem', v') = valcopy mem v t in
     let (mem'', id) = mem_add mem' v in
-    (mem', (x, t) :: types, (x, id) :: vals)
+    (mem'', (x, t) :: types, (x, id) :: vals)
 
   (* - function evaluation *)
 
@@ -310,23 +326,25 @@ struct
     match state with (mem, types, vals) -> match s with
     (* TODO: FIXME: Add memoisation *)
     | SkipS -> state
-    | CallS (f, es) -> let v = pathval mem vals f in
-                       let t = pathtype types f in
+    | CallS (f, es) -> let v = (* FIXME TMP Printf.printf "call, before v\n"; *) pathval mem vals f in
+                       let t = (* FIXME TMP Printf.printf "call, before t\n"; *) pathtype types f in
                        let types' : types = [] in
                        let vals' : vals = [] in
                        (match v, t with
                           | FunV (* xs, *) fstmts (* ) *), FunT ts ->
                             (* TODO: memoisation of the called functions *)
-                            let (state_with_args, _) = List.fold_left2 (* TODO: FIXME: check x's order *)
-                              (fun (st, x) (m, t) p -> (addarg st x t p, x + 1))
+                            let (state_with_args, _) = (* FIXME TMP Printf.printf "call, before args\n"; *) List.fold_left2 (* TODO: FIXME: check x's order *)
+                              (fun (st, x) (m, t) p -> (addarg st vals x t p, x + 1))
                               ((mem, types', vals'), 0) ts es in
                             (* NOTE: same x's, so can use same args for all the statements *)
-                            let _states_evaled = List.map (stmt_eval state_with_args) fstmts in
-                            let mem_spoiled = List.fold_left2
+                            let _states_evaled = (* FIXME TMP Printf.printf "call, before eval\n"; *) List.map (stmt_eval state_with_args) fstmts in
+                            let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *) List.fold_left2
                               (fun mem (m, t) e -> argsspoile (mem, types, vals) m t e)
                               mem ts es in
                             (mem_spoiled, types, vals)
-                          | _, _ -> raise @@ Eval_error "call: function")
+                          | FunV _, _ -> raise @@ Eval_error "call: function type"
+                          | _, FunT _ -> raise @@ Eval_error "call: function val"
+                          | _, _ -> raise @@ Eval_error "call: function type & val")
     | WriteS p -> (match pathtype types p with
                      | UnitT (_, w) ->
                        if w == NeverWr
@@ -361,7 +379,59 @@ struct
 
   (* --- tests --- *)
 
-  (* - tests without functions *)
+  (* - shortcuts *)
+
+  let ( #. ) x y = SeqS (x, y)
+
+  let vx = VarP 0
+  let vy = VarP 1
+  let vz = VarP 2
+
+  let vgx = VarP (globals_min_id)
+  let vgy = VarP (globals_min_id + 1)
+  let vgz = VarP (globals_min_id + 2)
+
+  let drf p = DerefP p
+  let access p i = AccessP (p, i)
+
+  let wr x = ReadS x 
+  let rd x = WriteS x
+  let skp = SkipS
+
+  let uT_r_aw = UnitT (Rd, AlwaysWr)
+  let uT_r_mw = UnitT (Rd, MayWr)
+  let uT_aw = UnitT (NRd, AlwaysWr)
+  let uT_mw = UnitT (NRd, MayWr)
+  let uT_r = UnitT (Rd, NeverWr)
+  let uT = UnitT (NRd, NeverWr)
+
+  let rfT t = RefT (Rf, t)
+  let cpT t = RefT (Cp, t)
+
+  let moded t = ((In, NOut), t)
+
+  let defg t = VarD (t, UnitE)
+
+  (* - utils tests *)
+
+  let%expect_test "mem add / get / set" =
+    let mem = empty_mem in
+    let (mem, id1) = mem_add mem ZeroV in 
+    let (mem, id2) = mem_add mem SmthV in 
+    let (mem, id3) = mem_add mem BotV in 
+    Printf.printf "%i %i %i " id1 id2 id3;
+    Printf.printf "%b %b %b " (mem_get mem id1 == ZeroV)
+                              (mem_get mem id2 == SmthV)
+                              (mem_get mem id3 == BotV);
+    let mem = mem_set mem id1 BotV in 
+    let mem = mem_set mem id2 ZeroV in 
+    let mem = mem_set mem id3 SmthV in 
+    Printf.printf "%b %b %b" (mem_get mem id1 == BotV)
+                              (mem_get mem id2 == ZeroV)
+                              (mem_get mem id3 == SmthV);
+    [%expect {| 0 1 2 true true true true true true |}]
+
+  (* - basic var tests *)
 
   let%expect_test "empty" =
     prog_eval_noret ([], SkipS);
@@ -378,6 +448,49 @@ struct
          [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| read |}]
+
+  let%expect_test "simple vars, no read & read" =
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE);
+                      VarD (UnitT (Rd, MayWr), UnitE)],
+                     ReadS (VarP (globals_min_id + 1)));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple var, write" =
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], WriteS (VarP globals_min_id));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple var, no write" =
+    try(prog_eval_noret ([VarD (UnitT (NRd, NeverWr), UnitE)], WriteS (VarP globals_min_id));
+         [%expect.unreachable]);
+    with Eval_error msg -> Printf.printf "%s" msg;
+    [%expect {| write: write tag |}]
+
+  let%expect_test "simple var, write & read" =
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], SeqS (WriteS (VarP globals_min_id),
+                                                               ReadS (VarP globals_min_id)));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  (* - basic call tests *)
+
+  let%expect_test "simple call with read" =
+    prog_eval_noret ([VarD (UnitT (Rd, NeverWr), UnitE);
+                      FunD ([(In, NOut), UnitT (Rd, NeverWr)], ReadS (VarP 0))],
+                     CallS (VarP (globals_min_id + 1),
+                            [PathE (VarP globals_min_id)]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple call with write" =
+    prog_eval_noret ([VarD ((UnitT (Rd, MayWr)), UnitE);
+                      VarD (RefT (Rf, (UnitT (Rd, MayWr))), RefE globals_min_id);
+                      FunD ([(In, NOut), RefT (Cp, UnitT (Rd, MayWr))], WriteS (DerefP (VarP 0)))],
+                     CallS (VarP (globals_min_id + 2),
+                            [PathE (VarP (globals_min_id + 1))]));
+    Printf.printf "done!";
+    [%expect {| done! |}]
 
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 

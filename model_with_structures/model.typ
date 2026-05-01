@@ -112,8 +112,9 @@
     {
       Or[$()$][value of simple type] // `Unit`
       Or[$path$][value from variable] // `Path`
-      // TODO: decide what is the result of ref expr eval
-      // Or[$rf expr$][reference expr] // `Ref`
+      // TODO FIXME: expand to support arbitrary paths (that do lead to lvalue)
+      // add relation to calc lvalue / rvalue for each element ?
+      Or[$rf X$][reference expr] // `Ref`
       Or[$[expr+]$][tuple expr] // `Prod`
     }
   ),
@@ -652,7 +653,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ unit expr value],
 
     $vals, mu texpre () eqmu 0$,
   )
@@ -661,32 +662,26 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ path type],
+    name: [ path expr value],
 
     $vals, mu tval p eqmu v$,
     $vals, mu texpre p eqmu v$,
   )
 ))
 
-// NOTE: tmp removed
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ unit value type],
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ ref expr value],
 
-//     $vals, mu texpre e : t$,
-
-//     [*TODO*],
-
-//     // TODO: reference to what ??
-//     $vals, mu texpre rf e eqmu rf ??$,
-//   )
-// ))
+    $vals, mu texpre rf x eqmu rf vals[x]$,
+  )
+))
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ tuple expr value],
 
     $vals, mu texpre e_1 eqmu v_1$,
     $...$,
@@ -704,7 +699,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ unit value expr type],
 
     $types texprt () : cl Read, NotWrite cr$,
   )
@@ -713,29 +708,26 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ path type],
+    name: [ path expr type],
 
     $types ttype p : t$,
     $types texprt p : t$,
   )
 ))
 
-// NOTE: tmp removed
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ unit value type],
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ ref expr type],
 
-//     $types texprt e : t$,
-//     // TODO: why Ref mode ?? <- due to immutability ??
-//     $types texprt rf e : rf Ref t$,
-//   )
-// ))
+    $types texprt rf x : rf Ref types[x]$,
+  )
+))
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ unit value type],
+    name: [ tuple expr type],
 
     $types texprt e_1 : t_1$,
     $...$,
@@ -928,7 +920,21 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ full spoil for tuple expr],
 
-    $e = [e_1, ... e_n]$,
+    // NOTE: x as path
+    $mu stretch(=>)^(m space t space x)_(cl vals, types cr) mu'$,
+
+    // TODO: FIXME: is c important ?
+    $mu stretch(=>)^(m space rf c t space rf x_(cl vals, types cr) mu'$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ full spoil for tuple expr],
+
     $mu_0 stretch(=>)^(m space t_1 space e_1)_(cl vals, types cr) mu_1$,
     $...$,
     $mu_(n - 1) stretch(=>)^(m space t_n space e_n)_(cl vals, types cr) mu_n$,
