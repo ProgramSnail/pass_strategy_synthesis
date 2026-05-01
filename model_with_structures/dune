@@ -42,23 +42,23 @@
 ;    -pp
 ;    camlp5/pp5+gt+plugins+ocanren+dump.exe)))
 
-; (library
-;  (name synthesizer_st)
-;  (modules synthesizer)
-;  (flags
-;   ; (-dsource)
-;   (:standard -rectypes))
-;  (libraries OCanren OCanren.tester)
-;  (preprocessor_deps ../camlp5/pp5+gt+plugins+ocanren+dump.exe)
-;  (wrapped false)
-;  (preprocess
-;   (pps
-;    OCanren-ppx.ppx_repr
-;    OCanren-ppx.ppx_deriving_reify
-;    OCanren-ppx.ppx_fresh
-;    GT.ppx
-;    GT.ppx_all
-;    OCanren-ppx.ppx_distrib
-;    --
-;    -pp
-;    camlp5/pp5+gt+plugins+ocanren+dump.exe)))
+(library
+ (name synthesizer_st)
+ (modules synthesizer)
+ (flags
+  ; (-dsource)
+  (:standard -rectypes))
+ (libraries OCanren OCanren.tester)
+ (preprocessor_deps ../camlp5/pp5+gt+plugins+ocanren+dump.exe)
+ (wrapped false)
+ (preprocess
+  (pps
+   OCanren-ppx.ppx_repr
+   OCanren-ppx.ppx_deriving_reify
+   OCanren-ppx.ppx_fresh
+   GT.ppx
+   GT.ppx_all
+   OCanren-ppx.ppx_distrib
+   --
+   -pp
+   camlp5/pp5+gt+plugins+ocanren+dump.exe)))

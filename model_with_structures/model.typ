@@ -923,7 +923,7 @@ $s in stmt, f in X, x in X, a in X$
     // NOTE: x as path
     $mu stretch(=>)^(m space t space x)_(cl vals, types cr) mu'$,
 
-    // TODO: FIXME: is c important ?
+    // TODO:: is c important ?
     $mu stretch(=>)^(m space rf c t space rf x_(cl vals, types cr) mu'$,
   )
 ))
