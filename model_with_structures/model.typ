@@ -98,7 +98,7 @@
 
       // NOTE: do not use names in type
       // Or[$lambda_((x type)+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
-      Or[$lambda (modedType)+$][type of lambda or function pointer, defined by function declaration] // `Fun`
+      Or[$lambda (modedType+)$][type of lambda or function pointer, defined by function declaration] // `Fun`
     }
   ),
   Prod(

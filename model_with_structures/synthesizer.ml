@@ -56,6 +56,121 @@ struct
     ]
   end
 
+  module Mode = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('i, 'o) t = Mode of 'i * 'o
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (InCap.ground, OutCap.ground) t
+    ]
+
+    (* constructors *)
+    let n_val = let open InCap in
+                let open OutCap in
+                ocanren { Mode (NIn, NOut) }
+    let i_val = let open InCap in
+                let open OutCap in
+                ocanren { Mode (In, NOut) }
+    let o_val = let open InCap in
+                let open OutCap in
+                ocanren { Mode (NIn, Out) }
+    let io_val = let open InCap in
+                 let open OutCap in
+                 ocanren { Mode (In, Out) }
+
+    (* accessors *)
+    let is_ino m = let open InCap in ocanren {
+                     fresh o_ in
+                     m == Mode (In, o_) }
+    let is_not_ino m = let open InCap in ocanren {
+                         fresh o_ in
+                         m == Mode (NIn, o_) }
+    let is_outo m = let open OutCap in ocanren {
+                      fresh i_ in
+                      m == Mode (i_, Out) }
+    let is_not_outo m = let open OutCap in ocanren {
+                          fresh i_ in
+                          m == Mode (i_, NOut) }
+
+    (* module Test = struct *)
+      (* @type answer = logic GT.list with show *)
+
+      (* let test _ = show(answer) (Stream.take (run q (fun q -> let open InCap in *)
+                                                              (* let open OutCap in *)
+                                                              (* ocanren {q == Mode (In, NOut)}) *)
+                                                    (* (fun q -> q#reify reify))) *)
+    (* end *)
+  end
+
+  (* TODO: access: data or int ? *)
+  module Path = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('d, 'p) t = VarP of 'd | DerefP of 'p | AccessP of 'p * 'd
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = (Nat.ground, ground) t
+    ]
+  end
+
+  module Type = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('r, 'w, 'c, 't, 'tl, 'mtl) t = UnitT of 'r * 'w | RefT of 'c * 't | TupleT of 'tl | FunT of 'mtl
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = (ReadCap.ground, WriteCap.ground, CopyCap.ground, ground, ground List.ground, (Mode.ground * ground) List.ground) t
+    ]
+  end
+
+  (* moded type - no separated type ? *)
+
+  module Expr = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('d, 'p, 'el) t = UnitE | PathE of 'p | RefE of 'd | TupleE of 'el
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = (Nat.ground, Path.ground, ground List.ground) t
+    ]
+  end
+
+  module Stmt = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('p, 'el, 's) t = SkipS | CallS of 'p * 'el | WriteS of 'p | ReadS of 'p | SeqS of 's * 's | ChoiceS of 's * 's
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = (Path.ground, Expr.ground List.ground, ground) t
+    ]
+  end
+
+  (* TODO: list of 3 is not impelmented ?, replaced with two lists for now *)
+  module Decl = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('d, 't, 'e, 'dl, 'mtl, 's) t = VarD of 'd * 't * 'e | FunD of 'd * 'dl * 'mtl * 's
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = (Nat.ground, Type.ground, Expr.ground, Nat.ground List.ground, (Mode.ground * Type.ground) List.ground, Stmt.ground) t
+    ]
+  end
+
+  module Prog = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('dl, 's) t = Prog of 'dl * 's
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Decl.ground List.ground, Stmt.ground) t
+    ]
+  end
+
+  (* NOTE: deepvalue - not used (?) *)
+
+  module Value = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('sl, 'd, 'vl) t = ZeroV | SmthV | BotV | FunV of 'sl | RefV of 'd | TupleV of 'vl
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = ((Nat.ground List.ground * Stmt.ground) List.ground, Nat.ground, ground List.ground) t
+    ]
+  end
+
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 
   (* module Tag = struct *)
