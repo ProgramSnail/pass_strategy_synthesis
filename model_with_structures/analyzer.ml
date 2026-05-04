@@ -97,7 +97,8 @@ struct
     (* (((snd mem, v) :: fst mem, snd mem + 1), snd mem) *)
   (* let mem_set (mem : mem) (id : memid) (v : value) : mem = *)
     (* ((id, v) :: fst mem, snd mem) *)
-  let mem_get (mem : mem) (id : memid) : value = (* FIXME TMP Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1); *) List.nth (fst mem) (snd mem - id - 1)
+  let mem_get (mem : mem) (id : memid) : value = (* FIXME TMP Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1); *)
+                                                 List.nth (fst mem) (snd mem - id - 1)
   let mem_add (mem : mem) (v : value) : mem * memid =
     ((v :: fst mem, snd mem + 1), snd mem)
   let mem_set (mem : mem) (id : memid) (v : value) : mem =

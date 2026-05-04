@@ -1,7 +1,7 @@
 module Relational =
 struct
   open GT
-  (* open OCanren *)
+  open OCanren
   open OCanren.Std
 
   type data_ground = Nat.ground (* with show, gmap *)
@@ -171,240 +171,96 @@ struct
     ]
   end
 
+  (* --- *)
+
+  module Mem = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('vl, 'd) t = Mem of 'vl * 'd
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Value.ground List.ground, Nat.ground) t
+    ]
+  end
+
+  module Types = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec 'dtl t = Types of 'dtl
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = ((Nat.ground * Type.ground) List.ground) t
+    ]
+  end
+
+  module Vals = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec 'ddl t = Vals of 'ddl
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = ((Nat.ground * Nat.ground) List.ground) t
+    ]
+  end
+
+  module St = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('mem, 'types, 'vals) t = St of 'mem * 'types * 'vals
+      [@@deriving gt ~options:{ show; gmap }]
+      type nonrec ground = (Mem.ground, Types.ground, Vals.ground) t
+    ]
+  end
+
+  (* --- *)
+
+  (* - utils *)
+
+  let rec list_replaceo xs id value ys = ocanren {
+    (* xs == [] & ys == [] | (* NOTE: error *) *)
+    { fresh x, xs' in
+        xs == x :: xs' &
+        id == Nat.o &
+        ys == value :: xs' } |
+    { fresh x, xs', id', ys' in
+        xs == x :: xs' &
+        id == Nat.s id' &
+        ys == x :: ys' &
+        list_replaceo xs' id' value ys' }
+  }
+
+  let rec list_ntho xs id x' = ocanren {
+    (* xs == [] | (* NOTE: error *) *)
+    { fresh y', xs' in
+      id == Nat.o &
+      y' :: xs' == xs &
+      x' == y' } |
+    { fresh id', y', xs' in
+      Nat.s id' == id &
+      y' :: xs' == xs &
+      list_ntho xs' id' x' }
+  }
+
+  let mem_geto mem id v = ocanren {
+    fresh mem_data, mem_len, rev_id  in
+    Std.pair mem_data mem_len == mem &
+    Nat.addo (Nat.s rev_id) id mem_len &
+    list_ntho mem_data rev_id v
+  }
+
+  let mem_addo mem v mem_with_id' = ocanren {
+    fresh mem_data, mem_len, mem' in
+    Std.pair mem_data mem_len == mem &
+    mem' == Std.pair (v :: mem_data) (Nat.s mem_len) &
+    Std.pair mem' mem_len == mem_with_id'
+  }
+
+  let mem_seto mem id v mem' = ocanren {
+    fresh mem_data, mem_len, rev_id, mem_data' in
+    Std.pair mem_data mem_len == mem &
+    Nat.addo (Nat.s rev_id) id mem_len &
+    list_replaceo mem_data rev_id v mem_data' &
+    Std.pair mem_data' mem_len == mem'
+  }
+
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
-
-  (* module Tag = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec ('r, 'w, 'c, 'i, 'o) t = Tag of 'r * 'w * 'c * 'i * 'o *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = (ReadCap.ground, WriteCap.ground, CopyCap.ground, InCap.ground, OutCap.ground) t *)
-    (* ] *)
-
-    (* TODO: less repeats *)
-    (* common constructors *)
-    (* let rwi_val = let open ReadCap in *)
-                  (* let open WriteCap in *)
-                  (* let open CopyCap in *)
-                  (* let open InCap in *)
-                  (* let open OutCap in *)
-                  (* ocanren { Tag (Rd, AlwaysWr, Val, In, NOut) } *)
-    (* let ri_val = let open ReadCap in *)
-                 (* let open WriteCap in *)
-                 (* let open CopyCap in *)
-                 (* let open InCap in *)
-                 (* let open OutCap in *)
-                 (* ocanren { Tag (Rd, NeverWr, Val, In, NOut) } *)
-    (* let wi_val = let open ReadCap in *)
-                 (* let open WriteCap in *)
-                 (* let open CopyCap in *)
-                 (* let open InCap in *)
-                 (* let open OutCap in *)
-                 (* ocanren { Tag (NRd, AlwaysWr, Val, In, NOut) } *)
-    (* let i_val = let open ReadCap in *)
-                (* let open WriteCap in *)
-                (* let open CopyCap in *)
-                (* let open InCap in *)
-                (* let open OutCap in *)
-                (* ocanren { Tag (NRd, NeverWr, Val, In, NOut) } *)
-    (* let rwi_ref = let open ReadCap in *)
-                  (* let open WriteCap in *)
-                  (* let open CopyCap in *)
-                  (* let open InCap in *)
-                  (* let open OutCap in *)
-                  (* ocanren { Tag (Rd, AlwaysWr, Ref, In, NOut) } *)
-    (* let ri_ref = let open ReadCap in *)
-                 (* let open WriteCap in *)
-                 (* let open CopyCap in *)
-                 (* let open InCap in *)
-                 (* let open OutCap in *)
-                 (* ocanren { Tag (Rd, NeverWr, Ref, In, NOut) } *)
-    (* let wi_ref = let open ReadCap in *)
-                 (* let open WriteCap in *)
-                 (* let open CopyCap in *)
-                 (* let open InCap in *)
-                 (* let open OutCap in *)
-                 (* ocanren { Tag (NRd, AlwaysWr, Ref, In, NOut) } *)
-    (* let i_ref = let open ReadCap in *)
-                (* let open WriteCap in *)
-                (* let open CopyCap in *)
-                (* let open InCap in *)
-                (* let open OutCap in *)
-                (* ocanren { Tag (NRd, NeverWr, Ref, In, NOut) } *)
-
-    (* constraints *)
-    (* let x_any tag = let open InCap in *)
-                    (* let open OutCap in *)
-                    (* ocanren { fresh r, w, c in *)
-                              (* tag == Tag (r, w, c, NIn, NOut) } *)
-    (* let i_any tag = let open InCap in *)
-                    (* let open OutCap in *)
-                    (* ocanren { fresh r, w, c in *)
-                              (* tag == Tag (r, w, c, In, NOut) } *)
-    (* let o_any tag = let open InCap in *)
-                    (* let open OutCap in *)
-                    (* ocanren { fresh r, w, c in *)
-                              (* tag == Tag (r, w, c, NIn, Out) } *)
-    (* let io_any tag = let open InCap in *)
-                     (* let open OutCap in *)
-                     (* ocanren { fresh r, w, c in *)
-                               (* tag == Tag (r, w, c, In, Out) } *)
-
-    (* accessors *)
-    (* let is_reado tag = let open ReadCap in ocanren { *)
-                         (* fresh w_, c_, i_, o_ in *)
-                         (* tag == Tag (Rd, w_, c_, i_, o_) } *)
-    (* let is_not_reado tag = let open ReadCap in ocanren { *)
-                             (* fresh w_, c_, i_, o_ in *)
-                             (* tag == Tag (NRd, w_, c_, i_, o_) } *)
-    (* let is_always_writeo tag = let open WriteCap in ocanren { *)
-                                 (* fresh r_, c_, i_, o_ in *)
-                                 (* tag == Tag (r_, AlwaysWr, c_, i_, o_) } *)
-    (* let is_may_writeo tag = let open WriteCap in ocanren { *)
-                              (* fresh r_, c_, i_, o_ in *)
-                              (* { tag == Tag (r_, AlwaysWr, c_, i_, o_) | *)
-                                (* tag == Tag (r_, MayWr, c_, i_, o_) } } *)
-    (* let is_never_writeo tag = let open WriteCap in ocanren { *)
-                                (* fresh r_, c_, i_, o_ in *)
-                                (* tag == Tag (r_, NeverWr, c_, i_, o_) } *)
-    (* let is_refo tag = let open CopyCap in ocanren { *)
-                        (* fresh r_, w_, i_, o_ in *)
-                        (* tag == Tag (r_, w_, Ref, i_, o_) } *)
-    (* let is_valueo tag = let open CopyCap in ocanren { *)
-                          (* fresh r_, w_, i_, o_ in *)
-                          (* tag == Tag (r_, w_, Val, i_, o_) } *)
-    (* let is_ino tag = let open InCap in ocanren { *)
-                       (* fresh r_, w_, c_, o_ in *)
-                       (* tag == Tag (r_, w_, c_, In, o_) } *)
-    (* let is_not_ino tag = let open InCap in ocanren { *)
-                           (* fresh r_, w_, c_, o_ in *)
-                           (* tag == Tag (r_, w_, c_, NIn, o_) } *)
-    (* let is_outo tag = let open OutCap in ocanren { *)
-                        (* fresh r_, w_, c_, i_ in *)
-                        (* tag == Tag (r_, w_, c_, i_, Out) } *)
-    (* let is_not_outo tag = let open OutCap in ocanren { *)
-                            (* fresh r_, w_, c_, i_ in *)
-                            (* tag == Tag (r_, w_, c_, i_, NOut) } *)
-
-    (* let eq_copyo tag cp = let open CopyCap in ocanren { *)
-                           (* fresh r_, w_, i_, o_ in *)
-                           (* tag == Tag (r_, w_, cp, i_, o_) } *)
-
-    (* module Test = struct *)
-      (* @type answer = logic GT.list with show *)
-
-      (* let test _ = show(answer) (Stream.take (run q (fun q -> let open ReadCap in *)
-                                                              (* let open WriteCap in *)
-                                                              (* let open CopyCap in *)
-                                                              (* let open InCap in *)
-                                                              (* let open OutCap in *)
-                                                              (* ocanren {q == Tag (Rd, NeverWr, Ref, In, NOut)}) *)
-                                                    (* (fun q -> q#reify reify))) *)
-    (* end *)
-  (* end *)
-
-  (* module Stmt = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec ('d, 'dl, 'sl) t = Call of 'd * 'dl | Read of 'd | Write of 'd | Choice of 'sl * 'sl *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type ground = (Nat.ground, Nat.ground List.ground, ground List.ground) t *)
-    (* ] *)
-
-    (* module Test = struct *)
-      (* @type answer = Nat.ground List.ground GT.list with show *)
-      (* @type answer'  = ground GT.list with show *)
-
-      (* let test1 _ = show(answer) (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == Call (1, q)}) *)
-                                                     (* (fun q -> q#reify (List.prj_exn Nat.prj_exn)))) *)
-
-      (* let test2 _ = show(answer') (Stream.take (run q (fun q -> ocanren {Call (1, [2]) == q}) *)
-                                                      (* (fun q -> q#reify (prj_exn)))) *)
-    (* end *)
-  (* end *)
-
-  (* module FunDecl = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec ('l, 'b) t = FunDecl of 'l * 'b *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = (Tag.ground List.ground, Stmt.ground List.ground) t *)
-    (* ] *)
-
-    (* module Test = struct *)
-      (* @type answer  = ground GT.list with show *)
-      (* let test _ = show(answer) (Stream.take (run q (fun q -> let open Tag in *)
-                                                              (* let open Stmt in *)
-                                                              (* ocanren {FunDecl ([rwi_ref; rwi_val], [Call (1, [0]); Write 1]) == q}) *)
-                                                    (* (fun q -> q#reify (prj_exn)))) *)
-    (* end *)
-  (* end *)
-
-  (* module Prog = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec ('l, 'f) t = Prog of 'l * 'f *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = (FunDecl.ground List.ground, FunDecl.ground) t *)
-    (* ] *)
-
-    (* module Test = struct *)
-      (* @type answer  = ground GT.list with show *)
-      (* let test _ = show(answer) (Stream.take (run q (fun q -> let open FunDecl in *)
-                                                              (* let open Tag in *)
-                                                              (* let open Stmt in *)
-                                                              (* ocanren {Prog ([], FunDecl ([ri_val], [Write 0; Read 0])) == q}) *)
-                                                    (* (fun q -> q#reify (prj_exn)))) *)
-    (* end *)
-  (* end *)
-
-  (* module Arg = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec 'd t = RValue | LValue of 'd *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = Nat.ground t *)
-    (* ] *)
-
-    (* module Test = struct *)
-      (* @type answer = logic GT.list with show *)
-      (* let test _ = show(answer) (Stream.take (run q (fun q -> ocanren {q == LValue 3}) *)
-                                                    (* (fun q -> q#reify reify))) *)
-    (* end *)
-  (* end *)
-
-  (* module Value = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec t = Unit | Undef | Bot *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = t *)
-    (* ] *)
-
-    (* module Test = struct *)
-      (* @type answer = logic GT.list with show *)
-      (* let test _ = show(answer) (Stream.take (run q (fun q -> ocanren {q == Bot | q == Unit}) *)
-                                                    (* (fun q -> q#reify reify))) *)
-    (* end *)
-  (* end *)
-
-  (* module St = struct *)
-    (* [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"] *)
-    (* [%%ocanren_inject *)
-      (* type nonrec ('env, 'mem, 'last_mem, 'visited) t = St of 'env * 'mem * 'last_mem * 'visited *)
-      (* [@@deriving gt ~options:{ show; gmap }] *)
-      (* type nonrec ground = (((Nat.ground, ((Tag.ground, Nat.ground) Pair.ground)) Pair.ground) List.ground, *)
-                            (* Value.ground List.ground, Nat.ground, Nat.ground List.ground) t *)
-    (* ] *)
-
-    (* module Test = struct *)
-      (* @type answer  = ground GT.list with show *)
-      (* let test _ = show(answer) (Stream.take (run q (fun q -> let open Value in *)
-                                                              (* let open Tag in *)
-                                                              (* ocanren {St ([Std.pair 0 (Std.pair rwi_val 0)], [Bot], 1, [0]) == q}) *)
-                                                    (* (fun q -> q#reify (prj_exn)))) *)
-    (* end *)
-  (* end *)
 
   (* --- *)
 
