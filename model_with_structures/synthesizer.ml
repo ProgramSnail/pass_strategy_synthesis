@@ -424,7 +424,6 @@ struct
       vs' == v' :: vs &
       mem_with_vs' == Std.pair mem vs'
   }
-
   and valcopyo mem v tp mem_with_id' = 
     let open Type in
     let open Value in
@@ -632,7 +631,7 @@ struct
   (* - call values spoil *)
 
   (* TODO: check that negation is interpreted correctly *)
-  let is_correct_args v r w _r' w' m c =
+  let is_correct_tagso v r w _r' w' m c =
     let open Value in
     let open ReadCap in
     let open WriteCap in
@@ -650,7 +649,63 @@ struct
 
   (* TODO *)
 
+  let rec valspoil_foldero m c mem_with_vs tp u v mem_with_vs' = ocanren {
+    fresh mem, vs, mem', v' in
+    Std.pair mem vs == mem_with_vs &
+    valspoilo mem v tp u m c (Std.pair mem' v') &
+    mem_with_vs' == Std.pair mem' (v' :: vs)
+  }
+  and valspoilo mem v tp u m c mem_with_v' =
+    let open Type in
+    let open Value in
+    let open Mode in
+    let open WriteCap in
+    let open CopyCap in
+    ocanren {
+      { fresh r, w, r', w' in
+        tp == UnitT (r, w) &
+        u == UnitT (r', w') &
+        is_trivial_vo v &
+        is_correct_tagso v r w r' w' m c &
+        {
+          { is_not_outo m &
+            c == Rf &
+            { w == AlwaysWr | w == MayWr } &
+            mem_with_v' == Std.pair mem BotV } |
+          { is_outo m &
+            w == AlwaysWr &
+            mem_with_v' == Std.pair mem ZeroV } |
+          { { is_outo m | c == Cp | w == NeverWr } &
+            { is_not_outo m | w == MayWr | w == NeverWr } &
+            mem_with_v' == Std.pair mem v }
+        } } |
+      { fresh ts, us, _stmts in
+        tp == FunT ts &
+        u == FunT us &
+        v == FunV _stmts &
+        ts == us &
+        mem_with_v' == Std.pair mem v } |
+      { fresh ctp', tp', cu', u', id', v', mem_sp, v_sp, mem_set in
+        tp == RefT (ctp', tp') &
+        u == RefT (cu', u') &
+        v == RefV id' &
+        mem_geto mem id' v' &
+        valspoilo mem v' tp' u' m ctp' (Std.pair mem_sp v_sp) &
+        mem_seto mem_sp id' v_sp mem_set &
+        mem_with_v' == Std.pair mem_set (RefV id') } |
+      { fresh tps, us, vs, mem_sp,vs_sp in
+        tp == TupleT tps &
+        u == TupleT us &
+        v == TupleV vs &
+        list_foldl3o (valspoil_foldero m c)
+                     (Std.pair mem []) tps us vs
+                     (Std.pair mem_sp vs_sp) &
+        mem_with_v' == Std.pair mem_sp (TupleV vs_sp)
+      }
+  }
+
   (* full spoil *)
+
   (* TODO *)
 
   (* - funciton argument addition *)
