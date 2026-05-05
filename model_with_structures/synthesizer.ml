@@ -145,16 +145,16 @@ struct
   module Decl = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('d, 't, 'e, 'dl, 'mtl, 's) t = VarD of 'd * 't * 'e | FunD of 'd * 'dl * 'mtl * 's
+      type nonrec ((* 'd, *) 't, 'e, 'dl, 'mtl, 's) t = VarD of (* 'd * *) 't * 'e | FunD of (* 'd * *) 'dl * 'mtl * 's
       [@@deriving gt ~options:{ show; gmap }]
-      type ground = (Nat.ground, Type.ground, Expr.ground, Nat.ground List.ground, (Mode.ground * Type.ground) List.ground, Stmt.ground) t
+      type ground = ((* Nat.ground, *) Type.ground, Expr.ground, Nat.ground List.ground, (Mode.ground * Type.ground) List.ground, Stmt.ground) t
     ]
   end
 
-  module Prog = struct
+  module Prg = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('dl, 's) t = Prog of 'dl * 's
+      type nonrec ('dl, 's) t = Prg of 'dl * 's
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (Decl.ground List.ground, Stmt.ground) t
     ]
@@ -173,39 +173,39 @@ struct
 
   (* --- *)
 
-  module Mem = struct
+  module MemEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('vl, 'd) t = Mem of 'vl * 'd
+      type nonrec ('vl, 'd) t = MemEnv of 'vl * 'd
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = (Value.ground List.ground, Nat.ground) t
     ]
   end
 
-  module Types = struct
+  module TypesEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec 'dtl t = Types of 'dtl
+      type nonrec 'dtl t = TypesEnv of 'dtl
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = ((Nat.ground * Type.ground) List.ground) t
     ]
   end
 
-  module Vals = struct
+  module ValsEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec 'ddl t = Vals of 'ddl
+      type nonrec 'ddl t = ValsEnv of 'ddl
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = ((Nat.ground * Nat.ground) List.ground) t
     ]
   end
 
-  module St = struct
+  module StEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('mem, 'types, 'vals) t = St of 'mem * 'types * 'vals
+      type nonrec ('mem, 'types, 'vals) t = StEnv of 'mem * 'types * 'vals
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Mem.ground, Types.ground, Vals.ground) t
+      type nonrec ground = (MemEnv.ground, TypesEnv.ground, ValsEnv.ground) t
     ]
   end
 
@@ -238,29 +238,448 @@ struct
       list_ntho xs' id' x' }
   }
 
-  let mem_geto mem id v = ocanren {
-    fresh mem_data, mem_len, rev_id  in
-    Std.pair mem_data mem_len == mem &
-    Nat.addo (Nat.s rev_id) id mem_len &
-    list_ntho mem_data rev_id v
+
+  let rec list_foldlo f acc xs acc' = ocanren {
+    xs == [] & acc' == acc |
+    { fresh x', xs', acc_upd in
+      xs == x' :: xs' &
+      list_foldlo f acc xs' acc_upd &
+      f acc_upd x' acc' }
   }
 
-  let mem_addo mem v mem_with_id' = ocanren {
-    fresh mem_data, mem_len, mem' in
-    Std.pair mem_data mem_len == mem &
-    mem' == Std.pair (v :: mem_data) (Nat.s mem_len) &
-    Std.pair mem' mem_len == mem_with_id'
+  let rec list_foldro f acc xs acc' = ocanren {
+    xs == [] & acc' == acc |
+    { fresh x', xs', acc_upd in
+      xs == x' :: xs' &
+      f acc x' acc_upd &
+      list_foldro f acc_upd xs' acc' }
+    (* TODO: inf search on swap, investigate *)
   }
 
-  let mem_seto mem id v mem' = ocanren {
-    fresh mem_data, mem_len, rev_id, mem_data' in
-    Std.pair mem_data mem_len == mem &
-    Nat.addo (Nat.s rev_id) id mem_len &
-    list_replaceo mem_data rev_id v mem_data' &
-    Std.pair mem_data' mem_len == mem'
+
+  let rec list_foldr2o f acc xs ys acc' = ocanren {
+    xs == [] & ys == [] & acc' == acc |
+    { fresh x', xs', y', ys', acc_upd in
+      xs == x' :: xs' &
+      ys == y' :: ys' &
+      f acc x' y' acc_upd &
+      list_foldr2o f acc_upd xs' ys' acc' }
   }
+
+  let rec list_foldl2o f acc xs ys acc' = ocanren {
+    xs == [] & ys == [] & acc' == acc |
+    { fresh x', xs', y', ys', acc_upd in
+      xs == x' :: xs' &
+      ys == y' :: ys' &
+      list_foldl2o f acc xs' ys' acc_upd &
+      f acc_upd x' y' acc' }
+  }
+
+  let rec list_foldr3o f acc xs ys zs acc' = ocanren {
+    xs == [] & ys == [] & zs == [] & acc' == acc |
+    { fresh x', xs', y', ys', z', zs', acc_upd in
+      xs == x' :: xs' &
+      ys == y' :: ys' &
+      zs == z' :: zs' &
+      f acc x' y' z' acc_upd &
+      list_foldr3o f acc_upd xs' ys' zs' acc' }
+  }
+
+  let rec list_foldl3o f acc xs ys zs acc' = ocanren {
+    xs == [] & ys == [] & zs == [] & acc' == acc |
+    { fresh x', xs', y', ys', z', zs', acc_upd in
+      xs == x' :: xs' &
+      ys == y' :: ys' &
+      zs == z' :: zs' &
+      list_foldl3o f acc xs' ys' zs' acc_upd &
+      f acc_upd x' y' z' acc' }
+  }
+
+  let rec list_zip_witho f xs ys zs = ocanren {
+    { fresh x, xs', y, ys', z, zs' in
+      xs == x :: xs' &
+      ys == y :: ys' &
+      zs == z :: zs' &
+      f x y z &
+      list_zip_witho f xs' ys' zs' } |
+    { fresh x, xs' in
+      xs == x :: xs' &
+      ys == [] &
+      zs == [] } |
+    { fresh y, ys' in
+      xs == [] &
+      ys == y :: ys' &
+      zs == [] } |
+    { xs == [] & ys == [] & zs == [] }
+  }
+
+  (* --- *)
+
+  let mem_geto mem id v =
+    let open MemEnv in
+    ocanren {
+      fresh mem_data, mem_len, rev_id in
+      MemEnv (mem_data, mem_len) == mem &
+      Nat.addo (Nat.s rev_id) id mem_len &
+      list_ntho mem_data rev_id v
+  }
+
+  let mem_addo mem v mem_with_id' =
+    let open MemEnv in
+    ocanren {
+      fresh mem_data, mem_len, mem' in
+      MemEnv (mem_data, mem_len) == mem &
+      mem' == MemEnv (v :: mem_data, Nat.s mem_len) &
+      Std.pair mem' mem_len == mem_with_id'
+  }
+
+  let mem_seto mem id v mem' =
+    let open MemEnv in
+    ocanren {
+      fresh mem_data, mem_len, rev_id, mem_data' in
+      MemEnv (mem_data, mem_len) == mem &
+      Nat.addo (Nat.s rev_id) id mem_len &
+      list_replaceo mem_data rev_id v mem_data' &
+      MemEnv (mem_data', mem_len) == mem'
+  }
+
+  let is_trivial_vo v =
+    let open Value in
+    ocanren {
+    v == ZeroV | v == SmthV | v == BotV
+  }
+
+  let rec pathvaro p x =
+    let open Path in
+    ocanren {
+      p == VarP x |
+      { fresh p' in p == DerefP p' & pathvaro p' x } |
+      { fresh p', _id in p == AccessP (p', _id) & pathvaro p' x }
+  }
+
+  let types_assoco id types tp =
+    let open TypesEnv in
+    ocanren {
+      fresh tps in
+      types == TypesEnv tps &
+      List.assoco id tps tp
+    }
+
+  let vals_assoco id vals v =
+    let open ValsEnv in
+    ocanren {
+      fresh vs in
+      vals == ValsEnv vs &
+      List.assoco id vs v
+    }
+
+  let rec pathtypeo types p tp =
+    let open Path in
+    let open Type in
+    ocanren {
+      { fresh x in
+        p == VarP x &
+        types_assoco x types tp } |
+      { fresh p', tp', _c in
+        p == DerefP p' &
+        pathtypeo types p' tp' &
+        tp' == RefT (_c, tp) } |
+      { fresh p', id', tp', tps in
+        p == AccessP (p', id') &
+        pathtypeo types p' tp' &
+        tp' == TupleT tps &
+        list_ntho tps id' tp }
+  }
+
+  let rec pathvalo mem vals p v =
+    let open Path in
+    let open Value in
+    ocanren {
+      { fresh x, id in
+        p == VarP x &
+        vals_assoco x vals id &
+        mem_geto mem id v } |
+      { fresh p', v', id in
+        p == DerefP p' &
+        pathvalo mem vals p' v' &
+        v' == RefV id &
+        mem_geto mem id v } |
+      { fresh p', id, v', vs in
+        p == AccessP (p', id) &
+        pathvalo mem vals p' v' &
+        v' == TupleV vs &
+        list_ntho vs id v }
+  }
+
+  (* --- eval rules --- *)
+
+  (* - value construction *)
+
+  let rec valcopy_foldero mem_with_vs v tp mem_with_vs' =
+    ocanren {
+      fresh mem, vs, mem', v', mem_with_v', vs' in
+      Std.pair mem vs == mem_with_vs &
+      valcopyo mem v tp mem_with_v' &
+      Std.pair mem' v' == mem_with_v' &
+      vs' == v' :: vs &
+      mem_with_vs' == Std.pair mem vs'
+  }
+
+  and valcopyo mem v tp mem_with_id' = 
+    let open Type in
+    let open Value in
+    let open ReadCap in
+    let open CopyCap in
+    ocanren {
+      { fresh r, w in
+        is_trivial_vo v &
+        tp == UnitT (r, w) &
+        { { r == Rd & mem_with_id' == Std.pair mem v } |
+          { r == NRd & mem_with_id' == Std.pair mem BotV } } } |
+      { fresh stmts, ts in
+        v == FunV stmts &
+        tp == FunT ts &
+        mem_with_id' == Std.pair mem v } |
+      { fresh c, tp', id in
+        v == RefV id &
+        tp == RefT (c, tp') &
+        { { c == Rf & mem_with_id' == Std.pair mem v } |
+          { fresh v, mem_cp, v_cp, mem_with_v_cp,
+                  mem_add, id_add, mem_with_id_add in
+            c == Cp &
+            mem_geto mem id v &
+            valcopyo mem v tp mem_with_v_cp &
+            Std.pair mem v_cp == mem_with_v_cp &
+            mem_addo mem_cp v_cp mem_with_id_add &
+            Std.pair mem_add id_add == mem_with_id_add &
+            mem_with_id' == (mem_add, RefV id_add) } } } |
+      { fresh vs, tps, init_mem_with_vs, mem_with_vs', mem', vs' in
+        v == TupleV vs &
+        tp == TupleT tps &
+        init_mem_with_vs == Std.pair mem [] &
+        list_foldl2o valcopy_foldero init_mem_with_vs vs tps mem_with_vs' &
+        Std.pair mem' vs' == mem_with_vs' &
+        mem_with_id' == Std.pair mem' (TupleV vs') }
+  }
+
+  (* - value update *)
+
+  let rec valupdo mem v p b mem_with_v' =
+    let open Path in
+    let open Value in
+    ocanren {
+      { fresh x in
+        p == VarP x &
+        mem_with_v' == Std.pair mem b } |
+      { fresh p', id, v', mem_upd, v_upd, mem_with_v_upd, mem_st in
+        p == DerefP p' &
+        v == RefV id &
+        mem_geto mem id v' &
+        valupdo mem v' p' b mem_with_v_upd &
+        Std.pair mem_upd v_upd == mem_with_v_upd &
+        mem_seto mem_upd id v_upd mem_st &
+        mem_with_v' == Std.pair mem_st (RefV id) } |
+      { fresh p', id, vs', v', mem_upd, v_upd, mem_with_v_upd, vs_upd in
+        p == AccessP (p', id) &
+        v == TupleV vs' &
+        list_ntho vs' id v' &
+        valupdo mem v' p' b mem_with_v_upd &
+        Std.pair mem_upd v_upd == mem_with_v_upd &
+        list_replaceo vs' id v_upd vs_upd &
+        mem_with_v' == Std.pair mem_upd (TupleV vs_upd) }
+  }
+
+  (* - value combination *)
+
+  let rec valcombo u v u' =
+    let open Value in
+    ocanren {
+    { is_trivial_vo u &
+      is_trivial_vo v &
+      (* TODO: do not use disequality constraint ? *)
+      { { u == v & u' == u } | { u =/= v & u' == BotV } } } |
+    { fresh ustmts, vstmts, ustmts' in
+      u == FunV ustmts &
+      v == FunV vstmts &
+      (* TODO: swap stmts order o efficiency ? *)
+      List.appendo ustmts vstmts ustmts' &
+      u' == FunV ustmts' } |
+    { fresh a, b in
+      u == RefV a &
+      v == RefV b &
+      a == b } |
+    { fresh us, vs, us' in
+      u == TupleV us &
+      v == TupleV vs &
+      list_zip_witho valcombo us vs us' &
+      u' == TupleV us' }
+  }
+
+  let memcombo m n m' = ocanren {
+    fresh mm, ml, nm, nl, mm' in
+    Pair.pair mm ml == m &
+    Pair.pair nm nl == n &
+    list_zip_witho valcombo mm nm mm' &
+    m' == Pair.pair mm' ml
+  }
+
+  (* - expression evaluation *)
+
+  let rec exprvalo mem vals e v' = 
+    let open Expr in
+    let open Value in
+    ocanren {
+      { e == UnitE & v' == ZeroV } |
+      { fresh p in
+        e == PathE p &
+        pathvalo mem vals p v' } |
+      { fresh x, v in
+        e == RefE x &
+        vals_assoco x vals v &
+        v' == RefV v } |
+      { fresh es, vs' in
+        e == TupleE es &
+        List.mapo (exprvalo mem vals) es vs' &
+        v' == TupleV vs' }
+  }
+
+  (* - expression typing *)
+
+  let rec exprtypeo types e tp' = 
+    let open Expr in
+    let open Type in
+    let open ReadCap in
+    let open WriteCap in
+    let open CopyCap in
+    ocanren {
+      { e == UnitE & tp' == UnitT (Rd, NeverWr) } |
+      { fresh p in
+        e == PathE p &
+        pathtypeo types p tp' } |
+      { fresh x, tp in
+        e == RefE x &
+        types_assoco x types tp &
+        tp' == RefT (Rf, tp) } |
+      { fresh es, tps' in
+        e == TupleE es &
+        List.mapo (exprtypeo types) es tps' &
+        tp' == TupleT tps' }
+  }
+
+  (* - context initialization *)
+
+  let add_declo st x d st' =
+    let open StEnv in
+    let open Decl in
+    let open TypesEnv in
+    let open ValsEnv in
+    ocanren {
+      fresh mem, types, vals in
+      st == StEnv (mem, TypesEnv types, ValsEnv vals) &
+      {
+        { fresh tp, e, v,
+                mem_with_v_cp, mem_cp, v_cp,
+                mem_with_id_add, mem_add, id_add in
+          d == VarD (tp, e) &
+          exprvalo mem (ValsEnv vals) e v &
+          valcopyo mem v tp mem_with_v_cp &
+          Pair.pair mem_cp v_cp == mem_with_v_cp &
+          mem_addo mem_cp v_cp mem_with_id_add &
+          Pair.pair mem_add id_add == mem_with_id_add &
+          st' == StEnv (mem_add,
+                        TypesEnv ((Pair.pair x tp) :: types),
+                        ValsEnv ((Pair.pair x id_add) :: vals))
+          }
+      }
+  }
+
+  let empty_memo m =
+    let open MemEnv in
+    ocanren { m == MemEnv ([], 0) }
+
+  let empty_stateo st =
+    let open StEnv in
+    let open TypesEnv in
+    let open ValsEnv in
+    ocanren {
+      fresh m in
+      empty_memo m &
+      st == StEnv (m, TypesEnv [], ValsEnv [])
+  }
+
+  (* TODO: better way ??? *)
+  let globals_min_ido x = ocanren { x == 1000 }
+
+  let prog_init_foldero st_with_id d st_with_id' =
+    ocanren {
+      fresh st, x, st' in
+      Std.pair st x == st_with_id &
+      add_declo st x d st' &
+      st_with_id' == Std.pair st' (Nat.s x)
+  }
+
+  let prog_inito prog st' =
+    let open Prg in
+    ocanren {
+      fresh decls, s, st_init, min_id, st_with_id', _id' in
+      prog == Prg (decls, s) &
+      empty_stateo st_init &
+      globals_min_ido min_id &
+      list_foldlo prog_init_foldero (Std.pair st_init min_id) decls st_with_id' &
+      Std.pair st' _id' == st_with_id'
+  }
+
+  (* - call values spoil *)
+
+  (* TODO: check that negation is interpreted correctly *)
+  let is_correct_args v r w _r' w' m c =
+    let open Value in
+    let open ReadCap in
+    let open WriteCap in
+    let open Mode in
+    let open CopyCap in
+    ocanren {
+      { r == NRd | v == ZeroV } &
+      { r == NRd | is_ino m } &
+      { is_not_outo m | w == AlwaysWr } &
+      { w == NeverWr |
+        { is_not_outo m & c == Cp } |
+        w' == AlwaysWr } &
+      is_trivial_vo v
+  }
+
+  (* TODO *)
+
+  (* full spoil *)
+  (* TODO *)
+
+  (* - funciton argument addition *)
+  (* TODO *)
+
+  (* - function evaluation *)
+  (* NOTE: not needed due to performed optimization in stmt_eval ? *)
+
+  (* - statement evaluation *)
+  (* TODO *)
+
+  (* --- program execution --- *)
+
+  (* let prog_evalo prog st' = *)
+    (* let open Prog in *)
+    (* ocanren { *)
+      (* fresh decls, s, init_st, *) 
+      (* prog == Prog (decls, s) & *)
+      (* prog_inito prog init_st & *)
+      (* stmt_evalo init_st s st' *)
+  (* } *)
 
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
+
+  (* --- tests --- *)
+  (* TODO *)
+
+  (* - shortcuts *)
+  (* TODO *)
 
   (* --- *)
 

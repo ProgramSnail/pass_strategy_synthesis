@@ -91,6 +91,14 @@ struct
    | x :: xs, _ -> x :: list_replace xs (id - 1) y
    | [], _ -> raise Not_found
 
+  (* TODO: FIXME: check if this foldl or foldr *)
+  let rec list_foldl3 f (acc : 'a) (xs : 'b list) (ys : 'c list) (zs : 'd list) : 'a = match xs, ys, zs with
+    | x :: xs, y :: ys, z :: zs -> list_foldl3 f (f acc x y z) xs ys zs 
+    | [], [], [] -> acc
+    | _, _, _ -> raise Cant_fold3_error
+
+  (* --- *)
+
   (* NOTE: old variant with assoc array *)
   (* let mem_get (mem : mem) (id : memid) : value = List.assoc id (fst mem) *)
   (* let mem_add (mem : mem) (v : value) : mem * memid = *)
@@ -147,31 +155,32 @@ struct
 
   (* --- eval rules --- *)
 
-  (* TODO: FIXME: check if this foldl or foldr *)
-  let rec list_foldl3 f (acc : 'a) (xs : 'b list) (ys : 'c list) (zs : 'd list) : 'a = match xs, ys, zs with
-    | x :: xs, y :: ys, z :: zs -> list_foldl3 f (f acc x y z) xs ys zs 
-    | [], [], [] -> acc
-    | _, _, _ -> raise Cant_fold3_error
-
   (* - value construction *)
 
-  let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value = match t, v with
-    | UnitT (Rd, w), ZeroV -> (mem, v)
-    | UnitT (Rd, w), SmthV -> (mem, v)
-    | UnitT (Rd, w), BotV -> (mem, v)
-    | UnitT (NRd, w), ZeroV -> (mem, BotV)
-    | UnitT (NRd, w), SmthV -> (mem, BotV)
-    | UnitT (NRd, w), BotV -> (mem, BotV)
+  let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value =
+    if is_trivial_v v
+    then match t with
+    | UnitT (Rd, _) -> (mem, v)
+    | UnitT (NRd, _) -> (mem, BotV)
+    | _ -> raise @@ Typing_error "valcopy: trivial value, wrong type"
+    else match t, v with
+    (* NOTE: replaced with if | best choice ?? *)
+    (* | UnitT (Rd, w), ZeroV -> (mem, v) *)
+    (* | UnitT (Rd, w), SmthV -> (mem, v) *)
+    (* | UnitT (Rd, w), BotV -> (mem, v) *)
+    (* | UnitT (NRd, w), ZeroV -> (mem, BotV) *)
+    (* | UnitT (NRd, w), SmthV -> (mem, BotV) *)
+    (* | UnitT (NRd, w), BotV -> (mem, BotV) *)
     | FunT _, FunV _ -> (mem, v)
     | RefT (Rf, _), RefV _ -> (mem, v)
     | RefT (Cp, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
                                let (mem'', id'') = mem_add mem' v' in
                                (mem'', RefV id'') 
     | TupleT ts, TupleV vs -> let folder = fun (mem, vs') v t -> let (mem', v') = valcopy mem v t in
-                                                                 mem, v' :: vs' in 
+                                                                 (mem, v' :: vs') in 
                               let mem', vs' = List.fold_left2 folder (mem, []) vs ts in
                               (mem', TupleV vs')
-    | _, _ -> raise @@ Typing_error "valcopy"
+    | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type"
 
   (* - value update *)
 
@@ -189,7 +198,7 @@ struct
     if is_trivial_v u && is_trivial_v v
     then (if u == v then u else BotV)
     else match u, v with
-      | FunV ustmts, FunV vstmts  -> FunV (ustmts @ vstmts) 
+      | FunV ustmts, FunV vstmts  -> FunV (ustmts @ vstmts)
       | RefV a, RefV b -> if a == b then u else raise @@ Typing_error "valcomb: ref"
       | TupleV us, TupleV vs -> TupleV (List.map2 valcomb us vs)
       | _, _ -> raise @@ Typing_error "valcomb"
@@ -317,7 +326,6 @@ struct
     (mem'', (x, t) :: types, (x, id) :: vals)
 
   (* - function evaluation *)
-
   (* NOTE: not needed due to performed optimization in stmt_eval *)
   (* let func_eval (mem : mem) (vals : vals) (s : stmt) (ts : mtype list) (es : expr list) = *)
 
@@ -368,15 +376,15 @@ struct
                           then raise @@ Eval_error "choice"
                           else (memcomb meml memr, typesl, valsl)
 
- (* --- program execution --- *)
+  (* --- program execution --- *)
 
- let prog_eval (prog : prog) : state =
-   match prog with (decls, s) ->
-   let init_state = prog_init prog in
-   stmt_eval init_state s
+  let prog_eval (prog : prog) : state =
+    match prog with (decls, s) ->
+    let init_state = prog_init prog in
+    stmt_eval init_state s
 
- let prog_eval_noret (prog : prog) : unit =
-   ignore @@ prog_eval prog
+  let prog_eval_noret (prog : prog) : unit =
+    ignore @@ prog_eval prog
 
   (* --- tests --- *)
 
