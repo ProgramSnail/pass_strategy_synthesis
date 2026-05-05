@@ -514,12 +514,14 @@ struct
       u' == TupleV us' }
   }
 
-  let memcombo m n m' = ocanren {
+  let memcombo m n m' =
+    let open MemEnv in
+    ocanren {
     fresh mm, ml, nm, nl, mm' in
-    Pair.pair mm ml == m &
-    Pair.pair nm nl == n &
+    MemEnv (mm, ml) == m &
+    MemEnv (nm, nl) == n &
     list_zip_witho valcombo mm nm mm' &
-    m' == Pair.pair mm' ml
+    m' == MemEnv (mm', ml)
   }
 
   (* - expression evaluation *)
@@ -647,8 +649,6 @@ struct
       is_trivial_vo v
   }
 
-  (* TODO *)
-
   let rec valspoil_foldero m c mem_with_vs tp u v mem_with_vs' = ocanren {
     fresh mem, vs, mem', v' in
     Std.pair mem vs == mem_with_vs &
@@ -706,10 +706,71 @@ struct
 
   (* full spoil *)
 
-  (* TODO *)
+  let argspoilpo st m tp p mem' =
+    let open StEnv in
+    let open CopyCap in
+    ocanren {
+      fresh mem, types, vals, x, id, b, tp',
+            mem_sp, b_sp, v_sp, mem_upd, v_upd in
+      st == StEnv (mem, types, vals) &
+      pathvaro p x &
+      vals_assoco x vals id &
+      pathvalo mem vals p b &
+      pathtypeo types p tp' &
+      valspoilo mem b tp tp' m Rf(Std.pair mem_sp b_sp) &
+      mem_geto mem_sp id v_sp &
+      valupdo mem_sp v_sp p b_sp (Std.pair mem_upd v_upd) &
+      mem_seto mem_upd id v_upd mem'
+  }
+
+  let rec argspoile_foldero types vals m mem tp e mem' =
+    let open StEnv in
+    ocanren {
+      fresh st in
+      st == StEnv (mem, types, vals) &
+      argspoileo st m tp e mem'
+  }
+  and argspoileo st m tp e mem' =
+    let open StEnv in
+    let open Expr in
+    let open Type in
+    let open Path in
+    ocanren {
+      fresh _r, _w, mem, types, vals in
+      st == StEnv (mem, types, vals) &
+      {
+        { e == UnitE &
+          tp == UnitT (_r, _w) &
+          mem' == mem } |
+        { fresh p in
+          e == PathE p &
+          argspoilpo st m tp p mem' } |
+        { fresh x in
+          e == RefE x &
+          argspoilpo st m tp (VarP x) mem' } |
+        { fresh es, tps in
+          e == TupleE es &
+          tp == TupleT tps &
+          list_foldl2o (argspoile_foldero types vals m) mem tps es mem'}
+      }
+  }
 
   (* - funciton argument addition *)
-  (* TODO *)
+
+  let addargo st oldvals x tp e st' =
+    let open StEnv in
+    let open TypesEnv in
+    let open ValsEnv in
+    ocanren {
+      fresh mem, types, vals, v, mem_cp, v_cp, mem_add, id_add in
+      st == StEnv (mem, TypesEnv types, ValsEnv vals) &
+      exprvalo mem oldvals e v &
+      valcopyo mem v tp (Std.pair mem_cp v_cp) &
+      mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
+      st' == StEnv (mem_add,
+                    TypesEnv ((Std.pair x tp) :: types),
+                    ValsEnv ((Std.pair x id_add) :: vals))
+  }
 
   (* - function evaluation *)
   (* NOTE: not needed due to performed optimization in stmt_eval ? *)
@@ -717,16 +778,102 @@ struct
   (* - statement evaluation *)
   (* TODO *)
 
+  let rec stmt_addarg_foldero vals st_with_id mtp e st_with_id' = ocanren {
+    fresh st, x, m, tp, st' in
+    Std.pair st x == st_with_id &
+    Std.pair m tp == mtp &
+    addargo st vals x tp e st' &
+    st_with_id' == Std.pair st' (Nat.s x)
+  }
+  and stmt_eval_spoil_foldero types vals mem mtp e mem' =
+    let open StEnv in
+    ocanren {
+      fresh m, tp, st in
+      Std.pair m tp == mtp &
+      st == StEnv (mem, types, vals) &
+      argspoileo st m tp e mem'
+  }
+  and stmt_evalo st s st' =
+    let open StEnv in
+    let open Stmt in
+    let open Value in
+    let open Type in
+    let open WriteCap in
+    let open TypesEnv in
+    let open ValsEnv in
+    ocanren {
+      fresh mem, types, vals in
+      st == StEnv (mem, types, vals) &
+      {
+        { s == SkipS & st == st' } |
+        { fresh f, es, v, tp, types', vals',
+                fstmts, tps, st',
+                state_with_args, _arg_id,
+                _states_evaled,
+                mem_spoiled in
+          s == CallS (f, es) &
+          pathvalo mem vals f v &
+          pathtypeo types f tp &
+          types' == TypesEnv [] &
+          vals' == ValsEnv [] &
+          v == FunV fstmts &
+          tp == FunT tps &
+          st' == StEnv (mem, types', vals') &
+          (* TODO: type error, fix required *)
+          list_foldl2o (stmt_addarg_foldero vals)
+                       (Std.pair st' 0) tps es
+                       (Std.pair state_with_args _arg_id) &
+          List.mapo (stmt_evalo state_with_args) fstmts _states_evaled &
+          (* TODO: FIXME check left or right order *)
+          list_foldl2o (stmt_eval_spoil_foldero types vals)
+                      mem tps es mem_spoiled &
+          st' == StEnv (mem_spoiled, types, vals) } |
+        { fresh p, tp, _r, w, x, id, v,
+                mem_upd, v_upd, mem_set in
+          s == WriteS p &
+          pathtypeo types p tp &
+          tp == UnitT (_r, w) &
+          { w == AlwaysWr | w == MayWr } &
+          pathvaro p x &
+          vals_assoco x vals id &
+          mem_geto mem id v &
+          valupdo mem v p ZeroV (Std.pair mem_upd v_upd) &
+          mem_seto mem_upd id v_upd mem_set &
+          st' == StEnv (mem_set, types, vals) } |
+        { fresh p in
+          s == ReadS p &
+          pathvalo mem vals p ZeroV &
+          st == st' } |
+        { fresh sl, sr, stl in
+          s == SeqS (sl, sr) &
+          stmt_evalo st sl stl &
+          stmt_evalo stl sr st' } |
+        { fresh sl, sr, stl, str,
+                meml, typesl, valsl,
+                memr, typesr, valsr,
+                mem' in
+          s == ChoiceS (sl, sr) &
+          stmt_evalo st sl stl &
+          stmt_evalo st sr str &
+          str == StEnv (memr, typesr, valsr) &
+          stl == StEnv (meml, typesl, valsl) &
+          typesl == typesr &
+          valsl == valsr &
+          memcombo meml memr mem' &
+          st' == StEnv (mem', typesl, valsl) }
+      }
+  }
+
   (* --- program execution --- *)
 
-  (* let prog_evalo prog st' = *)
-    (* let open Prog in *)
-    (* ocanren { *)
-      (* fresh decls, s, init_st, *) 
-      (* prog == Prog (decls, s) & *)
-      (* prog_inito prog init_st & *)
-      (* stmt_evalo init_st s st' *)
-  (* } *)
+  let prog_evalo prog st' =
+    let open Prg in
+    ocanren {
+      fresh decls, s, init_st in 
+      prog == Prg (decls, s) &
+      prog_inito prog init_st &
+      stmt_evalo init_st s st'
+  }
 
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 

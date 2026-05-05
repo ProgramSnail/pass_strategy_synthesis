@@ -926,7 +926,7 @@ $s in stmt, f in X, x in X, a in X$
     $mu stretch(=>)^(m space t space x)_(cl vals, types cr) mu'$,
 
     // TODO:: is c important ?
-    $mu stretch(=>)^(m space rf c t space rf x_(cl vals, types cr) mu'$,
+    $mu stretch(=>)^(m space rf c space t space rf x)_(cl vals, types cr) mu'$,
   )
 ))
 
@@ -1045,21 +1045,6 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ READ $p$],
-
-    $vals, mu tval p eqmu 0$,
-
-    $cl types, vals, mu cr
-     xarrow("READ" p)
-     cl types, vals, mu cr$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
     name: [ WRITE $p$],
 
     $types ttype p : cl r, w cr$,
@@ -1073,6 +1058,21 @@ $s in stmt, f in X, x in X, a in X$
      cl types, vals, mu[l <- v'] cr$,
   )
 ))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ READ $p$],
+
+    $vals, mu tval p eqmu 0$,
+
+    $cl types, vals, mu cr
+     xarrow("READ" p)
+     cl types, vals, mu cr$,
+  )
+))
+
+#h(10pt)
 
 #h(10pt)
 

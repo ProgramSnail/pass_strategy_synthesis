@@ -296,7 +296,7 @@ struct
 
   (* full spoil *)
 
-  let rec argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
+  let argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
     match state with (mem, types, vals) ->
     let x = pathvar p in
     let id = List.assoc x vals in
@@ -310,6 +310,8 @@ struct
     match state with (mem, types, vals) -> match e, t with
       | UnitE, UnitT _ -> mem
       | PathE p, t -> argsspoilp state m t p
+      | RefE x, t -> argsspoilp state m t (VarP x)
+      (* TODO: FIXME: check RefE case ? *)
       | TupleE es, TupleT ts -> List.fold_left2
                                   (fun mem' t' e' -> argsspoile (mem', types, vals) m t' e')
                                   mem ts es
@@ -322,7 +324,7 @@ struct
     let v = exprval mem oldvals e in
     (* let t' = pathtype types p in *)
     let (mem', v') = valcopy mem v t in
-    let (mem'', id) = mem_add mem' v in
+    let (mem'', id) = mem_add mem' v' in
     (mem'', (x, t) :: types, (x, id) :: vals)
 
   (* - function evaluation *)
@@ -333,21 +335,26 @@ struct
 
   let rec stmt_eval (state : state) (s : stmt) : state =
     match state with (mem, types, vals) -> match s with
-    (* TODO: FIXME: Add memoisation *)
+    (* TODO: FIXME: Add memoization *)
     | SkipS -> state
-    | CallS (f, es) -> let v = (* FIXME TMP Printf.printf "call, before v\n"; *) pathval mem vals f in
-                       let t = (* FIXME TMP Printf.printf "call, before t\n"; *) pathtype types f in
+    | CallS (f, es) -> let v = (* FIXME TMP Printf.printf "call, before v\n"; *)
+                               pathval mem vals f in
+                       let t = (* FIXME TMP Printf.printf "call, before t\n"; *)
+                               pathtype types f in
                        let types' : types = [] in
                        let vals' : vals = [] in
                        (match v, t with
                           | FunV (* xs, *) fstmts (* ) *), FunT ts ->
                             (* TODO: memoisation of the called functions *)
-                            let (state_with_args, _) = (* FIXME TMP Printf.printf "call, before args\n"; *) List.fold_left2 (* TODO: FIXME: check x's order *)
-                              (fun (st, x) (m, t) p -> (addarg st vals x t p, x + 1))
+                            let (state_with_args, _) = (* FIXME TMP Printf.printf "call, before args\n"; *)
+                                                       List.fold_left2 (* TODO: FIXME: check x's order *)
+                              (fun (st, x) (m, t) e -> (addarg st vals x t e, x + 1))
                               ((mem, types', vals'), 0) ts es in
                             (* NOTE: same x's, so can use same args for all the statements *)
-                            let _states_evaled = (* FIXME TMP Printf.printf "call, before eval\n"; *) List.map (stmt_eval state_with_args) fstmts in
-                            let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *) List.fold_left2
+                            let _states_evaled = (* FIXME TMP Printf.printf "call, before eval\n"; *)
+                                                 List.map (stmt_eval state_with_args) fstmts in
+                            let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *)
+                                              List.fold_left2
                               (fun mem (m, t) e -> argsspoile (mem, types, vals) m t e)
                               mem ts es in
                             (mem_spoiled, types, vals)
