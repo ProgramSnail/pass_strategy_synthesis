@@ -819,7 +819,6 @@ struct
           v == FunV fstmts &
           tp == FunT tps &
           st' == StEnv (mem, types', vals') &
-          (* TODO: type error, fix required *)
           list_foldl2o (stmt_addarg_foldero vals)
                        (Std.pair st' 0) tps es
                        (Std.pair state_with_args _arg_id) &
