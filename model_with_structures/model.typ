@@ -906,9 +906,10 @@ $s in stmt, f in X, x in X, a in X$
     $l = vals[x]$,
     $vals, mu texpre p eqmu b$,
     $types ttype p : t'$,
-    // TODO: FIXME: Ref or Copy ?? in root <- Ref ??, because otherwise there could not b any Refs
+    // TODO: FIXME: Ref or Copy ?? in root <- Copy ??,
+    // <- otherwise all subsequent copy capabilities will be ref (in current impl)
     // FIXME depends on parent ??
-    $cl b, mu cr xarrowSquiggly(t \, t' \, m \, Ref)_spoil cl b', mu' cr$,
+    $cl b, mu cr xarrowSquiggly(t \, t' \, m \, Copy)_spoil cl b', mu' cr$,
     $cl mu'[l], mu' cr xarrowSquiggly(cl p \, b' cr)_modify cl v'', mu'' cr$,
 
     $mu stretch(=>)^(m space t space p)_(cl vals, types cr) mu''[l <- v'']$,
@@ -920,7 +921,7 @@ $s in stmt, f in X, x in X, a in X$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ full spoil for tuple expr],
+    name: [ full spoil for ref expr],
 
     // NOTE: x as path
     $mu stretch(=>)^(m space t space x)_(cl vals, types cr) mu'$,
@@ -941,7 +942,7 @@ $s in stmt, f in X, x in X, a in X$
     $...$,
     $mu_(n - 1) stretch(=>)^(m space t_n space e_n)_(cl vals, types cr) mu_n$,
 
-    $mu_0 stretch(=>)^(m space [t_1, ... t_n] space [e_1, ... e_n]_(cl vals, types cr) mu_n$,
+    $mu_0 stretch(=>)^(m space [t_1, ... t_n] space [e_1, ... e_n])_(cl vals, types cr) mu_n$,
   )
 ))
 

@@ -323,11 +323,12 @@ struct
   let argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
     match state with (mem, types, vals) ->
     let x = pathvar p in
-    let id = vals_assoc x vals in
-    let b = pathval mem vals p in
-    let t' = pathtype types p in
-    let (mem', b') = valspoil mem b t t' m Rf in
-    let (mem'', v'') = valupd mem' (mem_get mem' id) p b' in
+    let id = vals_assoc x vals in (* base var address *)
+    let b = pathval mem vals p in (* subvalue in var *)
+    let t' = pathtype types p in (* type of subvalue *)
+    let (mem', b') = valspoil mem b t t' m Cp in (* spoil subvalue *)
+    (* TODO: FIXME: why copy (Cp)? *)
+    let (mem'', v'') = valupd mem' (mem_get mem' id) p b' in (* set subvalue into var *)
     mem_set mem'' id v''
 
   let rec argsspoile (state : state) (m : mode) (t : atype) (e : expr) : mem =
@@ -394,8 +395,10 @@ struct
                             let (mem', v') = valupd mem (mem_get mem id) p ZeroV in
                             (mem_set mem' id v', types, vals)
                      | _ -> raise @@ Eval_error "write: type")
-    | ReadS p -> if pathval mem vals p != ZeroV
-                 then raise @@ Eval_error "read"
+    | ReadS p -> if pathval mem vals p == SmthV || pathval mem vals p == BotV 
+                 then raise @@ Eval_error "read: spoiled value"
+                 else if pathval mem vals p != ZeroV 
+                 then raise @@ Eval_error "read: nontrivial value"
                  else state
     | SeqS (sl, sr) -> let statel = stmt_eval state sl in
                        stmt_eval statel sr
@@ -429,16 +432,25 @@ struct
   let v3 = VarP 3
   let v4 = VarP 4
   let v5 = VarP 5
-  let vg0 = VarP (globals_min_id)
+  let v6 = VarP 6
+  let v7 = VarP 7
+  let v8 = VarP 8
+  let vg0 = VarP globals_min_id
   let vg1 = VarP (globals_min_id + 1)
   let vg2 = VarP (globals_min_id + 2)
   let vg3 = VarP (globals_min_id + 3)
   let vg4 = VarP (globals_min_id + 4)
   let vg5 = VarP (globals_min_id + 5)
+  let vg6 = VarP (globals_min_id + 6)
+  let vg7 = VarP (globals_min_id + 7)
+  let vg8 = VarP (globals_min_id + 8)
 
   let rf0E = RefE 0
   let rf1E = RefE 1
   let rf2E = RefE 2
+  let rf3E = RefE 3
+  let rf4E = RefE 4
+  let rf5E = RefE 5
   let rf3E = RefE 3
   let rf4E = RefE 4
   let rf5E = RefE 5
@@ -448,6 +460,10 @@ struct
   let rfg3E = RefE (globals_min_id + 3)
   let rfg4E = RefE (globals_min_id + 4)
   let rfg5E = RefE (globals_min_id + 5)
+  let rfg6E = RefE (globals_min_id + 6)
+  let rfg7E = RefE (globals_min_id + 7)
+  let rfg8E = RefE (globals_min_id + 8)
+
   let pE p = PathE p
 
   let drf p = DerefP p
@@ -511,7 +527,7 @@ struct
     try(prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], ReadS (VarP globals_min_id));
          [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
-    [%expect {| read |}]
+    [%expect {| read: spoiled value |}]
 
   let%expect_test "simple vars, no read & read" =
     prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE);
@@ -649,7 +665,7 @@ struct
     );
     [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
-    [%expect {| read |}]
+    [%expect {| read: spoiled value |}]
 
   let%expect_test "call inside call, dsl" =
     prog_eval_noret (
@@ -695,7 +711,7 @@ struct
         defgu uT_r_aw;
         defg (rfT uT_r_aw) rfg0E;
         defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg (rfT uT_r_aw) rfg2E;
         FunD (
           [
             moded @@ rfT @@ uT_r;
@@ -709,6 +725,76 @@ struct
     );
     Printf.printf "done!";
     [%expect {| done! |}]
+
+  let%expect_test "simple call with different arguments modifiers, copy, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg2E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg4E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg6E;
+        FunD (
+          [
+            ((NIn, NOut), cpT @@ uT_aw);
+            ((In, NOut), cpT @@ uT_r_aw);
+            ((NIn, Out), cpT @@ uT_aw);
+            ((In, Out), cpT @@ uT_r_aw);
+          ],
+          (rdS @@ drf @@ v1) #.
+          (rdS @@ drf @@ v3) #.
+          (wrS @@ drf @@ v1) #.
+          (wrS @@ drf @@ v2) #.
+          (wrS @@ drf @@ v3)
+        )
+      ],
+      (callS vg8 [pE vg1; pE vg3; pE vg5; pE vg7]) #.
+      (rdS @@ drf @@ vg1) #.
+      (rdS @@ drf @@ vg3) #.
+      (rdS @@ drf @@ vg5) #.
+      (rdS @@ drf @@ vg7)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple call with different arguments modifiers, ref, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg2E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg4E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg6E;
+        FunD (
+          [
+            ((NIn, NOut), rfT @@ uT);
+            ((In, NOut), rfT @@ uT_r);
+            ((NIn, Out), rfT @@ uT_aw);
+            ((In, Out), rfT @@ uT_r_aw);
+          ],
+          (rdS @@ drf @@ v1) #.
+          (rdS @@ drf @@ v3) #.
+          (wrS @@ drf @@ v2) #.
+          (wrS @@ drf @@ v3)
+        )
+      ],
+      (callS vg8 [pE vg1; pE vg3; pE vg5; pE vg7]) #.
+      (rdS @@ drf @@ vg1) #.
+      (rdS @@ drf @@ vg3) #.
+      (rdS @@ drf @@ vg5) #.
+      (rdS @@ drf @@ vg7)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  (* TODO: call after call test (fix test) *)
+  (* TODO: recursive call test (for the future when memoization will be implemented) *)
 
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 

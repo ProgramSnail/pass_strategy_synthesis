@@ -717,7 +717,7 @@ struct
       vals_assoco x vals id &
       pathvalo mem vals p b &
       pathtypeo types p tp' &
-      valspoilo mem b tp tp' m Rf(Std.pair mem_sp b_sp) &
+      valspoilo mem b tp tp' m Cp (Std.pair mem_sp b_sp) &
       mem_geto mem_sp id v_sp &
       valupdo mem_sp v_sp p b_sp (Std.pair mem_upd v_upd) &
       mem_seto mem_upd id v_upd mem'
