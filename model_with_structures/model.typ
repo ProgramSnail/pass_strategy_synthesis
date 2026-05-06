@@ -995,7 +995,7 @@ $s in stmt, f in X, x in X, a in X$
      xarrow(s)
      cl types', vals', mu' cr$,
 
-    $cl vals, mu_0 cr tfunceval cl s, [x_1, .. x_n], [t_1, ... t_n], [e_1, ... e_n] cr$,
+    $vals, mu_0 tfunceval cl s, [x_1, .. x_n], [t_1, ... t_n], [e_1, ... e_n] cr$,
   )
 ))
 
@@ -1025,9 +1025,9 @@ $s in stmt, f in X, x in X, a in X$
     $types ttype f : lambda [m_1 t_1, ... m_n t_n] $,
 
     // NOTE: check that all the possible bodies are possible to eval
-    $cl vals, mu_0 cr tfunceval cl s_1, overline(x)_1, [t_1, ... t_n], [e_1, ... e_n] cr$,
+    $vals, mu_0 tfunceval cl s_1, overline(x)_1, [t_1, ... t_n], [e_1, ... e_n] cr$,
     $...$,
-    $cl vals, mu_0 cr tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
+    $vals, mu_0 tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
 
     // NOTE: thick arrow to "spoil" context
     $mu_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) mu_1$,

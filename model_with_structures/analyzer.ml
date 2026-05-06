@@ -256,13 +256,14 @@ struct
   let is_correct_tags (v : value) (r : read_cap) (w : write_cap)
                       (r' : read_cap) (w' : write_cap) (m : mode)
                       (c : copy_cap) : bool =
-    (* FIXME TMP
-    Printf.printf "%b %b %b %b %b\n"
-      (r != Rd || v == ZeroV)
-      (r != Rd || fst m == In)
-      (snd m != Out || w == AlwaysWr)
-      (((not @@ (w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf)) || w' == AlwaysWr))
-      (is_trivial_v v); *)
+    (* FIXME TMP *)
+    (* Printf.printf "%b %b %b %b %b\n" *)
+      (* (r != Rd || v == ZeroV) *)
+      (* (r != Rd || fst m == In) *)
+      (* (snd m != Out || w == AlwaysWr) *)
+      (* (* TODO: FIXME: why always write ?? *) *)
+      (* (((not ((w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf))) || w' == AlwaysWr)) *)
+      (* (is_trivial_v v); *)
     (r != Rd || v == ZeroV) &&
     (r != Rd || fst m == In) &&
     (snd m != Out || w == AlwaysWr) &&
@@ -399,13 +400,32 @@ struct
 
   let ( #. ) x y = SeqS (x, y)
 
-  let vx = VarP 0
-  let vy = VarP 1
-  let vz = VarP 2
+  let v0 = VarP 0
+  let v1 = VarP 1
+  let v2 = VarP 2
+  let v3 = VarP 3
+  let v4 = VarP 4
+  let v5 = VarP 5
+  let vg0 = VarP (globals_min_id)
+  let vg1 = VarP (globals_min_id + 1)
+  let vg2 = VarP (globals_min_id + 2)
+  let vg3 = VarP (globals_min_id + 3)
+  let vg4 = VarP (globals_min_id + 4)
+  let vg5 = VarP (globals_min_id + 5)
 
-  let vgx = VarP (globals_min_id)
-  let vgy = VarP (globals_min_id + 1)
-  let vgz = VarP (globals_min_id + 2)
+  let rf0E = RefE 0
+  let rf1E = RefE 1
+  let rf2E = RefE 2
+  let rf3E = RefE 3
+  let rf4E = RefE 4
+  let rf5E = RefE 5
+  let rfg0E = RefE globals_min_id
+  let rfg1E = RefE (globals_min_id + 1)
+  let rfg2E = RefE (globals_min_id + 2)
+  let rfg3E = RefE (globals_min_id + 3)
+  let rfg4E = RefE (globals_min_id + 4)
+  let rfg5E = RefE (globals_min_id + 5)
+  let pE p = PathE p
 
   let drf p = DerefP p
   let access p i = AccessP (p, i)
@@ -426,7 +446,12 @@ struct
 
   let moded t = ((In, NOut), t)
 
-  let defg t = VarD (t, UnitE)
+  let defgu t = VarD (t, UnitE)
+  let defg t e = VarD (t, e)
+
+  let wrS p = WriteS p 
+  let rdS p = ReadS p 
+  let callS f args = CallS (f, args)
 
   (* - utils tests *)
 
@@ -491,20 +516,174 @@ struct
 
   (* - basic call tests *)
 
-  let%expect_test "simple call with read" =
-    prog_eval_noret ([VarD (UnitT (Rd, NeverWr), UnitE);
-                      FunD ([(In, NOut), UnitT (Rd, NeverWr)], ReadS (VarP 0))],
-                     CallS (VarP (globals_min_id + 1),
-                            [PathE (VarP globals_min_id)]));
+  (* let%expect_test "simple call with read" = *)
+    (* prog_eval_noret ([VarD (UnitT (Rd, NeverWr), UnitE); *)
+                      (* FunD ([(In, NOut), UnitT (Rd, NeverWr)], ReadS (VarP 0))], *)
+                     (* CallS (VarP (globals_min_id + 1), *)
+                            (* [PathE (VarP globals_min_id)])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  (* let%expect_test "simple call with write" = *)
+    (* prog_eval_noret ([VarD ((UnitT (Rd, MayWr)), UnitE); *)
+                      (* VarD (RefT (Rf, (UnitT (Rd, MayWr))), RefE globals_min_id); *)
+                      (* FunD ([(In, NOut), RefT (Cp, UnitT (Rd, MayWr))], WriteS (DerefP (VarP 0)))], *)
+                     (* CallS (VarP (globals_min_id + 2), *)
+                            (* [PathE (VarP (globals_min_id + 1))])); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  let%expect_test "simple call with read, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_mw;
+        defg (rfT uT_r_mw) rfg0E;
+        FunD (
+          [moded @@ cpT @@ uT_r],
+          rdS @@ drf @@ v0
+        )
+      ],
+      callS vg2 [pE vg1]
+    );
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  let%expect_test "simple call with write" =
-    prog_eval_noret ([VarD ((UnitT (Rd, MayWr)), UnitE);
-                      VarD (RefT (Rf, (UnitT (Rd, MayWr))), RefE globals_min_id);
-                      FunD ([(In, NOut), RefT (Cp, UnitT (Rd, MayWr))], WriteS (DerefP (VarP 0)))],
-                     CallS (VarP (globals_min_id + 2),
-                            [PathE (VarP (globals_min_id + 1))]));
+  let%expect_test "simple call with write, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_mw;
+        defg (rfT uT_r_mw) rfg0E;
+        FunD (
+          [moded @@ cpT @@ uT_r_mw],
+          wrS @@ drf @@ v0
+        )
+      ],
+      callS vg2 [pE vg1]
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple call with read after write, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_mw;
+        defg (rfT uT_r_mw) rfg0E;
+        FunD (
+          [moded @@ cpT @@ uT_mw],
+          (wrS @@ drf @@ v0) #.
+          (rdS @@ drf @@ v0)
+        )
+      ],
+      callS vg2 [pE vg1]
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple call with forbidden write, dsl" =
+    try (prog_eval_noret (
+      [
+        defgu uT_r_mw;
+        defg (rfT uT_r_mw) rfg0E;
+        FunD (
+          [moded @@ cpT @@ uT_r],
+          wrS @@ drf @@ v0
+        )
+      ],
+      callS vg2 [pE vg1]
+    );
+    [%expect.unreachable]);
+    with Eval_error msg -> Printf.printf "%s" msg;
+    [%expect {| write: write tag |}]
+
+  (* TODO: FIXME: why is condition on always write in parent ?? *)
+  let%expect_test "simple call with write to ref, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ rfT @@ uT_aw],
+          wrS @@ drf @@ v0
+        )
+      ],
+      callS vg2 [pE vg1]
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple call with forbidden write to ref, dsl" =
+    try (prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ rfT @@ uT_aw],
+          wrS @@ drf @@ v0
+        )
+      ],
+      (callS vg2 [pE vg1]) #.
+      (rdS @@ drf @@ vg1)
+    );
+    [%expect.unreachable]);
+    with Eval_error msg -> Printf.printf "%s" msg;
+    [%expect {| read |}]
+
+  (* let%expect_test "call inside call, dsl" = *)
+    (* prog_eval_noret ( *)
+      (* [ *)
+        (* defgu uT_r_aw; *)
+        (* defg (rfT uT_r_aw) rfg0E; *)
+        (* FunD ( *)
+          (* [moded @@ rfT @@ uT_aw], *)
+          (* wrS @@ drf @@ v0 *)
+        (* ); *)
+        (* FunD ( *)
+          (* [moded @@ cpT @@ uT_aw], *)
+          (* (callS vg2 [pE v0]) #. *)
+          (* (wrS @@ drf @@ v0) *)
+        (* ) *)
+      (* ], *)
+      (* (callS vg3 [pE vg1]) #. *)
+      (* (rdS @@ drf @@ vg1) *)
+    (* ); *)
+    (* Printf.printf "done!"; *)
+    (* [%expect {| done! |}] *)
+
+  let%expect_test "simple call with global variable usage, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ cpT @@ uT_aw],
+          (wrS @@ vg0) #.
+          (rdS @@ drf @@ vg1)
+        )
+      ],
+      (callS vg2 [pE vg1]) #.
+      (rdS @@ drf @@ vg1)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "simple call with read & write (2 args), dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [
+            moded @@ rfT @@ uT_r;
+            moded @@ rfT @@ uT_aw;
+          ],
+          (rdS @@ drf @@ v0) #.
+          (wrS @@ drf @@ v1)
+        )
+      ],
+      callS vg4 [pE vg1; pE vg3]
+    );
     Printf.printf "done!";
     [%expect {| done! |}]
 
