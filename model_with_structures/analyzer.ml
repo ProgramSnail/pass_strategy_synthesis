@@ -78,11 +78,34 @@ struct
   (* --- *)
 
   type mem = value list * memid (* NOTE: memory and first free elem *)
-  type types = (data * atype) list
-  type vals = (data * memid) list
+  type types = (data * atype) list (* glob *) * (data * atype) list (* glob + loc *)
+  type vals = (data * memid) list (* glob *) * (data * memid) list (* glob + loc *)
   type state = mem * types * vals
 
   (* --- *)
+
+  (* - state utils *)
+
+  let types_assoc (x : data) (types : types) : atype =
+    (* try ( List.assoc x (fst types) ) *)
+    (* with Not_found -> *)
+    List.assoc x (snd types)
+  let vals_assoc (x : data) (vals : vals) : memid =
+    (* try ( List.assoc x (fst vals) ) *)
+    (* with Not_found -> *)
+    List.assoc x (snd vals)
+
+  let types_glob_add (types : types) (x : data) (t : atype) =
+    ((x, t) :: fst types, (x, t) :: snd types)
+
+  let types_add (types : types) (x : data) (t : atype) =
+    (fst types, (x, t) :: snd types)
+
+  let vals_glob_add (vals : vals) (x : data) (id : memid) =
+    ((x, id) :: fst vals, (x, id) :: snd vals)
+
+  let vals_add (vals : vals) (x : data) (id : memid) =
+    (fst vals, (x, id) :: snd vals)
 
   (* - utils *)
 
@@ -131,7 +154,7 @@ struct
     | AccessP (p, _) -> pathvar p
 
   let rec pathtype (types : types) (p : path) : atype = match p with
-    | VarP x -> List.assoc x types
+    | VarP x -> types_assoc x types
     | DerefP p -> (match pathtype types p with
                     | RefT (_, t) -> t
                     | _ -> raise @@ Typing_error "pathtype: deref")
@@ -145,7 +168,7 @@ struct
                                 Printf.printf "mem size: %i, " (List.length (fst mem));
                                 Printf.printf "mem size stored: %i " (snd mem);
                                 Printf.printf "\n"; *)
-                                List.assoc x vals)
+                                vals_assoc x vals)
     | DerefP p -> (match pathval mem vals p with
                     | RefV id -> mem_get mem id
                     | _ -> raise @@ Typing_error "pathval: deref")
@@ -213,7 +236,7 @@ struct
   let rec exprval (mem : mem) (vals : vals) (e : expr) : value = match e with
     | UnitE -> ZeroV
     | PathE p -> pathval mem vals p
-    | RefE x -> RefV (List.assoc x vals)
+    | RefE x -> RefV (vals_assoc x vals)
     | TupleE es -> TupleV (List.map (exprval mem vals) es)
 
   (* - expression typing *)
@@ -221,7 +244,7 @@ struct
   let rec exprtype (types : types) (e : expr) : atype = match e with
     | UnitE -> UnitT (Rd, NeverWr)
     | PathE p -> pathtype types p
-    | RefE x -> RefT (Rf, List.assoc x types)
+    | RefE x -> RefT (Rf, types_assoc x types)
     | TupleE es -> TupleT (List.map (exprtype types) es)
 
   (* - context initialization *)
@@ -234,12 +257,12 @@ struct
     | VarD (t, e) -> let v = exprval mem vals e in
                      let (mem', v') = valcopy mem v t in
                      let (mem'', id) = mem_add mem' v' in
-                     (mem'', (x, t) :: types, (x, id) :: vals)
+                     (mem'', types_glob_add types x t, vals_glob_add vals x id)
     | FunD (ts, s)  -> let (mem', id) = mem_add mem (FunV [s]) in
-                       (mem', (x, FunT ts) :: types, (x, id) :: vals)
+                       (mem', types_glob_add types x (FunT ts), vals_glob_add vals x id)
 
   let empty_mem : mem = ([], 0)
-  let empty_state : state = (empty_mem, [], [])
+  let empty_state : state = (empty_mem, ([], []), ([], []))
 
   (* TODO: better way ??? *)
   let globals_min_id : data = 1000
@@ -300,7 +323,7 @@ struct
   let argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
     match state with (mem, types, vals) ->
     let x = pathvar p in
-    let id = List.assoc x vals in
+    let id = vals_assoc x vals in
     let b = pathval mem vals p in
     let t' = pathtype types p in
     let (mem', b') = valspoil mem b t t' m Rf in
@@ -326,7 +349,7 @@ struct
     (* let t' = pathtype types p in *)
     let (mem', v') = valcopy mem v t in
     let (mem'', id) = mem_add mem' v' in
-    (mem'', (x, t) :: types, (x, id) :: vals)
+    (mem'', types_add types x t, vals_add vals x id)
 
   (* - function evaluation *)
   (* NOTE: not needed due to performed optimization in stmt_eval *)
@@ -342,8 +365,8 @@ struct
                                pathval mem vals f in
                        let t = (* FIXME TMP Printf.printf "call, before t\n"; *)
                                pathtype types f in
-                       let types' : types = [] in
-                       let vals' : vals = [] in
+                       let types' : types = (fst types, fst types) in
+                       let vals' : vals = (fst vals, fst vals) in
                        (match v, t with
                           | FunV (* xs, *) fstmts (* ) *), FunT ts ->
                             (* TODO: memoisation of the called functions *)
@@ -367,7 +390,7 @@ struct
                        if w == NeverWr
                        then raise @@ Eval_error "write: write tag"
                        else let x = pathvar p in
-                            let id = List.assoc x vals in
+                            let id = vals_assoc x vals in
                             let (mem', v') = valupd mem (mem_get mem id) p ZeroV in
                             (mem_set mem' id v', types, vals)
                      | _ -> raise @@ Eval_error "write: type")
@@ -628,26 +651,26 @@ struct
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| read |}]
 
-  (* let%expect_test "call inside call, dsl" = *)
-    (* prog_eval_noret ( *)
-      (* [ *)
-        (* defgu uT_r_aw; *)
-        (* defg (rfT uT_r_aw) rfg0E; *)
-        (* FunD ( *)
-          (* [moded @@ rfT @@ uT_aw], *)
-          (* wrS @@ drf @@ v0 *)
-        (* ); *)
-        (* FunD ( *)
-          (* [moded @@ cpT @@ uT_aw], *)
-          (* (callS vg2 [pE v0]) #. *)
-          (* (wrS @@ drf @@ v0) *)
-        (* ) *)
-      (* ], *)
-      (* (callS vg3 [pE vg1]) #. *)
-      (* (rdS @@ drf @@ vg1) *)
-    (* ); *)
-    (* Printf.printf "done!"; *)
-    (* [%expect {| done! |}] *)
+  let%expect_test "call inside call, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ rfT @@ uT_aw],
+          wrS @@ drf @@ v0
+        );
+        FunD (
+          [moded @@ cpT @@ uT_aw],
+          (callS vg2 [pE v0]) #.
+          (wrS @@ drf @@ v0)
+        )
+      ],
+      (callS vg3 [pE vg1]) #.
+      (rdS @@ drf @@ vg1)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
 
   let%expect_test "simple call with global variable usage, dsl" =
     prog_eval_noret (

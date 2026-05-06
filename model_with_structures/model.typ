@@ -979,8 +979,9 @@ $s in stmt, f in X, x in X, a in X$
   rule(
     name: [ new reference copy value],
 
-    $types_0 = []$,
-    $vals_0 = []$,
+    // TODO: FIXME: introduce global types and vals
+    $types_0 = types_#[glob]$,
+    $vals_0 = vals_#[glob]$,
 
     // NOTE: dashed arrow to fill context
     $cl types_0, vals_0,  mu_0 cr
