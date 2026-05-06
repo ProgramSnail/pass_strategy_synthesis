@@ -2,6 +2,8 @@ open Tests_f
 open Synthesizer
 open Relational
 
+let%expect_test "prog eval test 1" = print_endline (prog_eval_t1 ()); [%expect {| [StEnv (MemEnv ([], O), TypesEnv ([]), ValsEnv ([]))] |}]
+
 (* type tests *)
 (* let%expect_test "Tag type test" = print_endline (Tag.Test.test ()); [%expect {| [Tag (Rd, NeverWr, Ref, In, NOut)] |}] *)
 (* let%expect_test "Stmt type test (1)" = print_endline (Stmt.Test.test1 ()); [%expect {| [[S (S (O))]] |}] *)

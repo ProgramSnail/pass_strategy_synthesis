@@ -167,7 +167,7 @@ struct
     [%%ocanren_inject
       type nonrec ('sl, 'd, 'vl) t = ZeroV | SmthV | BotV | FunV of 'sl | RefV of 'd | TupleV of 'vl
       [@@deriving gt ~options:{ show; gmap }]
-      type ground = ((Nat.ground List.ground * Stmt.ground) List.ground, Nat.ground, ground List.ground) t
+      type ground = (((* Nat.ground List.ground * *) Stmt.ground) List.ground, Nat.ground, ground List.ground) t
     ]
   end
 
@@ -814,8 +814,8 @@ struct
           s == CallS (f, es) &
           pathvalo mem vals f v &
           pathtypeo types f tp &
-          types' == TypesEnv [] &
-          vals' == ValsEnv [] &
+          types' == TypesEnv [] & (* TODO: FIXME add globals *)
+          vals' == ValsEnv [] & (* TODO: FIXME add globals *)
           v == FunV fstmts &
           tp == FunT tps &
           st' == StEnv (mem, types', vals') &
@@ -867,9 +867,12 @@ struct
 
   let prog_evalo prog st' =
     let open Prg in
+    let open Stmt in
     ocanren {
-      fresh decls, s, init_st in 
+      fresh decls, s, init_st in
       prog == Prg (decls, s) &
+      decls == [] &
+      s == SkipS &
       prog_inito prog init_st &
       stmt_evalo init_st s st'
   }

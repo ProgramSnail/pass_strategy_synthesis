@@ -4,7 +4,17 @@ open GT
 open OCanren
 open OCanren.Std
 
-(* @type answer  = St.ground GT.list with show *)
+@type answer  = StEnv.ground GT.list with show
+
+let prog_eval_t1 _ = show(answer) (Stream.take (run q
+  (fun q -> let open Prg in
+            let open Stmt in
+            ocanren {
+              fresh prog in
+              prog == Prg ([], SkipS) &
+              prog_evalo prog q})
+  (fun q -> q#reify (StEnv.prj_exn))))
+
 (* @type answerArgs = (Arg.ground List.ground) GT.list with show *)
 (* @type answerValue = Value.ground GT.list with show *)
 (* @type answerNat = Nat.ground GT.list with show *)
