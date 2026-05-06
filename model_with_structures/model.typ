@@ -15,6 +15,8 @@
 
 *TODO: top-level value copy mode ??* // TODO: FIXME
 
+*TODO: add formal global env to all types and vals (as in code) ??* // TODO: FIXME
+
 #h(10pt)
 
 #let rf = $\& #h(3pt)$

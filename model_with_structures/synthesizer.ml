@@ -185,7 +185,7 @@ struct
   module TypesEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec 'dtl t = TypesEnv of 'dtl
+      type nonrec 'dtl t = TypesEnv of 'dtl (* glob *) * 'dtl (* glob + loc *)
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = ((Nat.ground * Type.ground) List.ground) t
     ]
@@ -194,7 +194,7 @@ struct
   module ValsEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec 'ddl t = ValsEnv of 'ddl
+      type nonrec 'ddl t = ValsEnv of 'ddl (* glob *) * 'ddl (* glob + loc *)
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = ((Nat.ground * Nat.ground) List.ground) t
     ]
@@ -210,6 +210,58 @@ struct
   end
 
   (* --- *)
+
+  (* - state utils *)
+
+  let types_assoco id types tp =
+    let open TypesEnv in
+    ocanren {
+      fresh _glob_tps, tps in
+      types == TypesEnv (_glob_tps, tps) &
+      List.assoco id tps tp
+    }
+
+  let vals_assoco id vals v =
+    let open ValsEnv in
+    ocanren {
+      fresh _glob_vs, vs in
+      vals == ValsEnv (_glob_vs, vs) &
+      List.assoco id vs v
+    }
+
+  let types_glob_addo types x tp types' = 
+    let open TypesEnv in
+    ocanren {
+      fresh glob_tps, tps in
+      types == TypesEnv (glob_tps, tps) &
+      types' == TypesEnv ((Std.pair x tp) :: glob_tps,
+                          (Std.pair x tp) :: tps)
+  }
+
+  let types_addo types x tp types' = 
+    let open TypesEnv in
+    ocanren {
+      fresh glob_tps, tps in
+      types == TypesEnv (glob_tps, tps) &
+      types' == TypesEnv (glob_tps, (Std.pair x tp) :: tps)
+  }
+
+  let vals_glob_addo vals x v vals' = 
+    let open ValsEnv in
+    ocanren {
+      fresh glob_vs, vs in
+      vals == ValsEnv (glob_vs, vs) &
+      vals' == ValsEnv ((Std.pair x v) :: glob_vs,
+                        (Std.pair x v) :: vs)
+  }
+
+  let vals_addo vals x v vals' = 
+    let open ValsEnv in
+    ocanren {
+      fresh glob_vs, vs in
+      vals == ValsEnv (glob_vs, vs) &
+      vals' == ValsEnv (glob_vs, (Std.pair x v) :: vs)
+  }
 
   (* - utils *)
 
@@ -356,22 +408,6 @@ struct
       { fresh p' in p == DerefP p' & pathvaro p' x } |
       { fresh p', _id in p == AccessP (p', _id) & pathvaro p' x }
   }
-
-  let types_assoco id types tp =
-    let open TypesEnv in
-    ocanren {
-      fresh tps in
-      types == TypesEnv tps &
-      List.assoco id tps tp
-    }
-
-  let vals_assoco id vals v =
-    let open ValsEnv in
-    ocanren {
-      fresh vs in
-      vals == ValsEnv vs &
-      List.assoco id vs v
-    }
 
   let rec pathtypeo types p tp =
     let open Path in
@@ -572,24 +608,23 @@ struct
   let add_declo st x d st' =
     let open StEnv in
     let open Decl in
-    let open TypesEnv in
-    let open ValsEnv in
     ocanren {
       fresh mem, types, vals in
-      st == StEnv (mem, TypesEnv types, ValsEnv vals) &
+      st == StEnv (mem, types, vals) &
       {
         { fresh tp, e, v,
                 mem_with_v_cp, mem_cp, v_cp,
-                mem_with_id_add, mem_add, id_add in
+                mem_with_id_add, mem_add, id_add,
+                types', vals' in
           d == VarD (tp, e) &
-          exprvalo mem (ValsEnv vals) e v &
+          exprvalo mem vals e v &
           valcopyo mem v tp mem_with_v_cp &
           Pair.pair mem_cp v_cp == mem_with_v_cp &
           mem_addo mem_cp v_cp mem_with_id_add &
           Pair.pair mem_add id_add == mem_with_id_add &
-          st' == StEnv (mem_add,
-                        TypesEnv ((Pair.pair x tp) :: types),
-                        ValsEnv ((Pair.pair x id_add) :: vals))
+          types_glob_addo types x tp types' &
+          vals_glob_addo vals x id_add vals' &
+          st' == StEnv (mem_add, types', vals')
           }
       }
   }
@@ -605,7 +640,7 @@ struct
     ocanren {
       fresh m in
       empty_memo m &
-      st == StEnv (m, TypesEnv [], ValsEnv [])
+      st == StEnv (m, TypesEnv ([], []), ValsEnv ([], []))
   }
 
   (* TODO: better way ??? *)
@@ -759,17 +794,18 @@ struct
 
   let addargo st oldvals x tp e st' =
     let open StEnv in
-    let open TypesEnv in
-    let open ValsEnv in
     ocanren {
-      fresh mem, types, vals, v, mem_cp, v_cp, mem_add, id_add in
-      st == StEnv (mem, TypesEnv types, ValsEnv vals) &
+      fresh mem, types, vals, v,
+            mem_cp, v_cp,
+            mem_add, id_add,
+            types', vals' in
+      st == StEnv (mem, types, vals) &
       exprvalo mem oldvals e v &
       valcopyo mem v tp (Std.pair mem_cp v_cp) &
       mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
-      st' == StEnv (mem_add,
-                    TypesEnv ((Std.pair x tp) :: types),
-                    ValsEnv ((Std.pair x id_add) :: vals))
+      types_addo types x tp types' &
+      vals_addo vals x id_add vals' &
+      st' == StEnv (mem_add, types', vals')
   }
 
   (* - function evaluation *)
@@ -806,16 +842,20 @@ struct
       st == StEnv (mem, types, vals) &
       {
         { s == SkipS & st == st' } |
-        { fresh f, es, v, tp, types', vals',
+        { fresh f, es, v, tp,
+                glob_tps, _tps,
+                glob_vs, _vs,
+                types', vals',
                 fstmts, tps, st',
                 state_with_args, _arg_id,
-                _states_evaled,
-                mem_spoiled in
+                _states_evaled, mem_spoiled in
           s == CallS (f, es) &
           pathvalo mem vals f v &
           pathtypeo types f tp &
-          types' == TypesEnv [] & (* TODO: FIXME add globals *)
-          vals' == ValsEnv [] & (* TODO: FIXME add globals *)
+          types == TypesEnv (glob_tps, _tps) &
+          vals == ValsEnv (glob_vs, _vs) &
+          types' == TypesEnv (glob_tps, glob_tps) &
+          vals' == ValsEnv (glob_vs, glob_vs) &
           v == FunV fstmts &
           tp == FunT tps &
           st' == StEnv (mem, types', vals') &
