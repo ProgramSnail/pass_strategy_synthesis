@@ -667,6 +667,23 @@ struct
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| read: spoiled value |}]
 
+  let%expect_test "simple call with write to ref with fix, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ rfT @@ uT_aw],
+          wrS @@ drf @@ v0
+        )
+      ],
+      (callS vg2 [pE vg1]) #.
+      (wrS @@ drf @@ vg1) #.
+      (rdS @@ drf @@ vg1)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
   let%expect_test "call inside call, dsl" =
     prog_eval_noret (
       [
@@ -682,6 +699,27 @@ struct
           (wrS @@ drf @@ v0)
         )
       ],
+      (callS vg3 [pE vg1]) #.
+      (rdS @@ drf @@ vg1)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  let%expect_test "call to fix after call, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ rfT @@ uT_aw],
+          wrS @@ drf @@ v0
+        );
+        FunD (
+          [((In, Out), rfT @@ uT_aw)],
+          wrS @@ drf @@ v0
+        )
+      ],
+      (callS vg2 [pE vg1]) #.
       (callS vg3 [pE vg1]) #.
       (rdS @@ drf @@ vg1)
     );
@@ -793,7 +831,6 @@ struct
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  (* TODO: call after call test (fix test) *)
   (* TODO: recursive call test (for the future when memoization will be implemented) *)
 
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
