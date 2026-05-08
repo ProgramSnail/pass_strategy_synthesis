@@ -290,7 +290,7 @@ struct
     (r != Rd || v == ZeroV) &&
     (r != Rd || fst m == In) &&
     (snd m != Out || w == AlwaysWr) &&
-    (* TODO: check *)
+    (* TODO: FIXME: check *)
     ((not ((w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf))) || w' == AlwaysWr) &&
     is_trivial_v v
 
@@ -570,7 +570,7 @@ struct
 
   (* let%expect_test "simple call with write" = *)
     (* prog_eval_noret ([VarD ((UnitT (Rd, MayWr)), UnitE); *)
-                      (* VarD (RefT (Rf, (UnitT (Rd, MayWr))), RefE globals_min_id); *)
+                      (* VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE globals_min_id); *)
                       (* FunD ([((In, NOut), RefT (Cp, UnitT (Rd, MayWr)))], WriteS (DerefP (VarP 0)))], *)
                      (* CallS (VarP (globals_min_id + 2), *)
                             (* [PathE (VarP (globals_min_id + 1))])); *)

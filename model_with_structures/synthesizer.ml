@@ -482,14 +482,11 @@ struct
         v == RefV id &
         tp == RefT (c, tp') &
         { { c == Rf & mem_with_id' == Std.pair mem v } |
-          { fresh v, mem_cp, v_cp, mem_with_v_cp,
-                  mem_add, id_add, mem_with_id_add in
+          { fresh v', mem_cp, v_cp, mem_add, id_add in
             c == Cp &
-            mem_geto mem id v &
-            valcopyo mem v tp mem_with_v_cp &
-            Std.pair mem v_cp == mem_with_v_cp &
-            mem_addo mem_cp v_cp mem_with_id_add &
-            Std.pair mem_add id_add == mem_with_id_add &
+            mem_geto mem id v' &
+            valcopyo mem v' tp' (Std.pair mem_cp v_cp) &
+            mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
             mem_with_id' == (mem_add, RefV id_add) } } } |
       { fresh vs, tps, init_mem_with_vs, mem_with_vs', mem', vs' in
         v == TupleV vs &
@@ -877,11 +874,13 @@ struct
           list_foldl2o (stmt_addarg_foldero vals)
                        (Std.pair st_call 0) tps es
                        (Std.pair state_with_args _arg_id) &
-          List.mapo (stmt_evalo state_with_args) fstmts _states_evaled &
+          (* List.mapo (stmt_evalo state_with_args) fstmts _states_evaled & *)
           (* TODO: FIXME check left or right order *)
           list_foldl2o (stmt_eval_spoil_foldero types vals)
                       mem tps es mem_spoiled &
-          st' == StEnv (mem_spoiled, types, vals) } |
+          (* st' == state_with_args *)
+          st' == StEnv (mem_spoiled, types, vals)
+        } |
         { fresh p, tp, _r, w, x, id, v,
                 mem_upd, v_upd, mem_set in
           s == WriteS p &

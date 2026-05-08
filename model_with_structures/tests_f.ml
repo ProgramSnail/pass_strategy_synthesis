@@ -10,6 +10,7 @@ open Decl
 open Type
 open Expr
 open Path
+open CopyCap
 open ReadCap
 open WriteCap
 open InCap
@@ -109,6 +110,36 @@ let prog_eval_t_simple_call_rd _ = show(answer) (Stream.take (run q
               xd == VarD (UnitT (Rd, NeverWr), UnitE) &
               fd == FunD ([(Mode (In, NOut), UnitT (Rd, NeverWr))], ReadS (VarP 0)) &
               prog == Prg ([xd; fd], CallS (VarP fg, [PathE (VarP xg)])) &
+              prog_evalo prog q
+              })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_rd_ref _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+                          ReadS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
+              prog_evalo prog q
+              })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_wr _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+                          ReadS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
               prog_evalo prog q
               })
   (fun q -> q#reify (StEnv.prj_exn))))
