@@ -1,3 +1,6 @@
+(* NOTE: in previous models foldl & foldr are probably spapped
+   <- TODO: fix ? *)
+
 module Relational =
 struct
   open GT
@@ -145,9 +148,9 @@ struct
   module Decl = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ((* 'd, *) 't, 'e, 'dl, 'mtl, 's) t = VarD of (* 'd * *) 't * 'e | FunD of (* 'd * *) 'dl * 'mtl * 's
+      type nonrec ((* 'd, *) 't, 'e, (* 'dl, *) 'mtl, 's) t = VarD of (* 'd * *) 't * 'e | FunD of (* 'd * 'dl * *) 'mtl * 's
       [@@deriving gt ~options:{ show; gmap }]
-      type ground = ((* Nat.ground, *) Type.ground, Expr.ground, Nat.ground List.ground, (Mode.ground * Type.ground) List.ground, Stmt.ground) t
+      type ground = ((* Nat.ground, *) Type.ground, Expr.ground, (* Nat.ground List.ground, *) (Mode.ground * Type.ground) List.ground, Stmt.ground) t
     ]
   end
 
@@ -291,50 +294,40 @@ struct
   }
 
 
-  let rec list_foldlo f acc xs acc' = ocanren {
-    xs == [] & acc' == acc |
-    { fresh x', xs', acc_upd in
-      xs == x' :: xs' &
-      list_foldlo f acc xs' acc_upd &
-      f acc_upd x' acc' }
-  }
-
   let rec list_foldro f acc xs acc' = ocanren {
     xs == [] & acc' == acc |
     { fresh x', xs', acc_upd in
       xs == x' :: xs' &
+      list_foldro f acc xs' acc_upd &
+      f acc_upd x' acc' }
+  }
+
+  let rec list_foldlo f acc xs acc' = ocanren {
+    xs == [] & acc' == acc |
+    { fresh x', xs', acc_upd in
+      xs == x' :: xs' &
       f acc x' acc_upd &
-      list_foldro f acc_upd xs' acc' }
+      list_foldlo f acc_upd xs' acc' }
     (* TODO: inf search on swap, investigate *)
   }
 
-
-  let rec list_foldr2o f acc xs ys acc' = ocanren {
-    xs == [] & ys == [] & acc' == acc |
-    { fresh x', xs', y', ys', acc_upd in
-      xs == x' :: xs' &
-      ys == y' :: ys' &
-      f acc x' y' acc_upd &
-      list_foldr2o f acc_upd xs' ys' acc' }
-  }
 
   let rec list_foldl2o f acc xs ys acc' = ocanren {
     xs == [] & ys == [] & acc' == acc |
     { fresh x', xs', y', ys', acc_upd in
       xs == x' :: xs' &
       ys == y' :: ys' &
-      list_foldl2o f acc xs' ys' acc_upd &
-      f acc_upd x' y' acc' }
+      f acc x' y' acc_upd &
+      list_foldl2o f acc_upd xs' ys' acc' }
   }
 
-  let rec list_foldr3o f acc xs ys zs acc' = ocanren {
-    xs == [] & ys == [] & zs == [] & acc' == acc |
-    { fresh x', xs', y', ys', z', zs', acc_upd in
+  let rec list_foldr2o f acc xs ys acc' = ocanren {
+    xs == [] & ys == [] & acc' == acc |
+    { fresh x', xs', y', ys', acc_upd in
       xs == x' :: xs' &
       ys == y' :: ys' &
-      zs == z' :: zs' &
-      f acc x' y' z' acc_upd &
-      list_foldr3o f acc_upd xs' ys' zs' acc' }
+      list_foldr2o f acc xs' ys' acc_upd &
+      f acc_upd x' y' acc' }
   }
 
   let rec list_foldl3o f acc xs ys zs acc' = ocanren {
@@ -343,7 +336,17 @@ struct
       xs == x' :: xs' &
       ys == y' :: ys' &
       zs == z' :: zs' &
-      list_foldl3o f acc xs' ys' zs' acc_upd &
+      f acc x' y' z' acc_upd &
+      list_foldl3o f acc_upd xs' ys' zs' acc' }
+  }
+
+  let rec list_foldr3o f acc xs ys zs acc' = ocanren {
+    xs == [] & ys == [] & zs == [] & acc' == acc |
+    { fresh x', xs', y', ys', z', zs', acc_upd in
+      xs == x' :: xs' &
+      ys == y' :: ys' &
+      zs == z' :: zs' &
+      list_foldr3o f acc xs' ys' zs' acc_upd &
       f acc_upd x' y' z' acc' }
   }
 
@@ -608,24 +611,32 @@ struct
   let add_declo st x d st' =
     let open StEnv in
     let open Decl in
+    let open Value in
+    let open Type in
     ocanren {
       fresh mem, types, vals in
       st == StEnv (mem, types, vals) &
       {
         { fresh tp, e, v,
-                mem_with_v_cp, mem_cp, v_cp,
-                mem_with_id_add, mem_add, id_add,
+                mem_cp, v_cp,
+                mem_add, id_add,
                 types', vals' in
           d == VarD (tp, e) &
           exprvalo mem vals e v &
-          valcopyo mem v tp mem_with_v_cp &
-          Pair.pair mem_cp v_cp == mem_with_v_cp &
-          mem_addo mem_cp v_cp mem_with_id_add &
-          Pair.pair mem_add id_add == mem_with_id_add &
+          valcopyo mem v tp (Pair.pair mem_cp v_cp) &
+          mem_addo mem_cp v_cp (Pair.pair mem_add id_add) &
           types_glob_addo types x tp types' &
           vals_glob_addo vals x id_add vals' &
+          st' == StEnv (mem_add, types', vals') } |
+        { fresh tps, s,
+                mem_add, id_add,
+                types', vals' in
+          d == FunD (tps, s) &
+          mem_addo mem (FunV [s]) (Pair.pair mem_add id_add) &
+          types_glob_addo types x (FunT tps) types' &
+          vals_glob_addo vals x id_add vals' &
           st' == StEnv (mem_add, types', vals')
-          }
+         }
       }
   }
 
@@ -644,7 +655,7 @@ struct
   }
 
   (* TODO: better way ??? *)
-  let globals_min_ido x = ocanren { x == 1000 }
+  let globals_min_ido x = ocanren { x == 10 }
 
   let prog_init_foldero st_with_id d st_with_id' =
     ocanren {
@@ -845,8 +856,8 @@ struct
         { fresh f, es, v, tp,
                 glob_tps, _tps,
                 glob_vs, _vs,
-                types', vals',
-                fstmts, tps, st',
+                types_call, vals_call,
+                fstmts, tps, st_call,
                 state_with_args, _arg_id,
                 _states_evaled, mem_spoiled in
           s == CallS (f, es) &
@@ -854,13 +865,13 @@ struct
           pathtypeo types f tp &
           types == TypesEnv (glob_tps, _tps) &
           vals == ValsEnv (glob_vs, _vs) &
-          types' == TypesEnv (glob_tps, glob_tps) &
-          vals' == ValsEnv (glob_vs, glob_vs) &
+          types_call == TypesEnv (glob_tps, glob_tps) &
+          vals_call == ValsEnv (glob_vs, glob_vs) &
           v == FunV fstmts &
           tp == FunT tps &
-          st' == StEnv (mem, types', vals') &
+          st_call == StEnv (mem, types_call, vals_call) &
           list_foldl2o (stmt_addarg_foldero vals)
-                       (Std.pair st' 0) tps es
+                       (Std.pair st_call 0) tps es
                        (Std.pair state_with_args _arg_id) &
           List.mapo (stmt_evalo state_with_args) fstmts _states_evaled &
           (* TODO: FIXME check left or right order *)
@@ -907,12 +918,9 @@ struct
 
   let prog_evalo prog st' =
     let open Prg in
-    let open Stmt in
     ocanren {
       fresh decls, s, init_st in
       prog == Prg (decls, s) &
-      decls == [] &
-      s == SkipS &
       prog_inito prog init_st &
       stmt_evalo init_st s st'
   }

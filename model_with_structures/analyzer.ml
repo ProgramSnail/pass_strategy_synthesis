@@ -519,12 +519,14 @@ struct
     [%expect {| done! |}]
 
   let%expect_test "simple var" =
-    prog_eval_noret ([VarD (UnitT (Rd, MayWr), UnitE)], ReadS (VarP globals_min_id));
+    prog_eval_noret ([VarD (UnitT (Rd, MayWr), UnitE)],
+                      ReadS (VarP globals_min_id));
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  let%expect_test "simple var, no read" =
-    try(prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], ReadS (VarP globals_min_id));
+  let%expect_test "simple var, forbidden read" =
+    try(prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)],
+                         ReadS (VarP globals_min_id));
          [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| read: spoiled value |}]
@@ -537,19 +539,22 @@ struct
     [%expect {| done! |}]
 
   let%expect_test "simple var, write" =
-    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], WriteS (VarP globals_min_id));
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)],
+                     WriteS (VarP globals_min_id));
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  let%expect_test "simple var, no write" =
-    try(prog_eval_noret ([VarD (UnitT (NRd, NeverWr), UnitE)], WriteS (VarP globals_min_id));
+  let%expect_test "simple var, forbidden write" =
+    try(prog_eval_noret ([VarD (UnitT (NRd, NeverWr), UnitE)],
+                         WriteS (VarP globals_min_id));
          [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| write: write tag |}]
 
   let%expect_test "simple var, write & read" =
-    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)], SeqS (WriteS (VarP globals_min_id),
-                                                               ReadS (VarP globals_min_id)));
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)],
+                     SeqS (WriteS (VarP globals_min_id),
+                           ReadS (VarP globals_min_id)));
     Printf.printf "done!";
     [%expect {| done! |}]
 
@@ -557,7 +562,7 @@ struct
 
   (* let%expect_test "simple call with read" = *)
     (* prog_eval_noret ([VarD (UnitT (Rd, NeverWr), UnitE); *)
-                      (* FunD ([(In, NOut), UnitT (Rd, NeverWr)], ReadS (VarP 0))], *)
+                      (* FunD ([((In, NOut), UnitT (Rd, NeverWr)], ReadS (VarP 0)))], *)
                      (* CallS (VarP (globals_min_id + 1), *)
                             (* [PathE (VarP globals_min_id)])); *)
     (* Printf.printf "done!"; *)
@@ -566,7 +571,7 @@ struct
   (* let%expect_test "simple call with write" = *)
     (* prog_eval_noret ([VarD ((UnitT (Rd, MayWr)), UnitE); *)
                       (* VarD (RefT (Rf, (UnitT (Rd, MayWr))), RefE globals_min_id); *)
-                      (* FunD ([(In, NOut), RefT (Cp, UnitT (Rd, MayWr))], WriteS (DerefP (VarP 0)))], *)
+                      (* FunD ([((In, NOut), RefT (Cp, UnitT (Rd, MayWr)))], WriteS (DerefP (VarP 0)))], *)
                      (* CallS (VarP (globals_min_id + 2), *)
                             (* [PathE (VarP (globals_min_id + 1))])); *)
     (* Printf.printf "done!"; *)

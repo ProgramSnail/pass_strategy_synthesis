@@ -4,15 +4,113 @@ open GT
 open OCanren
 open OCanren.Std
 
+open Prg
+open Stmt
+open Decl
+open Type
+open Expr
+open Path
+open ReadCap
+open WriteCap
+open InCap
+open OutCap
+open Mode
+
 @type answer  = StEnv.ground GT.list with show
 
-let prog_eval_t1 _ = show(answer) (Stream.take (run q
-  (fun q -> let open Prg in
-            let open Stmt in
-            ocanren {
+  (* - shortcuts *)
+
+(* TODO *)
+
+  (* - basic var tests *)
+
+let prog_eval_t_empty _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
               fresh prog in
               prog == Prg ([], SkipS) &
               prog_evalo prog q})
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_var _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg in
+              globals_min_ido xg &
+              prog == Prg ([VarD (UnitT (Rd, MayWr), UnitE)],
+                           ReadS (VarP xg)) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+(* NOTE: does not work well for tests :( *)
+(* let prog_eval_t2_simple_var_ans _ = show(answer) (Stream.take (run q *)
+  (* (fun q -> ocanren { *)
+              (* fresh xg in *)
+              (* globals_min_ido xg & *)
+              (* q == StEnv (MemEnv ([ZeroV], 1), *)
+                          (* TypesEnv ([(xg, UnitT (Rd, MayWr))], *)
+                                    (* [(xg, UnitT (Rd, MayWr))]), *)
+                          (* ValsEnv ([(xg, 0)], [(xg, 0)])) }) *)
+  (* (fun q -> q#reify (StEnv.prj_exn)))) *)
+
+let prog_eval_t_simple_var_fbd_rd _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg in
+              globals_min_ido xg &
+              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE)],
+                           ReadS (VarP xg)) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_vars_fbd_rd_rd _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE);
+                            VarD (UnitT (Rd, MayWr), UnitE)],
+                           ReadS (VarP yg)) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_var_wr _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg in
+              globals_min_ido xg &
+              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE)],
+                           WriteS (VarP xg)) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_var_fbd_wr _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg in
+              globals_min_ido xg &
+              prog == Prg ([VarD (UnitT (NRd, NeverWr), UnitE)],
+                           WriteS (VarP xg)) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_var_wr_rd _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg in
+              globals_min_ido xg &
+              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE)],
+                           SeqS (WriteS (VarP xg),
+                                 ReadS (VarP xg))) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+  (* - basic call tests *)
+
+let prog_eval_t_simple_call_rd _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, fg, xd, fd, st in
+              globals_min_ido xg &
+              fg == Nat.s xg &
+              xd == VarD (UnitT (Rd, NeverWr), UnitE) &
+              fd == FunD ([(Mode (In, NOut), UnitT (Rd, NeverWr))], ReadS (VarP 0)) &
+              prog == Prg ([xd; fd], CallS (VarP fg, [PathE (VarP xg)])) &
+              prog_evalo prog q
+              })
   (fun q -> q#reify (StEnv.prj_exn))))
 
 (* @type answerArgs = (Arg.ground List.ground) GT.list with show *)

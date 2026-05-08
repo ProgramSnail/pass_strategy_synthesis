@@ -2,8 +2,27 @@ open Tests_f
 open Synthesizer
 open Relational
 
-let%expect_test "prog eval test 1" = print_endline (prog_eval_t1 ());
+  (* - basic var tests *)
+
+let%expect_test "prog eval test: empty" = print_endline (prog_eval_t_empty ());
   [%expect {| [StEnv (MemEnv ([], O), TypesEnv ([], []), ValsEnv ([], []))] |}]
+let%expect_test "prog eval test: simple var" = print_endline(prog_eval_t_simple_var ());
+  [%expect {| [StEnv (MemEnv ([ZeroV], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
+let%expect_test "simple var, forbidden read" = print_endline(prog_eval_t_simple_var_fbd_rd ());
+  [%expect {| [] |}]
+let%expect_test "simple vars, no read & read" = print_endline(prog_eval_t_simple_vars_fbd_rd_rd ());
+  [%expect {| [StEnv (MemEnv ([ZeroV; BotV], S (S (O))), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), UnitT (Rd, MayWr)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), UnitT (Rd, MayWr)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
+let%expect_test "simple var, write" = print_endline(prog_eval_t_simple_var_wr ());
+  [%expect {| [StEnv (MemEnv ([ZeroV], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
+let%expect_test "simple var, forbidden write" = print_endline(prog_eval_t_simple_var_fbd_wr ());
+  [%expect {| [] |}]
+let%expect_test "simple var, write & read" = print_endline(prog_eval_t_simple_var_wr_rd ());
+  [%expect {| [StEnv (MemEnv ([ZeroV], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
+
+  (* - basic call tests *)
+
+let%expect_test "simple call with read" = print_endline(prog_eval_t_simple_call_rd ());
+  [%expect {| [123] |}]
 
 (* type tests *)
 (* let%expect_test "Tag type test" = print_endline (Tag.Test.test ()); [%expect {| [Tag (Rd, NeverWr, Ref, In, NOut)] |}] *)
