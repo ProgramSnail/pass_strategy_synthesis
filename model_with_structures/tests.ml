@@ -22,7 +22,7 @@ let%expect_test "simple var, write & read" = print_endline(prog_eval_t_simple_va
   (* - basic call tests *)
 
 let%expect_test "simple call with read" = print_endline(prog_eval_t_simple_call_rd ());
-  [%expect {| [123] |}]
+  [%expect {| [StEnv (MemEnv ([FunV ([ReadS (VarP (O))]); ZeroV], S (S (O))), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), FunT ([(Mode (In, NOut), UnitT (Rd, NeverWr))])); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, NeverWr))], [(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), FunT ([(Mode (In, NOut), UnitT (Rd, NeverWr))])); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, NeverWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 
 (* type tests *)
 (* let%expect_test "Tag type test" = print_endline (Tag.Test.test ()); [%expect {| [Tag (Rd, NeverWr, Ref, In, NOut)] |}] *)

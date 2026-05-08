@@ -686,12 +686,12 @@ struct
     let open Mode in
     let open CopyCap in
     ocanren {
-      { r == NRd | v == ZeroV } &
-      { r == NRd | is_ino m } &
-      { is_not_outo m | w == AlwaysWr } &
+      { r == NRd | r == Rd & v == ZeroV } &
+      { r == NRd | r == Rd & is_ino m } &
+      { is_not_outo m | is_outo m & w == AlwaysWr } &
       { w == NeverWr |
-        { is_not_outo m & c == Cp } |
-        w' == AlwaysWr } &
+        w =/= NeverWr & w' =/= AlwaysWr & is_not_outo m & c == Cp |
+        w =/= NeverWr & w' == AlwaysWr } &
       is_trivial_vo v
   }
 
@@ -721,8 +721,12 @@ struct
           { is_outo m &
             w == AlwaysWr &
             mem_with_v' == Std.pair mem ZeroV } |
-          { { is_outo m | c == Cp | w == NeverWr } &
-            { is_not_outo m | w == MayWr | w == NeverWr } &
+          { { is_outo m |
+              is_not_outo m & c == Cp |
+              is_not_outo m & c == Rf & w == NeverWr } &
+            { is_not_outo m |
+              is_outo m & w == MayWr |
+              is_outo m & w == NeverWr } &
             mem_with_v' == Std.pair mem v }
         } } |
       { fresh ts, us, _stmts in
