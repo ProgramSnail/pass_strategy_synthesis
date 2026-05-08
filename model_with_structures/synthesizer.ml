@@ -874,7 +874,7 @@ struct
           list_foldl2o (stmt_addarg_foldero vals)
                        (Std.pair st_call 0) tps es
                        (Std.pair state_with_args _arg_id) &
-          (* List.mapo (stmt_evalo state_with_args) fstmts _states_evaled & *)
+          List.mapo (stmt_evalo state_with_args) fstmts _states_evaled &
           (* TODO: FIXME check left or right order *)
           list_foldl2o (stmt_eval_spoil_foldero types vals)
                       mem tps es mem_spoiled &

@@ -110,8 +110,7 @@ let prog_eval_t_simple_call_rd _ = show(answer) (Stream.take (run q
               xd == VarD (UnitT (Rd, NeverWr), UnitE) &
               fd == FunD ([(Mode (In, NOut), UnitT (Rd, NeverWr))], ReadS (VarP 0)) &
               prog == Prg ([xd; fd], CallS (VarP fg, [PathE (VarP xg)])) &
-              prog_evalo prog q
-              })
+              prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
 
 let prog_eval_t_simple_call_rd_ref _ = show(answer) (Stream.take (run q
@@ -120,13 +119,12 @@ let prog_eval_t_simple_call_rd_ref _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+              xd == VarD (UnitT (Rd, MayWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, MayWr)))],
                           ReadS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
-              prog_evalo prog q
-              })
+              prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
 
 let prog_eval_t_simple_call_wr _ = show(answer) (Stream.take (run q
@@ -135,14 +133,165 @@ let prog_eval_t_simple_call_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, MayWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, MayWr)))],
+                          WriteS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_wr_rd _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (NRd, MayWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (NRd, MayWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
+                          SeqS (WriteS (DerefP (VarP 0)),
+                                ReadS (DerefP (VarP 0)))) &
+              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_fbd_wr _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, MayWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))],
+                          WriteS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_ref_wr _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
-                          ReadS (DerefP (VarP 0))) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                          WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_ref_fbd_wr _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                          WriteS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
+                                               ReadS (DerefP (VarP yg)))) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_simple_call_ref_wr_with_fix _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                          WriteS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
+                                         SeqS (WriteS (DerefP (VarP yg)),
+                                               ReadS (DerefP (VarP yg))))) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_call_in_call _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, f2g, xd, yd, fd, f2d, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              f2g == Nat.s fg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                          WriteS (DerefP (VarP 0))) &
+              f2d == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+                           SeqS (CallS (VarP f2g, [PathE (VarP 0)]),
+                                 WriteS (DerefP (VarP 0)))) &
+              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
+                                               ReadS (DerefP (VarP yg)))) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_fix_call_after_call _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, f2g, xd, yd, fd, f2d, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              f2g == Nat.s fg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                          WriteS (DerefP (VarP 0))) &
+              f2d == FunD ([(Mode (In, Out), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                           WriteS (DerefP (VarP 0))) &
+              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
+                                         SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
+                                               ReadS (DerefP (VarP yg))))) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_call_with_glob_usage _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+                          SeqS (WriteS (VarP xg),
+                                ReadS (DerefP (VarP 0)))) &
+              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
+                                               ReadS (DerefP (VarP yg)))) &
               prog_evalo prog q
               })
   (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_call_with_rd_wr_2_args_ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, x2g, y2g, fg, xd, yd, x2d, y2d, fd, st in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              x2g == Nat.s yg &
+              y2g == Nat.s x2g &
+              fg == Nat.s y2g &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              x2d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr)));
+                           (Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
+                          SeqS (ReadS (DerefP (VarP 0)),
+                                WriteS (DerefP (VarP 1)))) &
+              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg); PathE (VarP y2g)])) &
+              prog_evalo prog q
+              })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+(* TODO: add tests to test file *)
 
 (* @type answerArgs = (Arg.ground List.ground) GT.list with show *)
 (* @type answerValue = Value.ground GT.list with show *)
