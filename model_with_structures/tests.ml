@@ -76,5 +76,3 @@ let%expect_test "simple synthesis test, reference forbidden write" = print_endli
 
 let%expect_test "simple synthesis test, reference forbidden write, no read write caps constraints" = print_endline(prog_cp_cap_synt_t_simple_call_ref_fbd_wr' ());
   [%expect {| [Cp; Cp; Cp; Cp] |}]
-
-(* TODO *)
