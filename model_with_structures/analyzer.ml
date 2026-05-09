@@ -80,7 +80,8 @@ struct
   type mem = value list * memid (* NOTE: memory and first free elem *)
   type types = (data * atype) list (* glob *) * (data * atype) list (* glob + loc *)
   type vals = (data * memid) list (* glob *) * (data * memid) list (* glob + loc *)
-  type state = mem * types * vals
+  type visited = stmt list (* TODO: FIXME: optimize, use ids *)
+  type state = mem * types * vals * visited
 
   (* --- *)
 
@@ -253,16 +254,16 @@ struct
   
   (* TODO: check new in vars *)
   let add_decl (state : state) (x : data) (d : decl) : state =
-    match state with (mem, types, vals) -> match d with
+    match state with (mem, types, vals, visited) -> match d with
     | VarD (t, e) -> let v = exprval mem vals e in
                      let (mem', v') = valcopy mem v t in
                      let (mem'', id) = mem_add mem' v' in
-                     (mem'', types_glob_add types x t, vals_glob_add vals x id)
+                     (mem'', types_glob_add types x t, vals_glob_add vals x id, visited)
     | FunD (ts, s)  -> let (mem', id) = mem_add mem (FunV [s]) in
-                       (mem', types_glob_add types x (FunT ts), vals_glob_add vals x id)
+                       (mem', types_glob_add types x (FunT ts), vals_glob_add vals x id, visited)
 
   let empty_mem : mem = ([], 0)
-  let empty_state : state = (empty_mem, ([], []), ([], []))
+  let empty_state : state = (empty_mem, ([], []), ([], []), [])
 
   (* TODO: better way ??? *)
   let globals_min_id : data = 1000
@@ -321,7 +322,7 @@ struct
   (* full spoil *)
 
   let argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
-    match state with (mem, types, vals) ->
+    match state with (mem, types, vals, visited) ->
     let x = pathvar p in
     let id = vals_assoc x vals in (* base var address *)
     let b = pathval mem vals p in (* subvalue in var *)
@@ -332,25 +333,25 @@ struct
     mem_set mem'' id v''
 
   let rec argsspoile (state : state) (m : mode) (t : atype) (e : expr) : mem =
-    match state with (mem, types, vals) -> match e, t with
+    match state with (mem, types, vals, visited) -> match e, t with
       | UnitE, UnitT _ -> mem
       | PathE p, t -> argsspoilp state m t p
       | RefE x, t -> argsspoilp state m t (VarP x)
       (* TODO: FIXME: check RefE case ? *)
       | TupleE es, TupleT ts -> List.fold_left2
-                                  (fun mem' t' e' -> argsspoile (mem', types, vals) m t' e')
+                                  (fun mem' t' e' -> argsspoile (mem', types, vals, visited) m t' e')
                                   mem ts es
       | _, _ ->  raise @@ Typing_error "valspoile"
 
   (* - funciton argument addition *)
 
   let addarg (state : state) (oldvals : vals) (x : data) (t : atype) (e : expr) : state =
-    match state with (mem, types, vals) ->
+    match state with (mem, types, vals, visited) ->
     let v = exprval mem oldvals e in
     (* let t' = pathtype types p in *)
     let (mem', v') = valcopy mem v t in
     let (mem'', id) = mem_add mem' v' in
-    (mem'', types_add types x t, vals_add vals x id)
+    (mem'', types_add types x t, vals_add vals x id, visited)
 
   (* - function evaluation *)
   (* NOTE: not needed due to performed optimization in stmt_eval *)
@@ -359,8 +360,7 @@ struct
   (* - statement evaluation *)
 
   let rec stmt_eval (state : state) (s : stmt) : state =
-    match state with (mem, types, vals) -> match s with
-    (* TODO: FIXME: Add memoization *)
+    match state with (mem, types, vals, visited) -> match s with
     | SkipS -> state
     | CallS (f, es) -> let v = (* FIXME TMP Printf.printf "call, before v\n"; *)
                                pathval mem vals f in
@@ -370,19 +370,26 @@ struct
                        let vals' : vals = (fst vals, fst vals) in
                        (match v, t with
                           | FunV (* xs, *) fstmts (* ) *), FunT ts ->
-                            (* TODO: memoisation of the called functions *)
                             let (state_with_args, _) = (* FIXME TMP Printf.printf "call, before args\n"; *)
                                                        List.fold_left2 (* TODO: FIXME: check x's order *)
                               (fun (st, x) (m, t) e -> (addarg st vals x t e, x + 1))
-                              ((mem, types', vals'), 0) ts es in
+                              ((mem, types', vals', visited), 0) ts es in
                             (* NOTE: same x's, so can use same args for all the statements *)
-                            let _states_evaled = (* FIXME TMP Printf.printf "call, before eval\n"; *)
-                                                 List.map (stmt_eval state_with_args) fstmts in
-                            let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *)
-                                              List.fold_left2
-                              (fun mem (m, t) e -> argsspoile (mem, types, vals) m t e)
-                              mem ts es in
-                            (mem_spoiled, types, vals)
+                            (match state_with_args with (mem_swa, types_swa, vals_swa, visited_swa) ->
+                             let visited_new = (* FIXME TMP Printf.printf "call, before eval\n"; *)
+                                               List.fold_left
+                                                 (fun visited_old stmt ->
+                                                    if List.mem stmt visited_old
+                                                    then stmt :: visited_old
+                                                    else match stmt_eval (mem_swa, types_swa, vals_swa, stmt :: visited_old) stmt with
+                                                      (_, _, _, visited_after_stmt) -> visited_after_stmt)
+                                                 visited_swa
+                                                 fstmts in
+                             let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *)
+                                               List.fold_left2
+                               (fun mem (m, t) e -> argsspoile (mem, types, vals, (* NOTE: not important *) visited_new) m t e)
+                               mem ts es in
+                             (mem_spoiled, types, vals, visited_new))
                           | FunV _, _ -> raise @@ Eval_error "call: function type"
                           | _, FunT _ -> raise @@ Eval_error "call: function val"
                           | _, _ -> raise @@ Eval_error "call: function type & val")
@@ -393,7 +400,7 @@ struct
                        else let x = pathvar p in
                             let id = vals_assoc x vals in
                             let (mem', v') = valupd mem (mem_get mem id) p ZeroV in
-                            (mem_set mem' id v', types, vals)
+                            (mem_set mem' id v', types, vals, visited)
                      | _ -> raise @@ Eval_error "write: type")
     | ReadS p -> if pathval mem vals p == SmthV || pathval mem vals p == BotV 
                  then raise @@ Eval_error "read: spoiled value"
@@ -404,11 +411,12 @@ struct
                        stmt_eval statel sr
     | ChoiceS (sl, sr) -> let statel = stmt_eval state sl in
                           let stater = stmt_eval state sr in
-                          match statel with (meml, typesl, valsl) ->
-                          match stater with (memr, typesr, valsr) ->
+                          match statel with (meml, typesl, valsl, visitedl) ->
+                          match stater with (memr, typesr, valsr, visitedr) ->
                           if typesl != typesr || valsl != valsr
                           then raise @@ Eval_error "choice"
-                          else (memcomb meml memr, typesl, valsl)
+                          (* TODO: FIXME: better list union ??  *)
+                          else (memcomb meml memr, typesl, valsl, visitedl @ visitedr)
 
   (* --- program execution --- *)
 
@@ -705,6 +713,24 @@ struct
         )
       ],
       (callS vg3 [pE vg1]) #.
+      (rdS @@ drf @@ vg1)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  (* NOTE: memoization used *)
+  let%expect_test "call inside call, recursive, dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E;
+        FunD (
+          [moded @@ cpT @@ uT_aw],
+          (callS vg2 [pE v0]) #.
+          (wrS @@ drf @@ v0)
+        )
+      ],
+      (callS vg2 [pE vg1]) #.
       (rdS @@ drf @@ vg1)
     );
     Printf.printf "done!";
