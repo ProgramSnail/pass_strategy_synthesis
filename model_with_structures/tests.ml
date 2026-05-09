@@ -42,8 +42,6 @@ let%expect_test "simple call with write to ref" = print_endline(prog_eval_t_simp
 let%expect_test "simple call with forbidden write to ref" = print_endline(prog_eval_t_simple_call_ref_fbd_wr ());
   [%expect {| [] |}]
 
-(* --- *)
-
 let%expect_test "simple call with write to ref with fix" = print_endline(prog_eval_t_simple_call_ref_wr_with_fix ());
   [%expect {| [StEnv (MemEnv ([FunV ([WriteS (DerefP (VarP (O)))]); RefV (O); ZeroV], S (S (S (O)))), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), FunT ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))])); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, AlwaysWr))], [(S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), FunT ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))])); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, AlwaysWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), S (S (O))); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), S (S (O))); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 
@@ -65,64 +63,18 @@ let%expect_test "simple call with different arguments modifiers, copy" = print_e
 let%expect_test "simple call with different arguments modifiers, ref" = print_endline(prog_eval_t_call_with_dif_mods_rf ());
   [%expect {| [StEnv (MemEnv ([FunV ([SeqS (ReadS (DerefP (VarP (S (O)))), SeqS (ReadS (DerefP (VarP (S (S (S (O)))))), SeqS (WriteS (DerefP (VarP (S (S (O))))), WriteS (DerefP (VarP (S (S (S (O)))))))))]); RefV (S (S (S (S (S (S (O))))))); ZeroV; RefV (S (S (S (S (O))))); ZeroV; RefV (S (S (O))); ZeroV; RefV (O); ZeroV], S (S (S (S (S (S (S (S (S (O)))))))))), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))))), FunT ([(Mode (NIn, NOut), RefT (Rf, UnitT (NRd, NeverWr))); (Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr))); (Mode (NIn, Out), RefT (Rf, UnitT (NRd, AlwaysWr))); (Mode (In, Out), RefT (Rf, UnitT (Rd, AlwaysWr)))])); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))), UnitT (Rd, AlwaysWr)); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))), UnitT (Rd, AlwaysWr)); (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), UnitT (Rd, AlwaysWr)); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, AlwaysWr))], [(S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))))), FunT ([(Mode (NIn, NOut), RefT (Rf, UnitT (NRd, NeverWr))); (Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr))); (Mode (NIn, Out), RefT (Rf, UnitT (NRd, AlwaysWr))); (Mode (In, Out), RefT (Rf, UnitT (Rd, AlwaysWr)))])); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))), UnitT (Rd, AlwaysWr)); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))), UnitT (Rd, AlwaysWr)); (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), UnitT (Rd, AlwaysWr)); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), RefT (Rf, UnitT (Rd, AlwaysWr))); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, AlwaysWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))))), S (S (S (S (S (S (S (S (O))))))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))))), S (S (S (S (S (S (S (O)))))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))), S (S (S (S (S (S (O))))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))), S (S (S (S (S (O)))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))), S (S (S (S (O))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))), S (S (S (O)))); (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), S (S (O))); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))))), S (S (S (S (S (S (S (S (O))))))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))))), S (S (S (S (S (S (S (O)))))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))))), S (S (S (S (S (S (O))))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))))), S (S (S (S (S (O)))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))))), S (S (S (S (O))))); (S (S (S (S (S (S (S (S (S (S (S (S (S (O))))))))))))), S (S (S (O)))); (S (S (S (S (S (S (S (S (S (S (S (S (O)))))))))))), S (S (O))); (S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 
-(* TODO: dif. ref modifiers tests ? *)
+(* - basic synthesis tests *)
 
-(* TODO: synthesis tests ? *)
+let%expect_test "simple synthesis test" = print_endline(prog_cp_cap_synt_t_simple_call_ref_wr ());
+  [%expect {| [Rf; Cp] |}]
 
-(* type tests *)
-(* let%expect_test "Tag type test" = print_endline (Tag.Test.test ()); [%expect {| [Tag (Rd, NeverWr, Ref, In, NOut)] |}] *)
-(* let%expect_test "Stmt type test (1)" = print_endline (Stmt.Test.test1 ()); [%expect {| [[S (S (O))]] |}] *)
-(* let%expect_test "Stmt type test (2)" = print_endline (Stmt.Test.test2 ()); [%expect {| [Call (S (O), [S (S (O))])] |}] *)
-(* let%expect_test "FunDecl type test" = print_endline (FunDecl.Test.test ()); [%expect {| [FunDecl ([Tag (Rd, AlwaysWr, Ref, In, NOut); Tag (Rd, AlwaysWr, Val, In, NOut)], [Call (S (O), [O]); Write (S (O))])] |}] *)
-(* let%expect_test "Prog type test" = print_endline (Prog.Test.test ()); [%expect {| [Prog ([], FunDecl ([Tag (Rd, NeverWr, Val, In, NOut)], [Write (O); Read (O)]))] |}] *)
-(* let%expect_test "Arg type test" = print_endline (Arg.Test.test ()); [%expect {| [LValue (S (S (S (O))))] |}] *)
-(* let%expect_test "Value type test" = print_endline (Value.Test.test ()); [%expect {| [Bot; Unit] |}] *)
-(* let%expect_test "St type test" = print_endline (St.Test.test ()); [%expect {| [St ([(O, (Tag (Rd, AlwaysWr, Val, In, NOut), O))], [Bot], S (O), [O])] |}] *)
+let%expect_test "simple synthesis test, no read write caps constraints" = print_endline(prog_cp_cap_synt_t_simple_call_ref_wr' ());
+  [%expect {| [Rf; Rf; Rf; Rf; Cp; Cp; Cp; Cp] |}]
 
-(* function tests *)
-(* let%expect_test "inv_id test 1" = print_endline (inv_id_t ()); [%expect {| [O] |}] *)
-(* let%expect_test "inv_id test 2" = print_endline (inv_id_t2 ()); [%expect {| [S (O)] |}] *)
-(* let%expect_test "inv_id test 3" = print_endline (inv_id_t3 ()); [%expect {| [S (O)] |}] *)
-(* let%expect_test "list_drop test" = print_endline (list_drop_t ()); [%expect {| [[S (S (S (O)))]] |}] *)
-(* let%expect_test "list_replace test" = print_endline (list_replace_t ()); [%expect {| [[S (O); O; S (S (S (O))); S (S (S (S (O))))]] |}] *)
-(* let%expect_test "arG_to_value test 1" = print_endline (arg_to_value_t ()); [%expect {| [Unit] |}] *)
-(* let%expect_test "st_add_arg test" = print_endline (st_add_arg_t ()); [%expect {| [St ([(O, (Tag (Rd, AlwaysWr, Val, In, NOut), O))], [Unit], S (O), [])] |}] *)
-(* let%expect_test "write eval test 1" = print_endline (write_eval_t1 ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Bot; Unit], S (S (O)), [])] |}] *)
-(* let%expect_test "write eval test 2" = print_endline (write_eval_t2 ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Unit; Bot], S (S (O)), [])] |}] *)
-(* let%expect_test "multiple writes eval test" = print_endline (writes_eval_t ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Unit; Unit], S (S (O)), [])] |}] *)
-(* let%expect_test "call eval test 1" = print_endline (call_eval_t1 ()); [%expect {| [St ([(O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Bot], S (O), [O])] |}] *)
-(* let%expect_test "call eval test 2" = print_endline (call_eval_t2 ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Unit; Bot], S (S (O)), [O])] |}] *)
-(* let%expect_test "call eval test 3" = print_endline (call_eval_t3 ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Bot; Unit], S (S (O)), [O])] |}] *)
-(* let%expect_test "call eval test 4" = print_endline (call_eval_t4 ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Bot; Bot], S (S (O)), [O])] |}] *)
-(* let%expect_test "call eval test 5" = print_endline (call_eval_t5 ()); [%expect {| [St ([(S (O), (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O))); (O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Bot; Bot], S (S (O)), [O])] |}] *)
-(* let%expect_test "mem_set test 1" = print_endline (mem_set_t1 ()); [%expect {| [St ([(O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Unit], S (O), [])] |}] *)
-(* let%expect_test "mem_set test 2" = print_endline (mem_set_t2 ()); [%expect {| [St ([(O, (Tag (NRd, AlwaysWr, Ref, In, NOut), O))], [Bot], S (O), [])] |}] *)
-(* let%expect_test "mem_set test 3" = print_endline (meem_set_t3 ()); [%expect {| [St ([(O, (Tag (NRd, AlwaysWr, Ref, In, NOut), S (O)))], [Bot; Unit], S (S (O)), [])] |}] *)
-(* let%expect_test "add_arg_folder test" = print_endline (add_arg_folder_t ()); [%expect {| [St ([(O, (Tag (Rd, AlwaysWr, Val, In, NOut), O))], [Unit], S (O), [])] |}] *)
-(* let%expect_test "foldl2 test" = print_endline (foldl2_t ()); [%expect {| [St ([(O, (Tag (Rd, AlwaysWr, Val, In, NOut), O))], [Unit], S (O), [])] |}] *)
-(* let%expect_test "rvalue test" = print_endline (rvalue_t ()); [%expect {| [[]; [RValue]; [RValue; RValue]] |}] *)
-(* let%expect_test "empty_state test" = print_endline (empty_state_t ()); [%expect {| [St ([], [], O, [])] |}] *)
-(* let%expect_test "function eval test 1" = print_endline (fun_eval_t1 ()); [%expect {| [St ([], [], O, [])] |}] *)
-(* let%expect_test "function eval test 2" = print_endline (fun_eval_t2 ()); [%expect {| [St ([], [], O, [])] |}] *)
-(* let%expect_test "function eval test 3" = print_endline (fun_eval_t3 ()); [%expect {| [] |}] *)
-(* let%expect_test "function eval test 4" = print_endline (fun_eval_t4 ()); [%expect {| [] |}] *)
-(* let%expect_test "function eval test 5" = print_endline (fun_eval_t5 ()); [%expect {| [] |}] *)
-(* let%expect_test "function eval test 6" = print_endline (fun_eval_t6 ()); [%expect {| [St ([], [], O, [O])] |}] *)
-(* let%expect_test "prog eval test 1" = print_endline (prog_eval_t1 ()); [%expect {| [St ([], [], O, [])] |}] *)
-(* let%expect_test "prog eval test 2" = print_endline (prog_eval_t2 ()); [%expect {| [St ([], [], O, [O])] |}] *)
-(* let%expect_test "prog eval test 3" = print_endline (prog_eval_t3 ()); [%expect {| [St ([], [], O, [O])] |}] *)
-(* let%expect_test "prog eval test 4" = print_endline (prog_eval_t4 ()); [%expect {| [] |}] *)
-(* let%expect_test "prog eval test 5" = print_endline (prog_eval_t5 ()); [%expect {| [St ([], [], O, [O])] |}] *)
-(* let%expect_test "prog eval test 6" = print_endline (prog_eval_t6 ()); [%expect {| [] |}] *)
-(* let%expect_test "synthesis test 1" = print_endline (synt_t1 ()); [%expect {| [Tag (Rd, AlwaysWr, Val, In, NOut); Tag (NRd, AlwaysWr, Val, In, NOut)] |}] *)
-(* let%expect_test "synthesis test 2" = print_endline (synt_t2 ()); [%expect {| [Tag (NRd, AlwaysWr, Val, In, NOut); Tag (NRd, AlwaysWr, Ref, In, NOut)] |}] *)
-(* let%expect_test "synthesis test 3" = print_endline (synt_t3 ()); [%expect {| [[Tag (NRd, AlwaysWr, Val, In, NOut); Tag (NRd, AlwaysWr, Val, In, NOut)]; [Tag (NRd, AlwaysWr, Ref, In, NOut); Tag (NRd, AlwaysWr, Val, In, NOut)]] |}] *)
-(* let%expect_test "synthesis test 4" = print_endline (synt_t4 ()); [%expect {| [[Tag (NRd, AlwaysWr, Val, In, NOut)]] |}] *)
-(* let%expect_test "synthesis test 5" = print_endline (synt_t5 ()); [%expect {| [[Val; Val]; [Val; Ref]; [Ref; Val]; [Ref; Ref]] |}] *)
-(* let%expect_test "synthesis test 6" = print_endline (synt_t6 ()); [%expect {| [[Val; Val]; [Val; Ref]; [Ref; Ref]; [Ref; Val]] |}] *)
-(* let%expect_test "synthesis test 7" = print_endline (synt_t7 ()); [%expect {| [[Val; Val]; [Ref; Val]] |}] *)
-(* let%expect_test "synthesis test 8" = print_endline (synt_t8 ()); [%expect {| [[Val; Val]; [Val; Ref]] |}] *)
-(* let%expect_test "synthesis test 9" = print_endline (synt_t9 ()); [%expect {| [[Val; Ref]; [Val; Val]] |}] *)
+let%expect_test "simple synthesis test, reference forbidden write" = print_endline(prog_cp_cap_synt_t_simple_call_ref_fbd_wr ());
+  [%expect {| [Cp] |}]
 
-(* let%expect_test "recursive eval test" = print_endline (rec_eval_t ()); [%expect {| [St ([], [], O, [O])] |}] *)
+let%expect_test "simple synthesis test, reference forbidden write, no read write caps constraints" = print_endline(prog_cp_cap_synt_t_simple_call_ref_fbd_wr' ());
+  [%expect {| [Cp; Cp; Cp; Cp] |}]
 
+(* TODO *)
