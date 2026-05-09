@@ -244,6 +244,22 @@ let prog_eval_t_call_in_call _ = show(answer) (Stream.take (run q
                            SeqS (CallS (VarP fg, [PathE (VarP 0)]),
                                  WriteS (DerefP (VarP 0)))) &
               prog == Prg ([xd; yd; fd; f2d], SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
+                                                    ReadS (DerefP (VarP yg)))) &
+              prog_evalo prog q })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_eval_t_call_in_call_rec _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xg, yg, fg, xd, yd, fd in
+              globals_min_ido xg &
+              yg == Nat.s xg &
+              fg == Nat.s yg &
+              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+                          SeqS (CallS (VarP fg, [PathE (VarP 0)]),
+                                WriteS (DerefP (VarP 0)))) &
+              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
                                                ReadS (DerefP (VarP yg)))) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
