@@ -227,9 +227,9 @@ let prog_eval_t_call_in_call _ = show(answer) (Stream.take (run q
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               f2d == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
-                           SeqS (CallS (VarP f2g, [PathE (VarP 0)]),
+                           SeqS (CallS (VarP fg, [PathE (VarP 0)]),
                                  WriteS (DerefP (VarP 0)))) &
-              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
+              prog == Prg ([xd; yd; fd; f2d], SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
                                                ReadS (DerefP (VarP yg)))) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
@@ -243,13 +243,13 @@ let prog_eval_t_fix_call_after_call _ = show(answer) (Stream.take (run q
               f2g == Nat.s fg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
-              f2d == FunD ([(Mode (In, Out), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+              f2d == FunD ([(Mode (In, Out), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                            WriteS (DerefP (VarP 0))) &
-              prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
-                                         SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
-                                               ReadS (DerefP (VarP yg))))) &
+              prog == Prg ([xd; yd; fd; f2d], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
+                                              SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
+                                                    ReadS (DerefP (VarP yg))))) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
 
@@ -261,7 +261,7 @@ let prog_eval_t_call_with_glob_usage _ = show(answer) (Stream.take (run q
               fg == Nat.s yg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
                           SeqS (WriteS (VarP xg),
                                 ReadS (DerefP (VarP 0)))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -270,7 +270,7 @@ let prog_eval_t_call_with_glob_usage _ = show(answer) (Stream.take (run q
               })
   (fun q -> q#reify (StEnv.prj_exn))))
 
-let prog_eval_t_call_with_rd_wr_2_args_ = show(answer) (Stream.take (run q
+let prog_eval_t_call_with_rd_wr_2_args _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg, yg, x2g, y2g, fg, xd, yd, x2d, y2d, fd, st in
               globals_min_ido xg &
@@ -286,7 +286,9 @@ let prog_eval_t_call_with_rd_wr_2_args_ = show(answer) (Stream.take (run q
                            (Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           SeqS (ReadS (DerefP (VarP 0)),
                                 WriteS (DerefP (VarP 1)))) &
-              prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg); PathE (VarP y2g)])) &
+              prog == Prg ([xd; yd; x2d; y2d; fd],
+                           CallS (VarP fg, [PathE (VarP yg);
+                                            PathE (VarP y2g)])) &
               prog_evalo prog q
               })
   (fun q -> q#reify (StEnv.prj_exn))))
