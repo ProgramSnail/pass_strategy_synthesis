@@ -73,6 +73,8 @@ struct
              | RefV of memid
              | TupleV of value list
 
+  type revpath = VarRP | DerefRP of revpath | AccessRP of revpath * data
+
   (* TODO: any additional difference between rvalue and lvalue now ?? *)
 
   (* --- *)
@@ -129,7 +131,7 @@ struct
     (* (((snd mem, v) :: fst mem, snd mem + 1), snd mem) *)
   (* let mem_set (mem : mem) (id : memid) (v : value) : mem = *)
     (* ((id, v) :: fst mem, snd mem) *)
-  let mem_get (mem : mem) (id : memid) : value = Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1);
+  let mem_get (mem : mem) (id : memid) : value = (* FIXME TMP Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1); *)
                                                  List.nth (fst mem) (snd mem - id - 1)
   let mem_add (mem : mem) (v : value) : mem * memid =
     ((v :: fst mem, snd mem + 1), snd mem)
@@ -154,13 +156,19 @@ struct
     | DerefP p -> pathvar p
     | AccessP (p, _) -> pathvar p
 
+  let rec pathrev (p : path) (acc : revpath) : revpath = match p with
+    | VarP x -> acc
+    | DerefP p -> pathrev p @@ DerefRP acc
+    | AccessP (p, i) -> pathrev p @@ AccessRP (acc, i)
+
   let rec pathtype (types : types) (p : path) : atype = match p with
     | VarP x -> types_assoc x types
     | DerefP p -> (match pathtype types p with
                     | RefT (_, t) -> t
                     | _ -> raise @@ Typing_error "pathtype: deref")
     | AccessP (p, id) -> match pathtype types p with
-                           | TupleT ts -> Printf.printf "pathtype access sz=%i id=%i\n" (List.length ts) id; (List.nth ts id)
+                           | TupleT ts -> (* FIXME TMP Printf.printf "pathtype access sz=%i id=%i\n" (List.length ts) id; *)
+                                          (List.nth ts id)
                            | _ -> raise @@ Typing_error "pathtype: access"
 
   let rec pathval (mem :  mem) (vals : vals) (p : path) : value = match p with
@@ -174,7 +182,8 @@ struct
                     | RefV id -> mem_get mem id
                     | _ -> raise @@ Typing_error "pathval: deref")
     | AccessP (p, id) -> match pathval mem vals p with
-                           | TupleV vs -> Printf.printf "pathval access sz=%i id=%i\n" (List.length vs) id; (List.nth vs id)
+                           | TupleV vs -> (* FIXME TMP Printf.printf "pathval access sz=%i id=%i\n" (List.length vs) id; *)
+                                          (List.nth vs id)
                            | _ -> raise @@ Typing_error "pathval: access"
 
   (* --- eval rules --- *)
@@ -208,14 +217,14 @@ struct
 
   (* - value update *)
 
-  let rec valupd (mem : mem) (v : value) (p : path) (b : value) : mem * value = match p, v with
-    | VarP x, _ -> (mem, b)
-    | DerefP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p b in
-                           (mem_set mem' id v', RefV id)
-    | AccessP (p, id), TupleV vs -> let (mem', v') = (* FIXME TMP Printf.printf "vs size=%i id=%i\n" (List.length vs) id; *)
-                                                     valupd mem (List.nth vs id) p b in
-                                    (* FIXME TMP Printf.printf "before return\n"; *)
-                                    (mem', TupleV (list_replace vs id v'))
+  let rec valupd (mem : mem) (v : value) (p : revpath) (b : value) : mem * value = match p, v with
+    | VarRP, _ -> (mem, b)
+    | DerefRP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p b in
+                            (mem_set mem' id v', RefV id)
+    | AccessRP (p, id), TupleV vs -> let (mem', v') = (* FIXME TMP Printf.printf "vs size=%i id=%i\n" (List.length vs) id; *)
+                                                      valupd mem (List.nth vs id) p b in
+                                     (* FIXME TMP Printf.printf "before return\n"; *)
+                                     (mem', TupleV (list_replace vs id v'))
     | _, _ -> raise @@ Typing_error "valupd"
 
   (* - value combination *)
@@ -331,7 +340,8 @@ struct
     let t' = pathtype types p in (* type of subvalue *)
     let (mem', b') = valspoil mem b t t' m Cp in (* spoil subvalue *)
     (* TODO: FIXME: why copy (Cp)? maybe sometimes use top-level capability ? *)
-    let (mem'', v'') = valupd mem' (mem_get mem' id) p b' in (* set subvalue into var *)
+    let pi = pathrev p VarRP in
+    let (mem'', v'') = valupd mem' (mem_get mem' id) pi b' in (* set subvalue into var *)
     mem_set mem'' id v''
 
   let rec argsspoile (state : state) (m : mode) (t : atype) (e : expr) : mem =
@@ -401,7 +411,8 @@ struct
                        then raise @@ Eval_error "write: write tag"
                        else let x = pathvar p in
                             let id = vals_assoc x vals in
-                            let (mem', v') = valupd mem (mem_get mem id) p ZeroV in
+                            let pi = pathrev p VarRP in
+                            let (mem', v') = valupd mem (mem_get mem id) pi ZeroV in
                             (mem_set mem' id v', types, vals, visited)
                      | RefT _ -> raise @@ Eval_error "write: ref type"
                      | TupleT _ -> raise @@ Eval_error "write: tuple type"
@@ -902,25 +913,21 @@ struct
       let send_allID = vg10 in
       let get_version_idF = FunD ([moded requestT],
         (rdS @@ access 0 @@ drf @@ access 1 v0) |. skp) in
-         (* skp) in *)
-      (* TODO: real op paths *)
       let updated_versionF = FunD ([moded requestT],
         (rdS @@ access 0 @@ drf @@ access 2 v0) #.
         (* TODO: read all the substructure ?? *)
         (rdS @@ access 0 @@ drf @@ access 1 v0) #.
         (rdS @@ access 1 @@ drf @@ access 1 v0)) in
-         (* skp) in *)
       let sendF = FunD ([moded requestT],
         ((
            (wrS @@ access 0 @@ drf @@ access 2 v0) #.
            (rdS @@ drf @@ access 3 v0) #.
-           (* (wrS @@ drf @@ access 3 v0) #. *)
+           (wrS @@ drf @@ access 3 v0) #.
            (rdS @@ access 0 @@ drf @@ access 1 @@ drf @@ access 0 v0)
          ) |. skp) #.
          (wrS @@ access 4 v0) #.
          (* TODO: read all the substructure ?? *)
          (rdS @@ access 4 v0) (*rdS v0*)) in (* FIXME: TMP, parial read, should be full *)
-         (* skp) in *)
       let send_allF = FunD ([moded requestT],
         (wrS @@ access 4 v0) (*wrS v0*) #. (* FIXME: TMP, parial write, should be full *)
         (callS sendID [pE v0]) #.
@@ -932,7 +939,6 @@ struct
         (* --- *)
         ((rdS @@ access 0 @@ drf @@ access 0 @@ drf @@ access 0 v0) |.
          (rdS @@ access 0 @@ drf @@ access 1 v0))) in
-        (* skp) in *)
       let varID = vg6 in
       [
         defg user_utilsT user_utilsE;

@@ -105,7 +105,6 @@ struct
     (* end *)
   end
 
-  (* TODO: access: data or int ? *)
   module Path = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
@@ -171,6 +170,15 @@ struct
       type nonrec ('sl, 'd, 'vl) t = ZeroV | SmthV | BotV | FunV of 'sl | RefV of 'd | TupleV of 'vl
       [@@deriving gt ~options:{ show; gmap }]
       type ground = (((* Nat.ground List.ground * *) Stmt.ground) List.ground, Nat.ground, ground List.ground) t
+    ]
+  end
+
+  module RevPath = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec ('d, 'p) t = VarRP | DerefRP of 'p | AccessRP of 'p * 'd
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = (Nat.ground, ground) t
     ]
   end
 
@@ -462,6 +470,21 @@ struct
       { fresh p', _id in p == AccessP (p', _id) & pathvaro p' x }
   }
 
+  let rec pathrevo p rp rp' =
+    let open Path in
+    let open RevPath in
+    ocanren {
+      { fresh _x in
+        p == VarP _x &
+        rp == rp' } |
+      { fresh p' in
+        p == DerefP p' &
+        pathrevo p' (DerefRP rp) rp' } |
+      { fresh p', id in
+        p == AccessP (p', id) &
+        pathrevo p' (AccessRP (rp, id)) rp' }
+  }
+
   let rec pathtypeo types p tp =
     let open Path in
     let open Type in
@@ -548,26 +571,26 @@ struct
 
   (* - value update *)
 
-  let rec valupdo mem v p b mem_with_v' =
-    let open Path in
+  (* NOTE: reversed path used *)
+  let rec valupdo mem v rp b mem_with_v' =
+    let open RevPath in
     let open Value in
     ocanren {
-      { fresh x in
-        p == VarP x &
+      { rp == VarRP &
         mem_with_v' == Std.pair mem b } |
-      { fresh p', id, v', mem_upd, v_upd, mem_with_v_upd, mem_st in
-        p == DerefP p' &
+      { fresh rp', id, v', mem_upd, v_upd, mem_with_v_upd, mem_st in
+        rp == DerefRP rp' &
         v == RefV id &
         mem_geto mem id v' &
-        valupdo mem v' p' b mem_with_v_upd &
+        valupdo mem v' rp' b mem_with_v_upd &
         Std.pair mem_upd v_upd == mem_with_v_upd &
         mem_seto mem_upd id v_upd mem_st &
         mem_with_v' == Std.pair mem_st (RefV id) } |
-      { fresh p', id, vs', v', mem_upd, v_upd, mem_with_v_upd, vs_upd in
-        p == AccessP (p', id) &
+      { fresh rp', id, vs', v', mem_upd, v_upd, mem_with_v_upd, vs_upd in
+        rp == AccessRP (rp', id) &
         v == TupleV vs' &
         list_ntho vs' id v' &
-        valupdo mem v' p' b mem_with_v_upd &
+        valupdo mem v' rp' b mem_with_v_upd &
         Std.pair mem_upd v_upd == mem_with_v_upd &
         list_replaceo vs' id v_upd vs_upd &
         mem_with_v' == Std.pair mem_upd (TupleV vs_upd) }
@@ -807,9 +830,10 @@ struct
   let argspoilpo st m tp p mem' =
     let open StEnv in
     let open CopyCap in
+    let open RevPath in
     ocanren {
       fresh mem, types, vals, visited,
-            x, id, b, tp',
+            x, id, b, tp', rp,
             mem_sp, b_sp, v_sp, mem_upd, v_upd in
       st == StEnv (mem, types, vals, visited) &
       pathvaro p x &
@@ -818,7 +842,8 @@ struct
       pathtypeo types p tp' &
       valspoilo mem b tp tp' m Cp (Std.pair mem_sp b_sp) &
       mem_geto mem_sp id v_sp &
-      valupdo mem_sp v_sp p b_sp (Std.pair mem_upd v_upd) &
+      pathrevo p VarRP rp &
+      valupdo mem_sp v_sp rp b_sp (Std.pair mem_upd v_upd) &
       mem_seto mem_upd id v_upd mem'
   }
 
@@ -914,6 +939,7 @@ struct
     let open WriteCap in
     let open TypesEnv in
     let open ValsEnv in
+    let open RevPath in
     ocanren {
       fresh mem, types, vals, visited in
       st == StEnv (mem, types, vals, visited) &
@@ -949,7 +975,7 @@ struct
                        mem tps es mem_spoiled &
           st' == StEnv (mem_spoiled, types, vals, visited')
         } |
-        { fresh p, tp, _r, w, x, id, v,
+        { fresh p, tp, _r, w, x, id, v, rp,
                 mem_upd, v_upd, mem_set in
           s == WriteS p &
           pathtypeo types p tp &
@@ -958,7 +984,8 @@ struct
           pathvaro p x &
           vals_assoco x vals id &
           mem_geto mem id v &
-          valupdo mem v p ZeroV (Std.pair mem_upd v_upd) &
+          pathrevo p VarRP rp &
+          valupdo mem v rp ZeroV (Std.pair mem_upd v_upd) &
           mem_seto mem_upd id v_upd mem_set &
           st' == StEnv (mem_set, types, vals, visited) } |
         { fresh p in
