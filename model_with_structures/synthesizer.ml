@@ -542,8 +542,7 @@ struct
         v == TupleV vs &
         tp == TupleT tps &
         list_foldl2o valcopy_foldero (Std.pair mem []) vs tps (Std.pair mem' vs') &
-         == mem_with_vs' &
-        List.reverso vs' vs''
+        List.reverso vs' vs'' &
         mem_with_id' == Std.pair mem' (TupleV vs'') }
   }
 
@@ -791,14 +790,15 @@ struct
         valspoilo mem v' tp' u' m ctp' (Std.pair mem_sp v_sp) &
         mem_seto mem_sp id' v_sp mem_set &
         mem_with_v' == Std.pair mem_set (RefV id') } |
-      { fresh tps, us, vs, mem_sp,vs_sp in
+      { fresh tps, us, vs, mem_sp, vs_sp, vs_sp' in
         tp == TupleT tps &
         u == TupleT us &
         v == TupleV vs &
         list_foldl3o (valspoil_foldero m c)
                      (Std.pair mem []) tps us vs
                      (Std.pair mem_sp vs_sp) &
-        mem_with_v' == Std.pair mem_sp (TupleV vs_sp)
+        List.reverso vs_sp vs_sp' &
+        mem_with_v' == Std.pair mem_sp (TupleV vs_sp')
       }
   }
 

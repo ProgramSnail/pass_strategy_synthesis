@@ -129,7 +129,7 @@ struct
     (* (((snd mem, v) :: fst mem, snd mem + 1), snd mem) *)
   (* let mem_set (mem : mem) (id : memid) (v : value) : mem = *)
     (* ((id, v) :: fst mem, snd mem) *)
-  let mem_get (mem : mem) (id : memid) : value = (* FIXME TMP Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1); *)
+  let mem_get (mem : mem) (id : memid) : value = Printf.printf "l%i i%i %i: access\n" (snd mem) id (snd mem - id - 1);
                                                  List.nth (fst mem) (snd mem - id - 1)
   let mem_add (mem : mem) (v : value) : mem * memid =
     ((v :: fst mem, snd mem + 1), snd mem)
@@ -160,7 +160,7 @@ struct
                     | RefT (_, t) -> t
                     | _ -> raise @@ Typing_error "pathtype: deref")
     | AccessP (p, id) -> match pathtype types p with
-                           | TupleT ts -> (List.nth ts id)
+                           | TupleT ts -> Printf.printf "pathtype access sz=%i id=%i\n" (List.length ts) id; (List.nth ts id)
                            | _ -> raise @@ Typing_error "pathtype: access"
 
   let rec pathval (mem :  mem) (vals : vals) (p : path) : value = match p with
@@ -174,7 +174,7 @@ struct
                     | RefV id -> mem_get mem id
                     | _ -> raise @@ Typing_error "pathval: deref")
     | AccessP (p, id) -> match pathval mem vals p with
-                           | TupleV vs -> (List.nth vs id)
+                           | TupleV vs -> Printf.printf "pathval access sz=%i id=%i\n" (List.length vs) id; (List.nth vs id)
                            | _ -> raise @@ Typing_error "pathval: access"
 
   (* --- eval rules --- *)
@@ -212,7 +212,9 @@ struct
     | VarP x, _ -> (mem, b)
     | DerefP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p b in
                            (mem_set mem' id v', RefV id)
-    | AccessP (p, id), TupleV vs -> let (mem', v') = valupd mem (List.nth vs id) p b in
+    | AccessP (p, id), TupleV vs -> let (mem', v') = (* FIXME TMP Printf.printf "vs size=%i id=%i\n" (List.length vs) id; *)
+                                                     valupd mem (List.nth vs id) p b in
+                                    (* FIXME TMP Printf.printf "before return\n"; *)
                                     (mem', TupleV (list_replace vs id v'))
     | _, _ -> raise @@ Typing_error "valupd"
 
@@ -316,7 +318,7 @@ struct
         let folder = fun (mem, vs') t u v ->
           let (mem', v') = valspoil mem v t u m c in (mem', v' :: vs') in
         let (mem', vs') = list_foldl3 folder (mem, []) ts us vs in
-        (mem', TupleV vs')
+        (mem', TupleV (List.rev vs'))
     | _, _, _ ->  raise @@ Typing_error "valspoil"
 
   (* full spoil *)
@@ -328,7 +330,7 @@ struct
     let b = pathval mem vals p in (* subvalue in var *)
     let t' = pathtype types p in (* type of subvalue *)
     let (mem', b') = valspoil mem b t t' m Cp in (* spoil subvalue *)
-    (* TODO: FIXME: why copy (Cp)? *)
+    (* TODO: FIXME: why copy (Cp)? maybe sometimes use top-level capability ? *)
     let (mem'', v'') = valupd mem' (mem_get mem' id) p b' in (* set subvalue into var *)
     mem_set mem'' id v''
 
@@ -401,6 +403,8 @@ struct
                             let id = vals_assoc x vals in
                             let (mem', v') = valupd mem (mem_get mem id) p ZeroV in
                             (mem_set mem' id v', types, vals, visited)
+                     | RefT _ -> raise @@ Eval_error "write: ref type"
+                     | TupleT _ -> raise @@ Eval_error "write: tuple type"
                      | _ -> raise @@ Eval_error "write: type")
     | ReadS p -> if pathval mem vals p == SmthV || pathval mem vals p == BotV 
                  then raise @@ Eval_error "read: spoiled value"
@@ -867,6 +871,8 @@ struct
 
   (* - complex tests *)
 
+  (* NOTE: path access isreversed to intuitive function application
+           by definition *)
   let%expect_test "complex test: send, dsl" =
     prog_eval_noret (
       (* TODO: set optimal ref mods later *)
@@ -895,38 +901,38 @@ struct
       let sendID = vg9 in
       let send_allID = vg10 in
       let get_version_idF = FunD ([moded requestT],
-        (* (rdS @@ access 1 @@ drf @@ access 0 v0) |. skp) in *)
-         skp) in
+        (rdS @@ access 0 @@ drf @@ access 1 v0) |. skp) in
+         (* skp) in *)
       (* TODO: real op paths *)
       let updated_versionF = FunD ([moded requestT],
-        (* (rdS @@ access 2 @@ drf @@ access 0 v0) #. *)
+        (rdS @@ access 0 @@ drf @@ access 2 v0) #.
         (* TODO: read all the substructure ?? *)
-        (* (rdS @@ access 1 @@ drf @@ access 0 v0) #. *)
-        (* (rdS @@ access 1 @@ drf @@ access 1 v0)) in *)
-         skp) in
+        (rdS @@ access 0 @@ drf @@ access 1 v0) #.
+        (rdS @@ access 1 @@ drf @@ access 1 v0)) in
+         (* skp) in *)
       let sendF = FunD ([moded requestT],
-        (* (( *)
-           (* (wrS @@ access 2 @@ drf @@ access 0 v0) #. *)
-           (* (rdS @@ access 3 @@ drf v0) #. *)
-           (* (wrS @@ access 3 @@ drf v0) #. *)
-           (* (rdS @@ access 0 @@ drf @@ access 1 @@ drf @@ access 0 v0) *)
-         (* ) |. skp) #. *)
-         (* (wrS @@ access 4 v0) #. *)
+        ((
+           (wrS @@ access 0 @@ drf @@ access 2 v0) #.
+           (rdS @@ drf @@ access 3 v0) #.
+           (* (wrS @@ drf @@ access 3 v0) #. *)
+           (rdS @@ access 0 @@ drf @@ access 1 @@ drf @@ access 0 v0)
+         ) |. skp) #.
+         (wrS @@ access 4 v0) #.
          (* TODO: read all the substructure ?? *)
-         (* (rdS @@ access 4 v0) (*rdS v0*)) in (* FIXME: TMP, parial read, should be full *) *)
-         skp) in
+         (rdS @@ access 4 v0) (*rdS v0*)) in (* FIXME: TMP, parial read, should be full *)
+         (* skp) in *)
       let send_allF = FunD ([moded requestT],
         (wrS @@ access 4 v0) (*wrS v0*) #. (* FIXME: TMP, parial write, should be full *)
-        (* (callS sendID [pE v0]) #. *)
-        (* (callS get_version_idID [pE v0]) #. *)
-        (* (callS updated_versionID [pE v0]) #. *)
+        (callS sendID [pE v0]) #.
+        (callS get_version_idID [pE v0]) #.
+        (callS updated_versionID [pE v0]) #.
         (* TODO: read all the substructure ?? *)
-        (wrS @@ access 1 @@ drf @@ access 0 v0) #.
-        (* (wrS @@ access 1 @@ drf @@ access 1 v0) #. *)
+        (wrS @@ access 0 @@ drf @@ access 1 v0) #.
+        (wrS @@ access 1 @@ drf @@ access 1 v0) #.
         (* --- *)
-        (* ((rdS @@ access 0 @@ drf @@ access 0 @@ drf @@ access 0 v0) |. *)
-         (* (rdS @@ access 2 @@ drf @@ access 0 v0))) in *)
-         skp) in
+        ((rdS @@ access 0 @@ drf @@ access 0 @@ drf @@ access 0 v0) |.
+         (rdS @@ access 0 @@ drf @@ access 1 v0))) in
+        (* skp) in *)
       let varID = vg6 in
       [
         defg user_utilsT user_utilsE;
@@ -940,7 +946,6 @@ struct
         updated_versionF;
         sendF;
         send_allF
-        (* TODO: var def *)
       ],
       callS send_allID [pE varID]
     );
