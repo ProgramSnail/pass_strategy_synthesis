@@ -538,13 +538,13 @@ struct
             valcopyo mem v' tp' (Std.pair mem_cp v_cp) &
             mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
             mem_with_id' == (mem_add, RefV id_add) } } } |
-      { fresh vs, tps, init_mem_with_vs, mem_with_vs', mem', vs' in
+      { fresh vs, tps, mem', vs', vs'' in
         v == TupleV vs &
         tp == TupleT tps &
-        init_mem_with_vs == Std.pair mem [] &
-        list_foldl2o valcopy_foldero init_mem_with_vs vs tps mem_with_vs' &
-        Std.pair mem' vs' == mem_with_vs' &
-        mem_with_id' == Std.pair mem' (TupleV vs') }
+        list_foldl2o valcopy_foldero (Std.pair mem []) vs tps (Std.pair mem' vs') &
+         == mem_with_vs' &
+        List.reverso vs' vs''
+        mem_with_id' == Std.pair mem' (TupleV vs'') }
   }
 
   (* - value update *)

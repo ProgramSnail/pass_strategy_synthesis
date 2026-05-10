@@ -201,9 +201,9 @@ struct
                                let (mem'', id'') = mem_add mem' v' in
                                (mem'', RefV id'') 
     | TupleT ts, TupleV vs -> let folder = fun (mem, vs') v t -> let (mem', v') = valcopy mem v t in
-                                                                 (mem, v' :: vs') in 
+                                                                 (mem', v' :: vs') in 
                               let mem', vs' = List.fold_left2 folder (mem, []) vs ts in
-                              (mem', TupleV vs')
+                              (mem', TupleV (List.rev vs')) (* TODO: FIXME: should reverse or not ?? *)
     | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type"
 
   (* - value update *)
@@ -433,6 +433,7 @@ struct
   (* - shortcuts *)
 
   let ( #. ) x y = SeqS (x, y)
+  let ( |. ) x y = ChoiceS (x, y)
 
   let v0 = VarP 0
   let v1 = VarP 1
@@ -452,6 +453,8 @@ struct
   let vg6 = VarP (globals_min_id + 6)
   let vg7 = VarP (globals_min_id + 7)
   let vg8 = VarP (globals_min_id + 8)
+  let vg9 = VarP (globals_min_id + 9)
+  let vg10 = VarP (globals_min_id + 10)
 
   let rf0E = RefE 0
   let rf1E = RefE 1
@@ -475,7 +478,7 @@ struct
   let pE p = PathE p
 
   let drf p = DerefP p
-  let access p i = AccessP (p, i)
+  let access i p = AccessP (p, i)
 
   let wr x = ReadS x 
   let rd x = WriteS x
@@ -862,7 +865,87 @@ struct
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  (* TODO: recursive call test (for the future when memoization will be implemented) *)
+  (* - complex tests *)
+
+  let%expect_test "complex test: send, dsl" =
+    prog_eval_noret (
+      (* TODO: set optimal ref mods later *)
+      let user_utilsT = TupleT [uT_r_aw (* 0 id *); uT_r_aw] in
+      let user_infoT =  TupleT [uT_r_aw (* 0 name *); uT_r_aw; uT_r_aw] in
+      let userT = TupleT [cpT user_utilsT (* 0 utils *); cpT user_infoT (* 1 info *)] in
+      let versionT = TupleT [uT_r_aw (* 0 id *); uT_r_aw; uT_r_aw] in
+      let utilsT = TupleT [uT_r_aw (* 0 has_version *); uT_r_aw (* 1 id *)] in
+      let requestT = TupleT [cpT userT (* 0 user *);
+                             cpT versionT (* 1 version *);
+                             cpT utilsT (* 2 utils *);
+                             cpT uT_r_aw (* 3 data *);
+                             uT_r_aw (* 4 operation_date *)] in
+      let user_utilsE = TupleE [UnitE (* 0 id *); UnitE] in
+      let user_infoE =  TupleE [UnitE (* 0 name *); UnitE; UnitE] in
+      let userE = TupleE [rfg0E (* 0 utils *); rfg1E (* 1 info *)] in
+      let versionE = TupleE [UnitE (* 0 id *); UnitE; UnitE] in
+      let utilsE = TupleE [UnitE (* 0 has_version *); UnitE (* 1 id *)] in
+      let requestE = TupleE [rfg2E (* 0 user *);
+                             rfg3E (* 1 version *);
+                             rfg4E (* 2 utils *);
+                             rfg5E (* 3 data *);
+                             UnitE (* 4 operation_date *)] in
+      let get_version_idID = vg7 in
+      let updated_versionID = vg8 in
+      let sendID = vg9 in
+      let send_allID = vg10 in
+      let get_version_idF = FunD ([moded requestT],
+        (* (rdS @@ access 1 @@ drf @@ access 0 v0) |. skp) in *)
+         skp) in
+      (* TODO: real op paths *)
+      let updated_versionF = FunD ([moded requestT],
+        (* (rdS @@ access 2 @@ drf @@ access 0 v0) #. *)
+        (* TODO: read all the substructure ?? *)
+        (* (rdS @@ access 1 @@ drf @@ access 0 v0) #. *)
+        (* (rdS @@ access 1 @@ drf @@ access 1 v0)) in *)
+         skp) in
+      let sendF = FunD ([moded requestT],
+        (* (( *)
+           (* (wrS @@ access 2 @@ drf @@ access 0 v0) #. *)
+           (* (rdS @@ access 3 @@ drf v0) #. *)
+           (* (wrS @@ access 3 @@ drf v0) #. *)
+           (* (rdS @@ access 0 @@ drf @@ access 1 @@ drf @@ access 0 v0) *)
+         (* ) |. skp) #. *)
+         (* (wrS @@ access 4 v0) #. *)
+         (* TODO: read all the substructure ?? *)
+         (* (rdS @@ access 4 v0) (*rdS v0*)) in (* FIXME: TMP, parial read, should be full *) *)
+         skp) in
+      let send_allF = FunD ([moded requestT],
+        (wrS @@ access 4 v0) (*wrS v0*) #. (* FIXME: TMP, parial write, should be full *)
+        (* (callS sendID [pE v0]) #. *)
+        (* (callS get_version_idID [pE v0]) #. *)
+        (* (callS updated_versionID [pE v0]) #. *)
+        (* TODO: read all the substructure ?? *)
+        (wrS @@ access 1 @@ drf @@ access 0 v0) #.
+        (* (wrS @@ access 1 @@ drf @@ access 1 v0) #. *)
+        (* --- *)
+        (* ((rdS @@ access 0 @@ drf @@ access 0 @@ drf @@ access 0 v0) |. *)
+         (* (rdS @@ access 2 @@ drf @@ access 0 v0))) in *)
+         skp) in
+      let varID = vg6 in
+      [
+        defg user_utilsT user_utilsE;
+        defg user_infoT user_infoE;
+        defg userT userE;
+        defg versionT versionE;
+        defg utilsT utilsE;
+        defgu uT_r_aw;
+        defg requestT requestE;
+        get_version_idF;
+        updated_versionF;
+        sendF;
+        send_allF
+        (* TODO: var def *)
+      ],
+      callS send_allID [pE varID]
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
 
   (* --- FIXME --- CURRENT REWRITE POINT --- FIXME --- *)
 
