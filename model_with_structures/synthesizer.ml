@@ -529,12 +529,11 @@ struct
 
   let rec valcopy_foldero mem_with_vs v tp mem_with_vs' =
     ocanren {
-      fresh mem, vs, mem', v', mem_with_v', vs' in
+      fresh mem, vs, mem', v', vs' in
       Std.pair mem vs == mem_with_vs &
-      valcopyo mem v tp mem_with_v' &
-      Std.pair mem' v' == mem_with_v' &
+      valcopyo mem v tp (Std.pair mem' v') &
       vs' == v' :: vs &
-      mem_with_vs' == Std.pair mem vs'
+      mem_with_vs' == Std.pair mem' vs'
   }
   and valcopyo mem v tp mem_with_id' = 
     let open Type in
@@ -561,12 +560,11 @@ struct
             valcopyo mem v' tp' (Std.pair mem_cp v_cp) &
             mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
             mem_with_id' == (mem_add, RefV id_add) } } } |
-      { fresh vs, tps, mem', vs', vs'' in
+      { fresh vs, tps, mem', vs' in
         v == TupleV vs &
         tp == TupleT tps &
-        list_foldl2o valcopy_foldero (Std.pair mem []) vs tps (Std.pair mem' vs') &
-        List.reverso vs' vs'' &
-        mem_with_id' == Std.pair mem' (TupleV vs'') }
+        list_foldr2o valcopy_foldero (Std.pair mem []) vs tps (Std.pair mem' vs') &
+        mem_with_id' == Std.pair mem' (TupleV vs') }
   }
 
   (* - value update *)
@@ -634,7 +632,14 @@ struct
 
   (* - expression evaluation *)
 
-  let rec exprvalo mem vals e v' = 
+  (* let rec exprval_foldero mem vals vs e vs' = ocanren { *)
+    (* fresh v' in *)
+    (* exprvalo mem vals e v' & *)
+    (* vs' == v' :: vs *)
+  (* } *)
+  (* and *)
+  let rec
+  exprvalo mem vals e v' = 
     let open Expr in
     let open Value in
     ocanren {
@@ -648,6 +653,7 @@ struct
         v' == RefV v } |
       { fresh es, vs' in
         e == TupleE es &
+        (* list_foldro (exprval_foldero mem vals) [] es vs' & *)
         List.mapo (exprvalo mem vals) es vs' &
         v' == TupleV vs' }
   }
@@ -692,9 +698,14 @@ struct
                 types', vals' in
           d == VarD (tp, e) &
           exprvalo mem vals e v &
+          (* v == TupleV [ZeroV; ZeroV] & (* FIXME TMP *) *)
           valcopyo mem v tp (Pair.pair mem_cp v_cp) &
+          (* mem_cp == mem & v_cp == v & *)
           mem_addo mem_cp v_cp (Pair.pair mem_add id_add) &
+          (* mem_add == mem_cp & *)
           types_glob_addo types x tp types' &
+          (* types == types' & *)
+          (* vals == vals' & *)
           vals_glob_addo vals x id_add vals' &
           st' == StEnv (mem_add, types', vals', visited) } |
         { fresh tps, s,
@@ -813,15 +824,14 @@ struct
         valspoilo mem v' tp' u' m ctp' (Std.pair mem_sp v_sp) &
         mem_seto mem_sp id' v_sp mem_set &
         mem_with_v' == Std.pair mem_set (RefV id') } |
-      { fresh tps, us, vs, mem_sp, vs_sp, vs_sp' in
+      { fresh tps, us, vs, mem_sp, vs_sp in
         tp == TupleT tps &
         u == TupleT us &
         v == TupleV vs &
-        list_foldl3o (valspoil_foldero m c)
+        list_foldr3o (valspoil_foldero m c)
                      (Std.pair mem []) tps us vs
                      (Std.pair mem_sp vs_sp) &
-        List.reverso vs_sp vs_sp' &
-        mem_with_v' == Std.pair mem_sp (TupleV vs_sp')
+        mem_with_v' == Std.pair mem_sp (TupleV vs_sp)
       }
   }
 
