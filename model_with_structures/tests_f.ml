@@ -21,7 +21,7 @@ open Mode
   StEnv.ground GT.list with show
 @type answerCpCap =
   CopyCap.ground GT.list with show
-@type answerCpCapVec =
+@type answerCpCapList =
   (CopyCap.ground GT.list) GT.list with show
 
 (* - shortcuts *)
@@ -655,6 +655,11 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
 
+let rw_unitTo tp = ocanren {
+    (* fresh r, w in *)
+    tp == UnitT (Rd, AlwaysWr)
+  }
+
 let any_unitTo tp = ocanren {
     fresh r, w in
     tp == UnitT (r, w)
@@ -662,40 +667,40 @@ let any_unitTo tp = ocanren {
 
 let any_user_utilsTo tp = ocanren {
     fresh x, y in
-    any_unitTo x &
-    any_unitTo y &
+    rw_unitTo x &
+    rw_unitTo y &
     tp == TupleT [x; y]
   }
 
 let any_user_infoTo tp = ocanren {
     fresh x, y, z in
-    any_unitTo x &
-    any_unitTo y &
-    any_unitTo z &
+    rw_unitTo x &
+    rw_unitTo y &
+    rw_unitTo z &
     tp == TupleT [x; y; z]
   }
 
 let any_versionTo tp = ocanren {
     fresh x, y, z in
-    any_unitTo x &
-    any_unitTo y &
-    any_unitTo z &
+    rw_unitTo x &
+    rw_unitTo y &
+    rw_unitTo z &
     tp == TupleT [x; y; z]
   }
 
 let any_utilsTo tp = ocanren {
     fresh x, y in
-    any_unitTo x &
-    any_unitTo y &
+    rw_unitTo x &
+    rw_unitTo y &
     tp == TupleT [x; y]
   }
 
 let any_dataTo tp = ocanren {
-    any_unitTo tp
+    rw_unitTo tp
   }
 
 let any_op_dateTo tp = ocanren {
-    any_unitTo tp
+    rw_unitTo tp
   }
 
 let any_userTo cu ci tp = ocanren {
@@ -730,14 +735,14 @@ let any_boxed_moded_requestTo tp = ocanren {
   }
 
 (* TODO: synt all modifiers, etc *)
-let prog_synt_compl_test_send _ = show(answerCpCap) (Stream.take (run q
+let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
   (fun q -> ocanren {
               fresh (* types *)
                     uT_r_aw,
                     user_utilsT, user_infoT,
                     userT, versionT, utilsT,
                     requestT,
-                    moded_requestT,
+                    (* moded_requestT, *)
                     (* global vars init exprs *)
                     user_utilsE, user_infoE,
                     userE, versionE, utilsE,
@@ -762,19 +767,14 @@ let prog_synt_compl_test_send _ = show(answerCpCap) (Stream.take (run q
                     (* synt *)
                     st in
               (* types *)
-              uT_r_aw == UnitT (Rd, AlwaysWr) &
-              user_utilsT == TupleT [uT_r_aw (* 0 id *); uT_r_aw] &
-              user_infoT ==  TupleT [uT_r_aw (* 0 name *); uT_r_aw; uT_r_aw] &
-              userT == TupleT [RefT (q, user_utilsT) (* 0 utils *);
-                               RefT (Cp, user_infoT) (* 1 info *)] &
-              versionT == TupleT [uT_r_aw (* 0 id *); uT_r_aw; uT_r_aw] &
-              utilsT == TupleT [uT_r_aw (* 0 has_version *); uT_r_aw (* 1 id *)] &
-              requestT == TupleT [RefT (Cp, userT) (* 0 user *);
-                                  RefT (Cp, versionT) (* 1 version *);
-                                  RefT (Cp, utilsT) (* 2 utils *);
-                                  RefT (Cp, uT_r_aw) (* 3 data *);
-                                  uT_r_aw (* 4 operation_date *)] &
-              moded_requestT == (Mode (In, NOut), requestT) &
+              any_unitTo uT_r_aw &
+              any_user_utilsTo user_utilsT &
+              any_user_infoTo user_infoT &
+              any_userTo Cp Cp userT &
+              any_versionTo versionT &
+              any_utilsTo utilsT &
+              any_requestTo Cp Cp Cp Cp Cp Cp requestT &
+              (* moded_requestTo moded_requestT & *)
               (* global vars init exprs *)
               user_utilsE == TupleE [UnitE (* 0 id *); UnitE] &
               user_infoE ==  TupleE [UnitE (* 0 name *); UnitE; UnitE] &
@@ -848,6 +848,17 @@ let prog_synt_compl_test_send _ = show(answerCpCap) (Stream.take (run q
                     )]
                    send_allF &
 
+              fresh mrT_gvi, mrT_uv, mrT_s, mrT_sa in
+              fresh gvi_c0, gvi_c1, gvi_c2, gvi_c3, gvi_c4, gvi_c5, mrT' in
+              any_moded_requestTo gvi_c0 gvi_c1 gvi_c2 gvi_c3 gvi_c4 gvi_c5 mrT' &
+              (* TODO *)
+              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_gvi & *)
+              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_uv & *)
+              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_s & *)
+              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_sa & *)
+
+              q == [gvi_c0; gvi_c1; gvi_c2; gvi_c3; gvi_c4; gvi_c5] &
+
               prog == Prg ([
                 VarD (user_utilsT, user_utilsE);
                 VarD (user_infoT, user_infoE);
@@ -856,13 +867,17 @@ let prog_synt_compl_test_send _ = show(answerCpCap) (Stream.take (run q
                 VarD (utilsT, utilsE);
                 VarD (uT_r_aw, UnitE); (* data *)
                 VarD (requestT, requestE);
-                FunD ([moded_requestT], get_version_idF);
-                FunD ([moded_requestT], updated_versionF);
-                FunD ([moded_requestT], sendF);
-                FunD ([moded_requestT], send_allF)
+                FunD ([mrT'], get_version_idF);
+                FunD ([mrT'], updated_versionF);
+                FunD ([mrT'], sendF);
+                FunD ([mrT'], send_allF)
+                (* FunD ([mrT_gvi], get_version_idF); *)
+                (* FunD ([mrT_uv], updated_versionF); *)
+                (* FunD ([mrT_s], sendF); *)
+                (* FunD ([mrT_sa], send_allF) *)
               ],
               (* SkipS *)
               CallS (VarP send_allID, [PathE (VarP requestID)])
               ) &
               prog_evalo prog st })
-  (fun q -> q#reify (CopyCap.prj_exn)))) (* TODO: list *)
+  (fun q -> q#reify (List.prj_exn CopyCap.prj_exn)))) (* TODO: list *)
