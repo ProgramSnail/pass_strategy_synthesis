@@ -21,6 +21,8 @@ open Mode
   StEnv.ground GT.list with show
 @type answerCpCap =
   CopyCap.ground GT.list with show
+@type answerCpCapVec =
+  (CopyCap.ground GT.list) GT.list with show
 
 (* - shortcuts *)
 
@@ -518,7 +520,6 @@ let access_deref_access_deref_accesso id_ext id_mid id_int v p' = ocanren {
     p' == AccessP (DerefP (AccessP (DerefP (AccessP (VarP v, id_int)), id_mid)), id_ext)
   }
 
-(* TODO *)
 let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh (* types *)
@@ -654,4 +655,214 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
 
-(* TODO: + synth. test *)
+let any_unitTo tp = ocanren {
+    fresh r, w in
+    tp == UnitT (r, w)
+  }
+
+let any_user_utilsTo tp = ocanren {
+    fresh x, y in
+    any_unitTo x &
+    any_unitTo y &
+    tp == TupleT [x; y]
+  }
+
+let any_user_infoTo tp = ocanren {
+    fresh x, y, z in
+    any_unitTo x &
+    any_unitTo y &
+    any_unitTo z &
+    tp == TupleT [x; y; z]
+  }
+
+let any_versionTo tp = ocanren {
+    fresh x, y, z in
+    any_unitTo x &
+    any_unitTo y &
+    any_unitTo z &
+    tp == TupleT [x; y; z]
+  }
+
+let any_utilsTo tp = ocanren {
+    fresh x, y in
+    any_unitTo x &
+    any_unitTo y &
+    tp == TupleT [x; y]
+  }
+
+let any_dataTo tp = ocanren {
+    any_unitTo tp
+  }
+
+let any_op_dateTo tp = ocanren {
+    any_unitTo tp
+  }
+
+let any_userTo cu ci tp = ocanren {
+    fresh utilsT, infoT in
+    any_user_infoTo infoT &
+    any_user_utilsTo utilsT &
+    tp == TupleT [RefT (cu, utilsT) (* 0 utils *);
+                  RefT (ci, infoT) (* 1 info *)]
+  }
+
+let any_requestTo cus cv cut cd cus_u cus_i tp = ocanren {
+    fresh userT, versionT, utilsT, dataT, op_dateT in
+    any_userTo cus_u cus_i userT &
+    any_versionTo versionT &
+    any_utilsTo utilsT &
+    any_dataTo dataT &
+    any_op_dateTo op_dateT &
+    tp == TupleT [RefT (cus, userT) (* 0 user *);
+                  RefT (cv, versionT) (* 1 version *);
+                  RefT (cut, utilsT) (* 2 utils *);
+                  RefT (cd, dataT) (* 3 data *);
+                  op_dateT (* 4 operation_date *)]
+  }
+let any_moded_requestTo cus cv cut cd cus_u cus_i tp = ocanren {
+    fresh requestT in
+    any_requestTo cus cv cut cd cus_u cus_i requestT &
+    tp == (Mode (In, NOut), requestT)
+  }
+let any_boxed_moded_requestTo tp = ocanren {
+    fresh cus, cv, cut, cd, cus_u, cus_i in
+    any_moded_requestTo cus cv cut cd cus_u cus_i tp
+  }
+
+(* TODO: synt all modifiers, etc *)
+let prog_synt_compl_test_send _ = show(answerCpCap) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh (* types *)
+                    uT_r_aw,
+                    user_utilsT, user_infoT,
+                    userT, versionT, utilsT,
+                    requestT,
+                    moded_requestT,
+                    (* global vars init exprs *)
+                    user_utilsE, user_infoE,
+                    userE, versionE, utilsE,
+                    requestE,
+                    (* global vars ids *)
+                    user_utilsID, user_infoID,
+                    userID, versionID, utilsID,
+                    dataID, requestID,
+                    (* function ids *)
+                    get_version_idID,
+                    updated_versionID,
+                    sendID,
+                    send_allID,
+                    (* function definitions *)
+                    get_version_idF,
+                    updated_versionF,
+                    sendFBranch,
+                    sendF,
+                    send_allF,
+                    (* other *)
+                    prog,
+                    (* synt *)
+                    st in
+              (* types *)
+              uT_r_aw == UnitT (Rd, AlwaysWr) &
+              user_utilsT == TupleT [uT_r_aw (* 0 id *); uT_r_aw] &
+              user_infoT ==  TupleT [uT_r_aw (* 0 name *); uT_r_aw; uT_r_aw] &
+              userT == TupleT [RefT (q, user_utilsT) (* 0 utils *);
+                               RefT (Cp, user_infoT) (* 1 info *)] &
+              versionT == TupleT [uT_r_aw (* 0 id *); uT_r_aw; uT_r_aw] &
+              utilsT == TupleT [uT_r_aw (* 0 has_version *); uT_r_aw (* 1 id *)] &
+              requestT == TupleT [RefT (Cp, userT) (* 0 user *);
+                                  RefT (Cp, versionT) (* 1 version *);
+                                  RefT (Cp, utilsT) (* 2 utils *);
+                                  RefT (Cp, uT_r_aw) (* 3 data *);
+                                  uT_r_aw (* 4 operation_date *)] &
+              moded_requestT == (Mode (In, NOut), requestT) &
+              (* global vars init exprs *)
+              user_utilsE == TupleE [UnitE (* 0 id *); UnitE] &
+              user_infoE ==  TupleE [UnitE (* 0 name *); UnitE; UnitE] &
+              userE == TupleE [RefE user_utilsID (* 0 utils *);
+                               RefE user_infoID (* 1 info *)] &
+              versionE == TupleE [UnitE (* 0 id *); UnitE; UnitE] &
+              utilsE == TupleE [UnitE (* 0 has_version *); UnitE (* 1 id *)] &
+              requestE == TupleE [RefE userID (* 0 user *);
+                                  RefE versionID (* 1 version *);
+                                  RefE utilsID (* 2 utils *);
+                                  RefE dataID (* 3 data *);
+                                  UnitE (* 4 operation_date *)] &
+              (* global vars ids *)
+              globals_min_ido user_utilsID &
+              user_infoID == Nat.s user_utilsID &
+              userID == Nat.s user_infoID &
+              versionID == Nat.s userID &
+              utilsID == Nat.s versionID &
+              dataID == Nat.s utilsID &
+              requestID == Nat.s dataID &
+              (* function ids *)
+              get_version_idID == Nat.s requestID &
+              updated_versionID == Nat.s get_version_idID &
+              sendID == Nat.s updated_versionID &
+              send_allID == Nat.s sendID &
+              (* function definitions *)
+              fresh gvi_access0 in
+              access_deref_accesso 0 1 0 gvi_access0 &
+              get_version_idF == ChoiceS (ReadS gvi_access0, SkipS) &
+
+              fresh uv_access0, uv_access1, uv_access2 in
+              access_deref_accesso 0 2 0 uv_access0 &
+              access_deref_accesso 0 1 0 uv_access1 &
+              access_deref_accesso 1 1 0 uv_access2 &
+              seqo [ReadS uv_access0;
+                    ReadS uv_access1;
+                    ReadS uv_access2]
+                   updated_versionF &
+
+              fresh sb_access0, sb_access1, sb_access2, sb_access3 in
+              access_deref_accesso 0 2 0 sb_access0 &
+              deref_accesso 3 0 sb_access1 &
+              deref_accesso 3 0 sb_access2 &
+              access_deref_access_deref_accesso 0 1 0 0 sb_access3 &
+              seqo [WriteS sb_access0;
+                    ReadS sb_access1;
+                    WriteS sb_access2;
+                    ReadS sb_access3]
+                   sendFBranch &
+              seqo [ChoiceS (sendFBranch, SkipS);
+                    WriteS (AccessP (VarP 0, 4));
+                    (* TODO: read all the substructure ?? *)
+                    ReadS (AccessP (VarP 0, 4)) (*rdS v0*)] (* FIXME: TMP, parial read, should be full *)
+                   sendF &
+
+              fresh sa_access0, sa_access1, sa_access2, sa_access3 in
+              access_deref_accesso 0 1 0 sa_access0 &
+              access_deref_accesso 1 1 0 sa_access1 &
+              access_deref_access_deref_accesso 0 0 0 0 sa_access2 &
+              access_deref_accesso 0 1 0 sa_access3 &
+              seqo [WriteS (AccessP (VarP 0, 4)) (*wrS v0*); (* FIXME: TMP, parial write, should be full *)
+                    CallS (VarP sendID, [PathE (VarP 0)]);
+                    CallS (VarP get_version_idID, [PathE (VarP 0)]);
+                    CallS (VarP updated_versionID, [PathE (VarP 0)]);
+                    (* TODO: read all the substructure ?? *)
+                    WriteS sa_access0;
+                    WriteS sa_access1;
+                    ChoiceS (
+                      ReadS sa_access2,
+                      ReadS sa_access3
+                    )]
+                   send_allF &
+
+              prog == Prg ([
+                VarD (user_utilsT, user_utilsE);
+                VarD (user_infoT, user_infoE);
+                VarD (userT, userE);
+                VarD (versionT, versionE);
+                VarD (utilsT, utilsE);
+                VarD (uT_r_aw, UnitE); (* data *)
+                VarD (requestT, requestE);
+                FunD ([moded_requestT], get_version_idF);
+                FunD ([moded_requestT], updated_versionF);
+                FunD ([moded_requestT], sendF);
+                FunD ([moded_requestT], send_allF)
+              ],
+              (* SkipS *)
+              CallS (VarP send_allID, [PathE (VarP requestID)])
+              ) &
+              prog_evalo prog st })
+  (fun q -> q#reify (CopyCap.prj_exn)))) (* TODO: list *)

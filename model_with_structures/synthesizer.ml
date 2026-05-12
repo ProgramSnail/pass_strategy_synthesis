@@ -1033,11 +1033,4 @@ struct
       prog_inito prog init_st &
       stmt_evalo init_st s st'
   }
-
-  (* --- tests --- *)
-  (* TODO *)
-
-  (* - shortcuts *)
-  (* TODO *)
-
 end
