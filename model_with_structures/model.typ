@@ -48,6 +48,9 @@
 #let cl = $chevron.l$
 #let cr = $chevron.r$
 
+#let cdl = $chevron.l.double$
+#let cdr = $chevron.r.double$
+
 #let expr = `expr`
 #let stmt = `stmt`
 #let decl = `decl`
@@ -153,53 +156,71 @@
 
 #let deepValue = `deepvalue`
 #let value = `value`
+#let vmem = $v_#[`mem`]$
+#let vread = $v_#[`read`]$
+#let vwrite = $v_#[`write`]$
 #let revpath = $#[`path`]_#[`rev`]$
 
 #bnf(
+  // Prod(
+  //   $deepValue$,
+  //   {
+  //     Or[$0$][valid value of simple type] // `Unit`
+  //     Or[$\#$][valid or spoiled value of simple type] // `Unit`
+  //     Or[$bot$][spoiled value of simple type] // `Unit`
+  //     Or[$lambda space (X+ stmt)+$][function pointer value, set of possible values] // `Fun`
+  //     Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
+  //     Or[$[deepValue+]$][tuple value] // `Prod`
+  //   }
+  // ),
   Prod(
-    $deepValue$,
+    $vmem$,
     {
-      Or[$0$][valid value of simple type] // `Unit`
-      Or[$\#$][valid or spoiled value of simple type] // `Unit`
-      Or[$bot$][spoiled value of simple type] // `Unit`
-      Or[$lambda space (X+ stmt)+$][function pointer value, set of possible values] // `Fun`
-      Or[$rf deepValue$][reference value, contains label of the value in the memory] // `Ref`
-      Or[$[deepValue+]$][tuple value] // `Prod`
+      Or[$0$][valid value of simple type]
+      Or[$?$][valid or spoiled value of simple type]
+      Or[$bot$][spoiled value of simple type]
+      // NOTE: proably can't use correctly
+      // Or[$top$][value that is not spoiled because of the copy tag]
+    }
+  ),
+  Prod(
+    $vread$,
+    {
+      Or[$0_r$][argument not read]
+      Or[$1_r$][argument read]
+      Or[$top_r$][argument already written from the function beginning]
+    }
+  ),
+  Prod(
+    $vwrite$,
+    {
+      Or[$0_w$][no write]
+      Or[$?_w$][maybe write]
+      Or[$1_w$][always write]
     }
   ),
   Prod(
     $value_mu$,
     {
-      Or[$0$][valid value of simple type] // `Unit`
-      Or[$\#$][valid or spoiled value of simple type] // `Unit`
-      Or[$bot$][spoiled value of simple type] // `Unit`
+      Or[$cdl vmem, vread, vwrite cdr$][value of the simple type, contains cells for analysis] // `Unit`
       Or[$lambda space (X+ stmt)+$][function pointer value, set of possible values] // `Fun`
       Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
   ),
-  Prod(
-    revpath,
-    {
-      Or[$\# .$][value by itself]
-      Or[$rf revpath$][reference to value]
-      Or[$n . revpath$][tuple with value as $n$-th element]
-    }
-  ),
 )
 
-#deepValue - полное значение, #value - слой значения, привязан к конкретной памяти $mu$
+// #deepValue - полное значение,
+#value - слой значения, привязан к конкретной памяти $mu$
 
 Значения, могут лежать в переменных и передаваться как аргументы функций (то, во что вычисляется $expr$)
 
-$revpath$ - путь в обратную сторону, используется для обновления значений
-
 $v in value$ - произвольное значение
 
-Получение #deepValue по #value:
-- $rf l xarrowSquiggly(mu)_#[deep] rf mu[l]$
-- $* xarrowSquiggly(mu)_#[deep] *$
-где $*$ - произвольный конструктор значения, кроме $rf$
+// Получение #deepValue по #value:
+// - $rf l xarrowSquiggly(mu)_#[deep] rf mu[l]$
+// - $* xarrowSquiggly(mu)_#[deep] *$
+// где $*$ - произвольный конструктор значения, кроме $rf$
 
 == Memory Model
 
@@ -223,12 +244,40 @@ $v in value$ - произвольное значение
 
 == Semantics
 
+#let action = `action`
+#let readA = $#[`READ`]_a$
+#let writeA = $#[`WRITE`]_a$
+#let spoilA = $#[`SPOIL`]_a$
+// #let nospoilA = $#[`NOSPOIL`]_a$
+
+#bnf(
+  Prod(
+    revpath,
+    {
+      Or[$\# .$][value by itself]
+      Or[$rf revpath$][reference to value]
+      Or[$n . revpath$][tuple with value as $n$-th element]
+    }
+  ),
+  Prod(
+    $action$,
+    {
+      Or[$readA$][value read]
+      Or[$writeA$][value written]
+      Or[$spoilA$][value passed as funciton argument and spoiled]
+      // NOTE: probably acutally can't reliebly forbid Cp
+      // Or[$nospoilA$][value passed as funciton argument and not changed,
+      //                but could be spoiled if mode will be $Copy$ instead of $Ref$]
+      // TODO: better wording ??
+    }
+  ),
+)
+
 // TODO: FIXME: add vars & funcs from global context in the beginnning
 
 // $V := memelem$ - значения памяти
 
 $X$ - можество переменных
-
 
 #let vals = $Sigma$
 #let types = $Gamma$
@@ -236,6 +285,11 @@ $X$ - можество переменных
 #let envt = $#[env]_Gamma$
 $sigma : envv := X -> LL, space vals : envv$ - #[ метки памяти перменных контекста, частично определённая функция ]
 $sigma : envt := X -> type, space types : envt$ - #[ типы значений перменных контекста, частично определённая функция ]
+
+$revpath$ - путь в обратную сторону, используется для обновления значений
+
+$action$ - действия, совершаемые с примитивным значением,
+           модифицирующие содержащуюся таминформацию
 
 // $DD : X -> decl$ - глобальные определения, частично определённая функция
 
@@ -437,7 +491,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 //     // $sigma temode x -> cr r' space w' cl$, // NOTE: not required, value passed
 //     $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
 //     // $sigma, mu teval x eqmu v$, // NOTE: not required, value passed
-//     $v in {0, \#, bot}$,
+//     $v in {0, ?, bot}$,
 //     $r = Read => v = 0$,
 //     $types, vals, mu, m, c tcorrect v : cl r', w' cr -> cl r, w cr$,
 //   )
@@ -485,18 +539,33 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ new trivial read value],
 
-    $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl Read \, w cr)_new cl v, mu cr$,
+    $v_m in {0, ?, bot}$,
+    $cl cdl v_m, v_r, v_w cdr, mu cr
+     xarrowSquiggly(cl Read \, w cr)_new
+     cl cdl v_m, 0, 0 cdr, mu cr$,
   )
 ))
+
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ new trivial read $top$ value],
+
+//     $cl cdl top, v_r, v_w cdr, mu cr
+//      xarrowSquiggly(cl Read \, w cr)_new
+//      cl cdl 0, 0, 0 cdr, mu cr$,
+//   )
+// ))
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ new trivial $not$ read value],
 
-    $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl not Read \, w cr)_new cl bot, mu cr$,
+    $v_m in {0, ?, bot/*, top */}$,
+    $cl cdl v_m, v_r, v_w cdr, mu cr
+     xarrowSquiggly(cl not Read \, w cr)_new
+     cl cdl bot, 0, 0 cdr, mu cr$,
   )
 ))
 
@@ -505,7 +574,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ new funciton pointer value],
 
-    $cl lambda overline(t) s, mu cr xarrowSquiggly(lambda space c space overline(t))_new cl lambda overline(t) s, mu cr$,
+    $cl lambda overline(s), mu cr xarrowSquiggly(lambda space c space overline(t))_new cl lambda overline(s), mu cr$,
   )
 ))
 
@@ -547,18 +616,98 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   )
 ))
 
+=== Action Rules
+
+#let modM = $attach(<-, br: m)$
+#let modR = $attach(<-, br: r)$
+#let modW = $attach(<-, br: w)$
+
+#align(center, grid(
+  columns: 3,
+  gutter: 10%,
+  align: center,
+  table(
+    columns: 3,
+    table.header(
+      [*a*], [*x*], $modM$
+    ),
+    $readA$, $0$, $0$,
+    // $readA$, $top$, $0$,
+    $readA$, $?$, $-$, // err
+    $readA$, $bot$, $-$, // err
+    $writeA$, $0$, $0$,
+    // $writeA$, $top$, $-$,
+    $writeA$, $?$, $0$,
+    $writeA$, $bot$, $0$,
+    $spoilA$, $0$, $bot$,
+    // $spoilA$, $top$, $bot$,
+    $spoilA$, $?$, $bot$,
+    $spoilA$, $bot$, $bot$,
+    // $nospoilA$, $0$, $top$,
+    // $nospoilA$, $top$, $top$,
+    // $nospoilA$, $?$, $-$, // ??
+    // $nospoilA$, $bot$, $-$,
+  ),
+
+  table(
+    columns: 3,
+    table.header(
+      [*a*], [*x*], $modR$
+    ),
+    $readA$, $1$, $1$,
+    $readA$, $0$, $1$,
+    $readA$, $top$, $top$,
+    $writeA$, $1$, $1$,
+    $writeA$, $0$, $top$,
+    $writeA$, $top$, $top$,
+
+    $spoilA$, $1$, $1$,
+    $spoilA$, $0$, $0$,
+    $spoilA$, $top$, $top$,
+    // $nospoilA$, $1$, $1$,
+    // $nospoilA$, $0$, $0$,
+    // $nospoilA$, $top$, $top$,
+  ),
+
+  table(
+    columns: 3,
+    table.header(
+      [*a*], [*x*], $modW$
+    ),
+    $readA$, $1$, $1$,
+    $readA$, $?$, $?$,
+    $readA$, $0$, $0$,
+    $writeA$, $1$, $1$,
+    $writeA$, $?$, $1$,
+    $writeA$, $0$, $1$,
+
+    $spoilA$, $1$, $1$,
+    $spoilA$, $?$, $?$,
+    $spoilA$, $0$, $0$,
+    // $nospoilA$, $1$, $1$,
+    // $nospoilA$, $?$, $?$,
+    // $nospoilA$, $0$, $0$,
+  )
+))
+
+Прочерк \"$-$\" означает, что данная операция не определена.
+
 === Value Update
 
-#let modify = `modify`
+==== Change
+
+Замена подзначения в значении по $revpath$, $b in value$.
+
+#let change = `change`
 
 // TODO: add type check ??
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ modify end value],
+    name: [ change final value],
 
-    // $v in {0, \#, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl \# . \, b cr)_modify cl b, mu cr$,
+    // $v in {0, ?, bot}$,
+    $cl v, mu cr xarrowSquiggly(cl \# . \, b cr)_change cl b, mu cr$,
   )
 ))
 
@@ -567,10 +716,54 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ new reference copy value],
+    name: [ change reference value],
 
-    $cl mu[l], mu cr xarrowSquiggly(cl pi \, b cr)_modify cl v', mu' cr$,
-    $cl rf l, mu cr xarrowSquiggly(cl rf pi \, b cr)_modify cl rf l, mu'[l <- v'] cr$,
+    $cl mu[l], mu cr xarrowSquiggly(cl pi \, b cr)_change cl v', mu' cr$,
+    $cl rf l, mu cr xarrowSquiggly(cl rf pi \, b cr)_change cl rf l, mu'[l <- v'] cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ change tuple value],
+
+    $cl v_i, mu cr xarrowSquiggly(cl p \, b cr)_change cl v'_i, mu', cr$,
+    $cl [v_1, ... v_i, ... v_n], mu cr xarrowSquiggly(cl i.pi \, b cr)_change cl [v_1, ... v'_i, ... v_n], mu' cr$,
+  )
+))
+
+#h(10pt)
+
+==== Modify
+
+Совершение операции над тривиальным подзначением в значении по $revpath$, $a in action$
+
+#let modify = `modify`
+
+// TODO: add type check ??
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ modify final value],
+
+    $cl cdl v_m, v_r, v_w cdr, mu cr
+     xarrowSquiggly(cl \# . \, a cr)_modify
+     cl cdl v_m modM a, v_r modR a, v_w modW a cdr, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ modify reference value],
+
+    $cl mu[l], mu cr xarrowSquiggly(cl pi \, a cr)_modify cl v', mu' cr$,
+    $cl rf l, mu cr xarrowSquiggly(cl rf pi \, a cr)_modify cl rf l, mu'[l <- v'] cr$,
   )
 ))
 
@@ -581,8 +774,8 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ modify tuple value],
 
-    $cl v_i, mu cr xarrowSquiggly(cl p \, b cr)_modify cl v'_i, mu', cr$,
-    $cl [v_1, ... v_i, ... v_n], mu cr xarrowSquiggly(cl i.pi \, b cr)_modify cl [v_1, ... v'_i, ... v_n], mu' cr$,
+    $cl v_i, mu cr xarrowSquiggly(cl p \, a cr)_modify cl v'_i, mu', cr$,
+    $cl [v_1, ... v_i, ... v_n], mu cr xarrowSquiggly(cl i.pi \, a cr)_modify cl [v_1, ... v'_i, ... v_n], mu' cr$,
   )
 ))
 
@@ -590,29 +783,74 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
 === Value Combination
 
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ combine same trivial values],
+#align(center, grid(
+  columns: 3,
+  gutter: 20%,
+  align: center,
+  table(
+    columns: 3,
+    table.header(
+      [*x*], [*y*], $plus.o_m$
+    ),
+    $0$, $0$, $0$,
+    // $0$, $top$, $0$,
+    $0$, $?$, $?$,
+    $0$, $bot$, $?$,
+    $?$, $0$, $?$,
+    $?$, $?$, $?$,
+    $?$, $bot$, $?$,
+    // $?$, $top$, $?$,
+    $bot$, $0$, $?$,
+    $bot$, $?$, $?$,
+    // $bot$, $top$, $?$,
+    $top$, $0$, $?$,
+    $top$, $?$, $?$,
+    $top$, $bot$, $?$,
+    $bot$, $bot$, $bot$,
+    // $top$, $top$, $top$,
+  ),
 
-    $v_1 in {0, \#, bot}$,
-    $v_2 in {0, \#, bot}$,
-    $v_1 = v_2$,
-    $v_1 plus.o v_2 = v_1$
+  table(
+    columns: 3,
+    table.header(
+      [*x*], [*y*], $plus.o_r$
+    ),
+    $1$, $1$, $1$,
+    $1$, $0$, $1$,
+    $1$, $top$, $1$,
+    $0$, $1$, $1$,
+    $top$, $1$, $1$,
+    $0$, $0$, $0$,
+    $0$, $top$, $0$,
+    $top$, $0$, $0$,
+    $top$, $top$, $top$,
+  ),
+
+  table(
+    columns: 3,
+    table.header(
+      [*x*], [*y*], $plus.o_w$
+    ),
+    $1$, $1$, $1$,
+    $1$, $?$, $?$,
+    $1$, $0$, $?$,
+    $?$, $1$, $?$,
+    $?$, $?$, $?$,
+    $?$, $0$, $?$,
+    $0$, $1$, $?$,
+    $0$, $?$, $?$,
+    $0$, $0$, $0$,
   )
 ))
 
-#h(10pt)
-
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ combine different trivial values],
+    name: [ combine trivial values],
 
-    $v_1 in {0, \#, bot}$,
-    $v_2 in {0, \#, bot}$,
-    $v_1 != v_2$,
-    $v_1 plus.o v_2 = \#$
+    $v_1 = cdl v_1_m, v_1_r, v_1_w cdr$,
+    $v_2 = cdl v_2_m, v_2_r, v_2_w cdr$,
+    $v_1 plus.o v_2 = cdl v_1_m plus.o_m v_2_m, v_1_r plus.o_r v_2_r, v_1_w plus.o_w v_2_w cdr$
   )
 ))
 
@@ -813,6 +1051,8 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
 #let spoil = `spoil`
 
+*TODO: use actions* // TODO: FIXME:
+
 // TODO: FIXME: complete rule check
 #let tcorrectnew = $attach(tack.r.double, br: #[correct])$
 #align(center, prooftree(
@@ -825,7 +1065,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $m = (\_, Out) => w = AlwaysWrite$,
     $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
 
-    $v in {0, \#, bot}$,
+    $v in {0, ?, bot}$,
 
     $ tcorrectnew cl v, r, w, r', w', m, c cr $,
   )
@@ -841,7 +1081,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $ tcorrectnew cl v, r, w, r', w', m, c cr $,
 
     $w = AlwaysWrite or w = MaybeWrite$,
-    $v in {0, \#, bot}$,
+    $v in {0, ?, bot}$,
     $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \, (\_, not Out) \, not Copy)_spoil cl bot, mu cr$,
   )
 ))
@@ -856,7 +1096,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $ tcorrectnew cl v, r, w, r', w', m, c cr $,
 
     $w = AlwaysWrite$,
-    $v in {0, \#, bot}$,
+    $v in {0, ?, bot}$,
     $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \,  (\_, Out) \, c)_spoil cl 0, mu cr$,
   )
 ))
@@ -872,7 +1112,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
     $not "spoil step"$,
     $not "fix step"$,
-    $v in {0, \#, bot}$,
+    $v in {0, ?, bot}$,
     $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \, (\_, not Out) \, c)_spoil cl v, mu cr$,
   )
 ))
@@ -945,7 +1185,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     // FIXME depends on parent ??
     $cl b, mu cr xarrowSquiggly(t \, t' \, m \, Copy)_spoil cl b', mu' cr$,
     $p arrrevpath^(\#.) pi$,
-    $cl mu'[l], mu' cr xarrowSquiggly(cl pi \, b' cr)_modify cl v'', mu'' cr$,
+    $cl mu'[l], mu' cr xarrowSquiggly(cl pi \, b' cr)_change cl v'', mu'' cr$,
 
     $mu stretch(=>)^(m space t space p)_(cl vals, types cr) mu''[l <- v'']$,
   )
@@ -1009,6 +1249,80 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
 === Function Evaluation
 
+#align(center, grid(
+  columns: 2,
+  gutter: 20%,
+  align: center,
+
+  [
+    $ x ~_r t$
+
+    #table(
+      columns: 2,
+      table.header(
+        [*x*], [*t*]
+      ),
+      $1$, $Read$,
+      $0$, $not Read$,
+      $top$, $not Read$,
+    )
+  ],
+
+  [
+    $x ~_w t$
+    #table(
+      columns: 2,
+      table.header(
+        [*x*], [*t*]
+      ),
+      $0$, $NotWrite$,
+      $?$, $MaybeWrite$,
+      $1$, $AlwaysWrite$,
+    )
+  ]
+))
+
+#let ttags = $attach(tack.r, br: #[`tags`])$
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ trivial type check],
+
+    $v_r ~_r r$,
+    $v_w ~_w w$,
+    $mu ttags cdl v_m, v_r, v_w cdr : cl r, w cr$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ lambda check],
+
+    $mu ttags lambda overline(s) :$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ reference check],
+
+    $mu ttags mu[l] : t$,
+    $mu ttags rf l : rf t$,
+  )
+))
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ tuple check],
+
+    $mu ttags v_1 : t_1$,
+    $...$,
+    $mu ttags v_n : t_n$,
+    $mu ttags [v_1, ... v_n] : [t_1, ... t_n]$,
+  )
+))
+
 #let tfunceval = $attach(tack.r.double, br: #[func eval])$
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -1028,9 +1342,15 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
      xarrowDashed(x_n space t_n space e_n)_vals
      cl types_n, vals_n, mu_n cr$,
 
+    // NOTE: eval function body
     $cl types_n, vals_n,  mu_n cr
      xarrow(s)
      cl types', vals', mu' cr$,
+
+    // NOTE: check that read and write tags are used properly
+    $mu' ttags x_1 : t_1$,
+    $...$,
+    $mu' ttags x_n : t_n$,
 
     $vals, mu_0 tfunceval cl s, [x_1, .. x_n], [t_1, ... t_n], [e_1, ... e_n] cr$,
   )
@@ -1066,7 +1386,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $...$,
     $vals, mu_0 tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
 
-    // NOTE: thick arrow to "spoil" context
+    // NOTE: "spoil" context for each argument usage
     $mu_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) mu_1$,
     $...$,
     $mu_(n - 1) stretch(=>)^(m_n space t_n space e_n)_(cl vals, types cr) mu_n$,
@@ -1089,7 +1409,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $p arrpath x$,
     $l = vals[x]$,
     $p arrrevpath^(\#.) pi$,
-    $mu[l] xarrowSquiggly(cl pi \, 0 cr)_modify v'$,
+    $mu[l] xarrowSquiggly(cl pi \, writeA cr)_modify v'$,
 
     $cl types, vals, mu cr
      xarrow("WRITE" p)
@@ -1102,15 +1422,22 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ READ $p$],
 
-    $vals, mu tval p eqmu 0$,
+    // TODO: already handled in modify ?
+    // $vals, mu tval p eqmu cdr v_m, \_, \_ cdl$,
+    // $v_m in { 0, top }$,
+
+    $types ttype p : cl r, w cr$,
+    $r = Read$,
+    $p arrpath x$,
+    $l = vals[x]$,
+    $p arrrevpath^(\#.) pi$,
+    $mu[l] xarrowSquiggly(cl pi \, readA cr)_modify v'$,
 
     $cl types, vals, mu cr
      xarrow("READ" p)
-     cl types, vals, mu cr$,
+     cl types, vals, mu[l <- v'] cr$,
   )
 ))
-
-#h(10pt)
 
 #h(10pt)
 
