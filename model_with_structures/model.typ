@@ -816,9 +816,9 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $bot$, $0$, $?$,
     $bot$, $?$, $?$,
     // $bot$, $top$, $?$,
-    $top$, $0$, $?$,
-    $top$, $?$, $?$,
-    $top$, $bot$, $?$,
+    // $top$, $0$, $?$,
+    // $top$, $?$, $?$,
+    // $top$, $bot$, $?$,
     $bot$, $bot$, $bot$,
     // $top$, $top$, $top$,
   ),
@@ -942,7 +942,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ unit expr value],
 
-    $vals, mu texpre () eqmu 0$,
+    $vals, mu texpre () eqmu cdl 0_m, 0_r, 0_w cdr$,
   )
 ))
 
@@ -1064,6 +1064,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
 #let spoil = `spoil`
 #let tryread = `try read`
+#let tryspoil = `try spoil`
 
 #let tcorrectnew = $attach(tack.r.double, br: #[correct])$
 #align(center, prooftree(
@@ -1105,7 +1106,44 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   )
 ))
 
-// TODO: extract correctness
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ value maybe spoiled],
+
+    $v_m,
+     xarrowSquiggly(not Out \, MaybeWrite)_tryspoil
+     ?$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ value always spoiled],
+
+    $v_m,
+     xarrowSquiggly(not Out \, AlwaysWrite)_tryspoil
+     bot$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ value not spoiled],
+
+    $v_m,
+     xarrowSquiggly(Out \, w)_tryspoil
+     v_m$,
+  )
+))
 
 #h(10pt)
 
@@ -1119,10 +1157,11 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
      xarrowSquiggly(r)_tryread
      cl v_m', v_r', v_w' cr$,
 
-    $w = AlwaysWrite$,
+    $v_m' modW writeA xarrowSquiggly(o \, AlwaysWrite)_tryspoil v_m''$,
+
     $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, Ref)_spoil
-     cl cdl bot, v_r' modR writeA, v_w' modW writeA cdr, cdr, mu cr$,
+     xarrowSquiggly(cl r \, AlwaysWrite cr \, (\_, o) \, Ref)_spoil
+     cl cdl v_m'', v_r' modR writeA, v_w' modW writeA cdr, cdr, mu cr$,
   )
 ))
 
@@ -1138,10 +1177,11 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
      xarrowSquiggly(r)_tryread
      cl v_m', v_r', v_w' cr$,
 
-    $w = MaybeWrite$,
+    $v_m' modW mbwriteA xarrowSquiggly(o \, MaybeWrite)_tryspoil v_m''$,
+
     $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, Ref)_spoil
-     cl cdl ?, v_r' modR mbwriteA, v_w' modW mbwriteA cdr, mu cr$,
+     xarrowSquiggly(cl r \, MaybeWrite cr \, (\_, o) \, Ref)_spoil
+     cl cdl v_m'', v_r' modR mbwriteA, v_w' modW mbwriteA cdr, mu cr$,
   )
 ))
 
@@ -1153,12 +1193,15 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     name: [ skip step],
 
     $ tcorrectnew cl r, w, m, c cr $,
+    $cl v_m, v_r, v_w cr,
+     xarrowSquiggly(r)_tryread
+     cl v_m', v_r', v_w' cr$,
 
-    $o == Out or c == Copy or w = NotWrite$,
+    $c = Copy or w = NotWrite$,
 
     $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl r \, w cr cr \, (\_, o) \, c)_spoil
-     cl cdl v_m, v_r, v_w cdr mu cr$,
+     xarrowSquiggly(cl r \, w cr cr \, (\_, \_) \, c)_spoil
+     cl cdl v_m', v_r', v_w' cdr mu cr$,
   )
 ))
 
@@ -1344,7 +1387,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ lambda check],
 
-    $mu ttags lambda overline(s) :$,
+    $mu ttags lambda space overline(s) :$,
   )
 ))
 #align(center, prooftree(
@@ -1393,9 +1436,9 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
      cl types', vals', mu' cr$,
 
     // NOTE: check that read and write tags are used properly
-    $mu' ttags x_1 : t_1$,
+    $mu' ttags mu'[vals'[x_1]] : t_1$,
     $...$,
-    $mu' ttags x_n : t_n$,
+    $mu' ttags mu'[vals'[x_n]] : t_n$,
 
     $vals, mu_0 tfunceval cl s, [x_1, .. x_n], [t_1, ... t_n], [e_1, ... e_n] cr$,
   )

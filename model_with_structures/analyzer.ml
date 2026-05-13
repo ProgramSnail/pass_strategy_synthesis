@@ -59,21 +59,25 @@ struct
 
   (* value model & memory model *)
 
-  type deepvalue = ZeroDV
-                 | SmthDV
-                 | BotDV
-                 | FunDV of ((* data list * *) stmt) list
-                 | RefDV of deepvalue
-                 | TupleDV of deepvalue list
+  (* type deepvalue = ZeroDV *)
+                 (* | SmthDV *)
+                 (* | BotDV *)
+                 (* | FunDV of ((* data list * *) stmt) list *)
+                 (* | RefDV of deepvalue *)
+                 (* | TupleDV of deepvalue list *)
 
-  type value = ZeroV
-             | SmthV
-             | BotV
+  type memval = ZeroMV | SmthMV | BotMV (* | TopMV ?? *)
+  type readval = ZeroRV | OneRV | TopRV
+  type writeval = ZeroWV | SmthWV | OneWV
+
+  type value = UnitV of memval * readval * writeval
              | FunV of ((* data list * *) stmt) list
              | RefV of memid
              | TupleV of value list
 
   type revpath = VarRP | DerefRP of revpath | AccessRP of revpath * data
+
+  type action = ReadA | AlwaysWriteA | MayWriteA
 
   (* TODO: any additional difference between rvalue and lvalue now ?? *)
 
@@ -138,16 +142,17 @@ struct
   let mem_set (mem : mem) (id : memid) (v : value) : mem =
     (list_replace (fst mem) (snd mem - id - 1) v, snd mem)
 
-  let rec v_to_deepv (mem : mem) (v : value) : deepvalue = match v with
-    | ZeroV -> ZeroDV
-    | SmthV -> SmthDV
-    | BotV -> BotDV
-    | FunV s -> FunDV s
-    | RefV id -> RefDV (v_to_deepv mem @@ mem_get mem id)
-    | TupleV vs -> TupleDV (List.map (v_to_deepv mem) vs)
+  (* let rec v_to_deepv (mem : mem) (v : value) : deepvalue = match v with *)
+    (* | ZeroV -> ZeroDV *)
+    (* | SmthV -> SmthDV *)
+    (* | BotV -> BotDV *)
+    (* | FunV s -> FunDV s *)
+    (* | RefV id -> RefDV (v_to_deepv mem @@ mem_get mem id) *)
+    (* | TupleV vs -> TupleDV (List.map (v_to_deepv mem) vs) *)
 
-  let is_trivial_v (v : value) : bool = 
-    v == ZeroV || v == SmthV || v == BotV
+  let is_trivial_v (v : value) : bool =
+    match v with | UnitV (_, _, _) -> true
+                 | _ -> false
 
   (* --- path accessors --- *)
 
@@ -191,19 +196,9 @@ struct
   (* - value construction *)
 
   let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value =
-    if is_trivial_v v
-    then match t with
-    | UnitT (Rd, _) -> (mem, v)
-    | UnitT (NRd, _) -> (mem, BotV)
-    | _ -> raise @@ Typing_error "valcopy: trivial value, wrong type"
-    else match t, v with
-    (* NOTE: replaced with if | best choice ?? *)
-    (* | UnitT (Rd, w), ZeroV -> (mem, v) *)
-    (* | UnitT (Rd, w), SmthV -> (mem, v) *)
-    (* | UnitT (Rd, w), BotV -> (mem, v) *)
-    (* | UnitT (NRd, w), ZeroV -> (mem, BotV) *)
-    (* | UnitT (NRd, w), SmthV -> (mem, BotV) *)
-    (* | UnitT (NRd, w), BotV -> (mem, BotV) *)
+    match t, v with
+    | UnitT (Rd, _), UnitV (v_m, _, _) -> (mem, UnitV (v_m, ZeroRV, ZeroWV))
+    | UnitT (NRd, _), UnitV _ -> (mem, UnitV (BotMV, ZeroRV, ZeroWV))
     | FunT _, FunV _ -> (mem, v)
     | RefT (Rf, _), RefV _ -> (mem, v)
     | RefT (Cp, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
@@ -215,25 +210,78 @@ struct
                               (mem', TupleV (List.rev vs')) (* TODO: FIXME: should reverse or not ?? *)
     | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type"
 
+  (* - action rules *)
+
+  let memvmod (a : action) (v_m : memval) : memval =
+    match a, v_m with
+      | ReadA, ZeroMV -> ZeroMV
+      | ReadA, _ -> raise @@ Typing_error "memvmod: forbidden read"
+      | AlwaysWriteA, _ -> ZeroMV
+      | MayWriteA, ZeroMV -> ZeroMV
+      | MayWriteA, _ -> SmthMV
+
+  let readvmod (a : action) (v_r : readval) : readval =
+    match a, v_r with
+      | _, TopRV -> TopRV
+      | _, OneRV -> OneRV
+      | ReadA, ZeroRV -> OneRV
+      | AlwaysWriteA, ZeroRV -> TopRV
+      | MayWriteA, ZeroRV -> ZeroRV
+
+  let writevmod (a : action) (v_w : writeval) : writeval =
+    match a, v_w with
+      | ReadA, v -> v
+      | AlwaysWriteA, _ -> OneWV
+      | MayWriteA, OneWV -> OneWV
+      | MayWriteA, v -> v
+
   (* - value update *)
 
-  let rec valupd (mem : mem) (v : value) (p : revpath) (b : value) : mem * value = match p, v with
+  (* TODO: change and modify are different *)
+
+  let rec valchange (mem : mem) (v : value) (p : revpath) (b : value) : mem * value = match p, v with
     | VarRP, _ -> (mem, b)
-    | DerefRP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p b in
+    | DerefRP p, RefV id -> let (mem', v') = valchange mem (mem_get mem id) p b in
                             (mem_set mem' id v', RefV id)
-    | AccessRP (p, id), TupleV vs -> let (mem', v') = (* FIXME TMP Printf.printf "vs size=%i id=%i\n" (List.length vs) id; *)
-                                                      valupd mem (List.nth vs id) p b in
-                                     (* FIXME TMP Printf.printf "before return\n"; *)
+    | AccessRP (p, id), TupleV vs -> let (mem', v') = valchange mem (List.nth vs id) p b in
+                                     (mem', TupleV (list_replace vs id v'))
+    | _, _ -> raise @@ Typing_error "valupd"
+
+  let rec valupd (mem : mem) (v : value) (p : revpath) (a : action) : mem * value = match p, v with
+    | VarRP, UnitV (v_m, v_r, v_w) -> (mem, UnitV (memvmod a v_m, readvmod a v_r, writevmod a v_w))
+    | DerefRP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p a in
+                            (mem_set mem' id v', RefV id)
+    | AccessRP (p, id), TupleV vs -> let (mem', v') = valupd mem (List.nth vs id) p a in
                                      (mem', TupleV (list_replace vs id v'))
     | _, _ -> raise @@ Typing_error "valupd"
 
   (* - value combination *)
 
+  let memvalcomb (u : memval) (v : memval) : memval =
+    match u, v with
+      | ZeroMV, ZeroMV -> ZeroMV
+      | BotMV, BotMV -> BotMV
+      | _, _ -> SmthMV
+
+  let readvalcomb (u : readval) (v : readval) : readval =
+    match u, v with
+      | TopRV, TopRV -> TopRV
+      | ZeroRV, ZeroRV -> ZeroRV
+      | TopRV, ZeroRV -> ZeroRV
+      | ZeroRV, TopRV -> ZeroRV
+      | _, _ -> OneRV
+
+  let writevalcomb (u : writeval) (v : writeval) : writeval =
+    match u, v with
+      | OneWV, OneWV -> OneWV
+      | ZeroWV, ZeroWV -> ZeroWV
+      | _, _ -> SmthWV
+
   let rec valcomb (u : value) (v : value) : value =
-    if is_trivial_v u && is_trivial_v v
-    then (if u == v then u else BotV)
-    else match u, v with
-      | FunV ustmts, FunV vstmts  -> FunV (ustmts @ vstmts)
+    match u, v with
+      | UnitV (u_m, u_r, u_w), UnitV (v_m, v_r, v_w) ->
+        UnitV (memvalcomb u_m v_m, readvalcomb u_r v_r, writevalcomb u_w v_w)
+      | FunV ustmts, FunV vstmts -> FunV (ustmts @ vstmts)
       | RefV a, RefV b -> if a == b then u else raise @@ Typing_error "valcomb: ref"
       | TupleV us, TupleV vs -> TupleV (List.map2 valcomb us vs)
       | _, _ -> raise @@ Typing_error "valcomb"
@@ -246,7 +294,7 @@ struct
   (* - expression evaluation *)
 
   let rec exprval (mem : mem) (vals : vals) (e : expr) : value = match e with
-    | UnitE -> ZeroV
+    | UnitE -> UnitV (ZeroMV, ZeroRV, ZeroWV)
     | PathE p -> pathval mem vals p
     | RefE x -> RefV (vals_assoc x vals)
     | TupleE es -> TupleV (List.map (exprval mem vals) es)
@@ -287,48 +335,65 @@ struct
 
   (* - call values spoil *)
 
+  (* TODO: check assignment type matches types separately later ?? *)
   (* TODO: check all cases *)
-  let is_correct_tags (v : value) (r : read_cap) (w : write_cap)
-                      (r' : read_cap) (w' : write_cap) (m : mode)
-                      (c : copy_cap) : bool =
-    (* FIXME TMP *)
-    (* Printf.printf "%b %b %b %b %b\n" *)
-      (* (r != Rd || v == ZeroV) *)
-      (* (r != Rd || fst m == In) *)
-      (* (snd m != Out || w == AlwaysWr) *)
-      (* (* TODO: FIXME: why always write ?? *) *)
-      (* (((not ((w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf))) || w' == AlwaysWr)) *)
-      (* (is_trivial_v v); *)
-    (r != Rd || v == ZeroV) &&
-    (r != Rd || fst m == In) &&
+  let is_correct_tags (r : read_cap) (w : write_cap)
+                      (m : mode) (c : copy_cap) : bool =
+    (snd m != Out || c == Rf) &&
     (snd m != Out || w == AlwaysWr) &&
-    (* TODO: FIXME: check *)
-    ((not ((w == AlwaysWr || w == MayWr) && (snd m == Out || c == Rf))) || w' == AlwaysWr) &&
-    is_trivial_v v
+    (r != Rd || fst m == In)
+
+  let tryread (r : read_cap) (v_m : memval)
+              (v_r : readval) (v_w : writeval) : value =
+    match r with
+      | Rd -> UnitV (memvmod ReadA v_m,
+                     readvmod ReadA v_r,
+                     writevmod ReadA v_w)
+      | NRd -> UnitV (v_m, v_r, v_w) 
+  
+  let tryspoil (m : mode) (w : write_cap) (v_m : memval) : memval =
+    match m, w with
+      | (_, Out), AlwaysWr -> v_m
+      | (_, Out), MayWr -> v_m
+      | (_, NOut), AlwaysWr -> BotMV
+      | (_, NOut), MayWr -> SmthMV
+      | _ -> raise @@ Typing_error "tryspoil: unexpected pair mode + write cap"
 
   let rec valspoil (mem : mem) (v : value) (t : atype)
-                   (u : atype) (m : mode) (c : copy_cap)
-                   : mem * value = match t, u, v with
-    | UnitT (r, w), UnitT (r', w'), _ ->
-      if not @@ is_trivial_v v
-        then raise @@ Typing_error "valspoil: unit, not trivial"
-      else if not @@ is_correct_tags v r w r' w' m c
+                   (m : mode) (c : copy_cap)
+                   : mem * value = match t, v with
+    | UnitT (r, w), UnitV (v_m, v_r, v_w) ->
+      if not @@ is_correct_tags r w m c
         then raise @@ Typing_error "valspoil: unit, not correct"
-      else if snd m == NOut && c == Rf && (w == AlwaysWr || w == MayWr)
-        then (mem, BotV)
-      else if snd m == Out && w == AlwaysWr
-        then (mem, ZeroV)
-      else (mem, v)
-    | FunT ts, FunT us, FunV _ -> if ts == us then (mem, v) else raise @@ Typing_error "valspoil: fun"
-    | RefT (ct, t), RefT (cu, u), RefV id ->
-      let (mem', v') = valspoil mem (mem_get mem id) t u m ct in
+      else
+        let v' = tryread r v_m v_r v_w in
+        if c == Cp || w == NeverWr
+          then (mem, v')
+        else (match v' with
+          | UnitV (v_m', v_r', v_w') ->
+            let (v_m'', v_r'', v_w'') =
+              (if w == AlwaysWr
+                then (memvmod AlwaysWriteA v_m',
+                      readvmod AlwaysWriteA v_r',
+                      writevmod AlwaysWriteA v_w')
+                else (* MayWr *)
+                     (memvmod MayWriteA v_m',
+                      readvmod MayWriteA v_r',
+                      writevmod MayWriteA v_w'))
+            in
+            let v_m''' = tryspoil m w v_m'' in
+            (mem, UnitV (v_m''', v_r'', v_w''))
+          | _ -> raise @@ Typing_error "valspoil: value after tryread is not unit")
+    | FunT ts, FunV _ -> (mem, v)
+    | RefT (ct, t), RefV id ->
+      let (mem', v') = valspoil mem (mem_get mem id) t m ct in
       (mem_set mem id v', RefV id)
-    | TupleT ts, TupleT us, TupleV vs ->
-        let folder = fun (mem, vs') t u v ->
-          let (mem', v') = valspoil mem v t u m c in (mem', v' :: vs') in
-        let (mem', vs') = list_foldl3 folder (mem, []) ts us vs in
+    | TupleT ts, TupleV vs ->
+        let folder = fun (mem, vs') t v ->
+          let (mem', v') = valspoil mem v t m c in (mem', v' :: vs') in
+        let (mem', vs') = List.fold_left2 folder (mem, []) ts vs in
         (mem', TupleV (List.rev vs'))
-    | _, _, _ ->  raise @@ Typing_error "valspoil"
+    | _, _ ->  raise @@ Typing_error "valspoil"
 
   (* full spoil *)
 
@@ -337,11 +402,11 @@ struct
     let x = pathvar p in
     let id = vals_assoc x vals in (* base var address *)
     let b = pathval mem vals p in (* subvalue in var *)
-    let t' = pathtype types p in (* type of subvalue *)
-    let (mem', b') = valspoil mem b t t' m Cp in (* spoil subvalue *)
+    (* let t' = pathtype types p in (* type of subvalue *) *)
+    let (mem', b') = valspoil mem b t m Cp in (* spoil subvalue *)
     (* TODO: FIXME: why copy (Cp)? maybe sometimes use top-level capability ? *)
     let pi = pathrev p VarRP in
-    let (mem'', v'') = valupd mem' (mem_get mem' id) pi b' in (* set subvalue into var *)
+    let (mem'', v'') = valchange mem' (mem_get mem' id) pi b' in (* set subvalue into var *)
     mem_set mem'' id v''
 
   let rec argsspoile (state : state) (m : mode) (t : atype) (e : expr) : mem =
@@ -369,15 +434,32 @@ struct
   (* NOTE: not needed due to performed optimization in stmt_eval *)
   (* let func_eval (mem : mem) (vals : vals) (s : stmt) (ts : mtype list) (es : expr list) = *)
 
+  let writeval_to_cap (v_w : writeval) : write_cap =
+    match v_w with
+      | ZeroWV -> NeverWr
+      | SmthWV -> MayWr
+      | OneWV -> AlwaysWr
+
+  let rec tags_check (mem : mem) (v : value) (t : atype) : unit =
+    match v, t with
+      | UnitV (v_m, v_r, v_w), UnitT (r, w) ->
+        if (r == Rd) != (v_r == OneRV)
+          then raise @@ Eval_error "tags_check: wrong read tag"
+        else if writeval_to_cap v_w != w
+          then raise @@ Eval_error "tags_check: wrong write tag"
+        else ()
+      | FunV _, FunT _ -> ()
+      | RefV id, RefT (_, t) -> tags_check mem (mem_get mem id) t
+      | TupleV vs, TupleT ts -> ignore @@ List.map2 (tags_check mem) vs ts
+      | _, _ -> raise @@ Typing_error "tags_check"
+
   (* - statement evaluation *)
 
   let rec stmt_eval (state : state) (s : stmt) : state =
     match state with (mem, types, vals, visited) -> match s with
     | SkipS -> state
-    | CallS (f, es) -> let v = (* FIXME TMP Printf.printf "call, before v\n"; *)
-                               pathval mem vals f in
-                       let t = (* FIXME TMP Printf.printf "call, before t\n"; *)
-                               pathtype types f in
+    | CallS (f, es) -> let v = pathval mem vals f in
+                       let t = pathtype types f in
                        let types' : types = (fst types, fst types) in
                        let vals' : vals = (fst vals, fst vals) in
                        (match v, t with
@@ -394,7 +476,14 @@ struct
                                                     if List.mem stmt visited_old
                                                     then stmt :: visited_old
                                                     else match stmt_eval (mem_swa, types_swa, vals_swa, stmt :: visited_old) stmt with
-                                                      (_, _, _, visited_after_stmt) -> visited_after_stmt)
+                                                      (mem_after_stmt, _, vals_after_stmt, visited_after_stmt) ->
+                                                        ignore @@ List.fold_right
+                                                          (fun (_, t) x ->
+                                                             let id = vals_assoc x vals_after_stmt in
+                                                             let v = mem_get mem_after_stmt id in
+                                                             tags_check mem_after_stmt v t; x + 1)
+                                                          ts 0;
+                                                        visited_after_stmt)
                                                  visited_swa
                                                  fstmts in
                              let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *)
@@ -412,16 +501,26 @@ struct
                        else let x = pathvar p in
                             let id = vals_assoc x vals in
                             let pi = pathrev p VarRP in
-                            let (mem', v') = valupd mem (mem_get mem id) pi ZeroV in
+                            let (mem', v') = valupd mem (mem_get mem id) pi AlwaysWriteA in
                             (mem_set mem' id v', types, vals, visited)
                      | RefT _ -> raise @@ Eval_error "write: ref type"
                      | TupleT _ -> raise @@ Eval_error "write: tuple type"
                      | _ -> raise @@ Eval_error "write: type")
-    | ReadS p -> if pathval mem vals p == SmthV || pathval mem vals p == BotV 
-                 then raise @@ Eval_error "read: spoiled value"
-                 else if pathval mem vals p != ZeroV 
-                 then raise @@ Eval_error "read: nontrivial value"
-                 else state
+    | ReadS p -> (match pathtype types p with
+                    | UnitT (r, _) ->
+                      if r == NRd
+                      then raise @@ Eval_error "read: write tag"
+                      else let x = pathvar p in
+                           let id = vals_assoc x vals in
+                           let pi = pathrev p VarRP in
+                           let (mem', v') = valupd mem (mem_get mem id) pi ReadA in
+                           (mem_set mem' id v', types, vals, visited)
+                    | RefT _ -> raise @@ Eval_error "read: ref type"
+                    | TupleT _ -> raise @@ Eval_error "read: tuple type"
+                    | _ -> raise @@ Eval_error "read: type")
+                 (* NOTE: handled inside through undefined in memvmod *)
+                 (* if pathval mem vals p == SmthV || pathval mem vals p == BotV *) 
+                 (* then raise @@ Eval_error "read: spoiled value" *)
     | SeqS (sl, sr) -> let statel = stmt_eval state sl in
                        stmt_eval statel sr
     | ChoiceS (sl, sr) -> let statel = stmt_eval state sl in
@@ -518,23 +617,25 @@ struct
   let rdS p = ReadS p 
   let callS f args = CallS (f, args)
 
+  let uV m = UnitV (m, ZeroRV, ZeroWV)
+
   (* - utils tests *)
 
   let%expect_test "mem add / get / set" =
     let mem = empty_mem in
-    let (mem, id1) = mem_add mem ZeroV in 
-    let (mem, id2) = mem_add mem SmthV in 
-    let (mem, id3) = mem_add mem BotV in 
+    let (mem, id1) = mem_add mem @@ uV ZeroMV in 
+    let (mem, id2) = mem_add mem @@ uV SmthMV in 
+    let (mem, id3) = mem_add mem @@ uV BotMV in 
     Printf.printf "%i %i %i " id1 id2 id3;
-    Printf.printf "%b %b %b " (mem_get mem id1 == ZeroV)
-                              (mem_get mem id2 == SmthV)
-                              (mem_get mem id3 == BotV);
-    let mem = mem_set mem id1 BotV in 
-    let mem = mem_set mem id2 ZeroV in 
-    let mem = mem_set mem id3 SmthV in 
-    Printf.printf "%b %b %b" (mem_get mem id1 == BotV)
-                              (mem_get mem id2 == ZeroV)
-                              (mem_get mem id3 == SmthV);
+    Printf.printf "%b %b %b " (mem_get mem id1 == uV ZeroMV)
+                              (mem_get mem id2 == uV SmthMV)
+                              (mem_get mem id3 == uV BotMV);
+    let mem = mem_set mem id1 @@ uV BotMV in 
+    let mem = mem_set mem id2 @@ uV ZeroMV in 
+    let mem = mem_set mem id3 @@ uV SmthMV in 
+    Printf.printf "%b %b %b" (mem_get mem id1 == uV BotMV)
+                              (mem_get mem id2 == uV ZeroMV)
+                              (mem_get mem id3 == uV SmthMV);
     [%expect {| 0 1 2 true true true true true true |}]
 
   (* - basic var tests *)
