@@ -164,12 +164,44 @@ struct
 
   (* NOTE: deepvalue - not used (?) *)
 
+  module MemVal = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec t = ZeroMV | SmthMV | BotMV
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = t
+    ]
+  end
+
+  module ReadVal = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec t = ZeroRV | OneRV | TopRV
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = t
+    ]
+  end
+
+  module WriteVal = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec t = ZeroWV | SmthWV | OneWV
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = t
+    ]
+  end
+
   module Value = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('sl, 'd, 'vl) t = ZeroV | SmthV | BotV | FunV of 'sl | RefV of 'd | TupleV of 'vl
+      type nonrec ('vm, 'vr, 'vw, 'sl, 'd, 'vl) t = UnitV of 'vm * 'vr * 'vw
+                                                  | FunV of 'sl
+                                                  | RefV of 'd
+                                                  | TupleV of 'vl
       [@@deriving gt ~options:{ show; gmap }]
-      type ground = (((* Nat.ground List.ground * *) Stmt.ground) List.ground, Nat.ground, ground List.ground) t
+      type ground = (MemVal.ground, ReadVal.ground, WriteVal.ground,
+                     ((* Nat.ground List.ground * *) Stmt.ground) List.ground,
+                     Nat.ground, ground List.ground) t
     ]
   end
 
@@ -179,6 +211,15 @@ struct
       type nonrec ('d, 'p) t = VarRP | DerefRP of 'p | AccessRP of 'p * 'd
       [@@deriving gt ~options:{ show; gmap }]
       type ground = (Nat.ground, ground) t
+    ]
+  end
+
+  module Action = struct
+    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
+    [%%ocanren_inject
+      type nonrec t = ReadA | AlwaysWriteA | MayWriteA
+      [@@deriving gt ~options:{ show; gmap }]
+      type ground = t
     ]
   end
 
@@ -340,6 +381,17 @@ struct
     { xs == [] & ys == [] & zs == [] }
   }
 
+  (* NOTE: unrequired ? *)
+  (* let list_map2o f xs ys zs = ocanren { *)
+    (* { xs == [] & ys == [] } | *)
+    (* { fresh x', xs', y', ys', z', zs' in *)
+      (* xs == x' :: xs' & *)
+      (* ys == y' :: ys' & *)
+      (* f x' y' z' *)
+      (* mapo f xs' ys' zs' & *)
+      (* zs == z' :: zs' } *)
+  (* } *)
+
   (* - state utils *)
 
   let types_assoco id types tp =
@@ -459,7 +511,8 @@ struct
   let is_trivial_vo v =
     let open Value in
     ocanren {
-    v == ZeroV | v == SmthV | v == BotV
+    fresh v_m, v_r, v_w in
+    v == UnitV (v_m, v_r, v_w)
   }
 
   let rec pathvaro p x =
@@ -540,12 +593,19 @@ struct
     let open Value in
     let open ReadCap in
     let open CopyCap in
+    let open MemVal in
+    let open ReadVal in
+    let open WriteVal in
     ocanren {
       { fresh r, w in
         is_trivial_vo v &
         tp == UnitT (r, w) &
-        { { r == Rd & mem_with_id' == Std.pair mem v } |
-          { r == NRd & mem_with_id' == Std.pair mem BotV } } } |
+        { { fresh v_m, _v_r, _v_w in
+            r == Rd &
+            v == UnitV (v_m, _v_r, _v_w) &
+            mem_with_id' == Std.pair mem (UnitV (v_m, ZeroRV, ZeroWV)) } |
+          { r == NRd &
+            mem_with_id' == Std.pair mem (UnitV (BotMV, ZeroRV, ZeroWV)) } } } |
       { fresh stmts, ts in
         v == FunV stmts &
         tp == FunT ts &
@@ -567,10 +627,43 @@ struct
         mem_with_id' == Std.pair mem' (TupleV vs') }
   }
 
+  (* - action rules *)
+
+  let memvmodo a v_m v_m' =
+    let open MemVal in
+    let open Action in
+    ocanren {
+      { a == ReadA & v_m == ZeroMV & v_m' == ZeroMV } |
+      { a == AlwaysWriteA & v_m' == ZeroMV } |
+      { a == MayWriteA & v_m == ZeroMV & v_m' == ZeroMV } |
+      { a == MayWriteA & v_m =/= ZeroMV & v_m' == SmthMV }
+  }
+
+  let readvmodo a v_r v_r' =
+    let open ReadVal in
+    let open Action in
+    ocanren {
+      { v_r == TopRV & v_r' == TopRV } |
+      { v_r == OneRV & v_r' == OneRV } |
+      { a == ReadA & v_r == ZeroRV & v_r' == OneRV } |
+      { a == AlwaysWriteA & v_r == ZeroRV & v_r' == TopRV } |
+      { a == MayWriteA & v_r == ZeroRV & v_r' == ZeroRV }
+  }
+
+  let writevmodo a v_w v_w' =
+    let open WriteVal in
+    let open Action in
+    ocanren {
+      { a == ReadA & v_w' == v_w } |
+      { a == AlwaysWriteA & v_w' == OneWV } |
+      { a == MayWriteA & v_w == OneWV & v_w' == OneWV } |
+      { a == MayWriteA & v_w =/= OneWV & v_w' == v_w }
+  }
+
   (* - value update *)
 
   (* NOTE: reversed path used *)
-  let rec valupdo mem v rp b mem_with_v' =
+  let rec valchangeo mem v rp b mem_with_v' =
     let open RevPath in
     let open Value in
     ocanren {
@@ -580,7 +673,7 @@ struct
         rp == DerefRP rp' &
         v == RefV id &
         mem_geto mem id v' &
-        valupdo mem v' rp' b mem_with_v_upd &
+        valchangeo mem v' rp' b mem_with_v_upd &
         Std.pair mem_upd v_upd == mem_with_v_upd &
         mem_seto mem_upd id v_upd mem_st &
         mem_with_v' == Std.pair mem_st (RefV id) } |
@@ -588,7 +681,40 @@ struct
         rp == AccessRP (rp', id) &
         v == TupleV vs' &
         list_ntho vs' id v' &
-        valupdo mem v' rp' b mem_with_v_upd &
+        valchangeo mem v' rp' b mem_with_v_upd &
+        Std.pair mem_upd v_upd == mem_with_v_upd &
+        list_replaceo vs' id v_upd vs_upd &
+        mem_with_v' == Std.pair mem_upd (TupleV vs_upd) }
+  }
+
+  (* NOTE: reversed path used *)
+  let rec valupdo mem v rp a mem_with_v' =
+    let open RevPath in
+    let open Value in
+    ocanren {
+      { fresh v_m, v_r, v_w,
+              v_m', v_r', v_w',
+              v' in
+        rp == VarRP &
+        v == UnitV (v_m, v_r, v_w) &
+        memvmodo a v_m v_m' &
+        readvmodo a v_r v_r' &
+        writevmodo a v_w v_w' &
+        v' == UnitV (v_m', v_r', v_w') &
+        mem_with_v' == Std.pair mem v' } |
+      { fresh rp', id, v', mem_upd, v_upd, mem_with_v_upd, mem_st in
+        rp == DerefRP rp' &
+        v == RefV id &
+        mem_geto mem id v' &
+        valupdo mem v' rp' a mem_with_v_upd &
+        Std.pair mem_upd v_upd == mem_with_v_upd &
+        mem_seto mem_upd id v_upd mem_st &
+        mem_with_v' == Std.pair mem_st (RefV id) } |
+      { fresh rp', id, vs', v', mem_upd, v_upd, mem_with_v_upd, vs_upd in
+        rp == AccessRP (rp', id) &
+        v == TupleV vs' &
+        list_ntho vs' id v' &
+        valupdo mem v' rp' a mem_with_v_upd &
         Std.pair mem_upd v_upd == mem_with_v_upd &
         list_replaceo vs' id v_upd vs_upd &
         mem_with_v' == Std.pair mem_upd (TupleV vs_upd) }
@@ -596,13 +722,50 @@ struct
 
   (* - value combination *)
 
+  let memvalcombo u v u' =
+    let open MemVal in
+    ocanren {
+      { u == ZeroMV & v == ZeroMV & u' == ZeroMV } |
+      { u == BotMV & v == BotMV & u' == BotMV } |
+      { u =/= ZeroMV & v =/= ZeroMV &
+        u =/= BotMV & v =/= BotMV & 
+        u' == SmthMV }
+  }
+
+  let readvalcombo u v u' =
+    let open ReadVal in
+    ocanren {
+      { u == TopRV & v == TopRV & u' == TopRV } |
+      { u == ZeroRV & v == ZeroRV & u' == ZeroRV } |
+      { u == TopRV & v == ZeroRV & u' == ZeroRV } |
+      { u == ZeroRV & v == TopRV & u' == ZeroRV } |
+      { u =/= TopRV & v =/= TopRV &
+        u =/= ZeroRV & v =/= ZeroRV & 
+        u' == OneRV }
+  }
+
+  let writevalcombo u v u' =
+    let open WriteVal in
+    ocanren {
+      { u == OneWV & v == OneWV & u' == OneWV } |
+      { u == ZeroWV & v == ZeroWV & u' == ZeroWV } |
+      { u =/= ZeroWV & v =/= ZeroWV &
+        u =/= OneWV & v =/= OneWV & 
+        u' == SmthWV }
+  }
+
   let rec valcombo u v u' =
     let open Value in
     ocanren {
-    { is_trivial_vo u &
-      is_trivial_vo v &
-      (* TODO: do not use disequality constraint ? *)
-      { { u == v & u' == u } | { u =/= v & u' == BotV } } } |
+    { fresh u_m, u_r, u_w,
+            v_m, v_r, v_w,
+            u_m', u_r', u_w' in
+      u == UnitV (u_m, u_r, u_w) &
+      v == UnitV (v_m, v_r, v_w) &
+      memvalcombo u_m v_m u_m' &
+      readvalcombo u_r v_r u_r' &
+      writevalcombo u_w v_w u_w' &
+      u' == UnitV (u_m', u_r', u_w') } |
     { fresh ustmts, vstmts, ustmts' in
       u == FunV ustmts &
       v == FunV vstmts &
@@ -642,8 +805,11 @@ struct
   exprvalo mem vals e v' = 
     let open Expr in
     let open Value in
+    let open MemVal in
+    let open ReadVal in
+    let open WriteVal in
     ocanren {
-      { e == UnitE & v' == ZeroV } |
+      { e == UnitE & v' == UnitV (ZeroMV, ZeroRV, ZeroWV) } |
       { fresh p in
         e == PathE p &
         pathvalo mem vals p v' } |
@@ -760,76 +926,99 @@ struct
   (* - call values spoil *)
 
   (* TODO: check that negation is interpreted correctly *)
-  let is_correct_tagso v r w _r' w' m c =
-    let open Value in
+  let is_correct_tagso r w m c =
     let open ReadCap in
     let open WriteCap in
     let open Mode in
     let open CopyCap in
     ocanren {
-      { r == NRd | r == Rd & v == ZeroV } &
       { r == NRd | r == Rd & is_ino m } &
-      { is_not_outo m | is_outo m & w == AlwaysWr } &
-      { w == NeverWr |
-        w =/= NeverWr & w' =/= AlwaysWr & is_not_outo m & c == Cp |
-        w =/= NeverWr & w' == AlwaysWr } &
-      is_trivial_vo v
+      { is_not_outo m | is_outo m & w == AlwaysWr & c == Rf }
   }
 
-  let rec valspoil_foldero m c mem_with_vs tp u v mem_with_vs' = ocanren {
+  let tryreado r v_m v_r v_w v' =
+    let open Action in
+    let open Value in
+    let open ReadCap in
+    ocanren {
+      { fresh v_m', v_r', v_w' in
+        r == Rd &
+        memvmodo ReadA v_m v_m' &
+        readvmodo ReadA v_r v_r' &
+        writevmodo ReadA v_w v_w' &
+        v' == UnitV (v_m', v_r', v_w') } |
+      { r == NRd &
+        v' == UnitV (v_m, v_r, v_w)}
+  }
+
+  let tryspoilo m w v_m v_m' =
+    let open Mode in
+    let open WriteCap in
+    let open MemVal in
+    ocanren {
+      { is_outo m & { w == AlwaysWr | w == MayWr } & v_m' == v_m } |
+      { is_not_outo m & w == AlwaysWr & v_m' == BotMV } |
+      { is_not_outo m & w == MayWr & v_m' == SmthMV }
+  }
+
+  let rec valspoil_foldero m c mem_with_vs tp v mem_with_vs' = ocanren {
     fresh mem, vs, mem', v' in
     Std.pair mem vs == mem_with_vs &
-    valspoilo mem v tp u m c (Std.pair mem' v') &
+    valspoilo mem v tp m c (Std.pair mem' v') &
     mem_with_vs' == Std.pair mem' (v' :: vs)
   }
-  and valspoilo mem v tp u m c mem_with_v' =
+  and valspoilo mem v tp m c mem_with_v' =
     let open Type in
     let open Value in
     let open Mode in
     let open WriteCap in
     let open CopyCap in
+    let open Action in
     ocanren {
-      { fresh r, w, r', w' in
+      { fresh r, w,
+              v_m, v_r, v_w,
+              v', v'' in
         tp == UnitT (r, w) &
-        u == UnitT (r', w') &
-        is_trivial_vo v &
-        is_correct_tagso v r w r' w' m c &
+        v == UnitV (v_m, v_r, v_w) &
+        is_correct_tagso r w m c &
+        tryreado r v_m v_r v_w v' &
         {
-          { is_not_outo m &
-            c == Rf &
-            { w == AlwaysWr | w == MayWr } &
-            mem_with_v' == Std.pair mem BotV } |
-          { is_outo m &
-            w == AlwaysWr &
-            mem_with_v' == Std.pair mem ZeroV } |
-          { { is_outo m |
-              is_not_outo m & c == Cp |
-              is_not_outo m & c == Rf & w == NeverWr } &
-            { is_not_outo m |
-              is_outo m & w == MayWr |
-              is_outo m & w == NeverWr } &
-            mem_with_v' == Std.pair mem v }
+          { c == Cp & w == NeverWr &
+            mem_with_v' == Std.pair mem v' } |
+          { fresh v_m', v_r', v_w',
+                  v_m'', v_r'', v_w'',
+                  v_m''' in
+            v' == UnitV (v_m', v_r', v_w') &
+            {
+              { w == AlwaysWr &
+                memvmodo AlwaysWriteA v_m' v_m'' &
+                readvmodo AlwaysWriteA v_r' v_r'' &
+                writevmodo AlwaysWriteA v_w' v_w'' } |
+              { w == MayWr &
+                memvmodo MayWriteA v_m' v_m'' &
+                readvmodo MayWriteA v_r' v_r'' &
+                writevmodo MayWriteA v_w' v_w'' }
+            } &
+            tryspoilo m w v_m'' v_m''' &
+            v'' == UnitV (v_m''', v_r'', v_w'') &
+            mem_with_v' == Std.pair mem v'' }
         } } |
-      { fresh ts, us, _stmts in
+      { fresh ts, _stmts in
         tp == FunT ts &
-        u == FunT us &
         v == FunV _stmts &
-        ts == us &
         mem_with_v' == Std.pair mem v } |
-      { fresh ctp', tp', cu', u', id', v', mem_sp, v_sp, mem_set in
+      { fresh ctp', tp', cu', id', v', mem_sp, v_sp, mem_set in
         tp == RefT (ctp', tp') &
-        u == RefT (cu', u') &
         v == RefV id' &
         mem_geto mem id' v' &
-        valspoilo mem v' tp' u' m ctp' (Std.pair mem_sp v_sp) &
+        valspoilo mem v' tp' m ctp' (Std.pair mem_sp v_sp) &
         mem_seto mem_sp id' v_sp mem_set &
         mem_with_v' == Std.pair mem_set (RefV id') } |
       { fresh tps, us, vs, mem_sp, vs_sp in
         tp == TupleT tps &
-        u == TupleT us &
         v == TupleV vs &
-        list_foldr3o (valspoil_foldero m c)
-                     (Std.pair mem []) tps us vs
+        list_foldr2o (valspoil_foldero m c)
+                     (Std.pair mem []) tps vs
                      (Std.pair mem_sp vs_sp) &
         mem_with_v' == Std.pair mem_sp (TupleV vs_sp)
       }
@@ -843,17 +1032,17 @@ struct
     let open RevPath in
     ocanren {
       fresh mem, types, vals, visited,
-            x, id, b, tp', rp,
+            x, id, b(* , tp' *), rp,
             mem_sp, b_sp, v_sp, mem_upd, v_upd in
       st == StEnv (mem, types, vals, visited) &
       pathvaro p x &
       vals_assoco x vals id &
       pathvalo mem vals p b &
-      pathtypeo types p tp' &
+      (* pathtypeo types p tp' & *)
       valspoilo mem b tp tp' m Cp (Std.pair mem_sp b_sp) &
       mem_geto mem_sp id v_sp &
       pathrevo p VarRP rp &
-      valupdo mem_sp v_sp rp b_sp (Std.pair mem_upd v_upd) &
+      valchangeo mem_sp v_sp rp b_sp (Std.pair mem_upd v_upd) &
       mem_seto mem_upd id v_upd mem'
   }
 
@@ -910,8 +1099,45 @@ struct
   (* - function evaluation *)
   (* NOTE: not needed due to performed optimization in stmt_eval ? *)
 
+  let writeval_to_capo v_w w' =
+    let open WriteVal in
+    let open WriteCap in
+    ocanren {
+      { v_w == ZeroWV & w' == NeverWr } |
+      { v_w == SmthWV & w' == MayWr } |
+      { v_w == OneWV & w' == AlwaysWr }
+  }
+
+  let rec tags_checko mem v tp =
+    let open ReadVal in
+    let open ReadCap in
+    let open Type in
+    let open Value in
+    ocanren {
+      { fresh v_m, v_r, v_w,
+              r, w in
+        v == unitV (v_m, v_r, v_w) &
+        tp == UnitT (r, w) &
+        {
+          { r == R & v_r == OneRV } |
+          { r == NRd & v_r == ZeroRV } |
+          { r == NRd & v_r == TopRV }
+        } &
+        writeval_to_vapo v_w w
+         } |
+      { fresh _stmts, _ts in
+        v == FunV _stmts &
+        tp == FunT _ts } |
+      { fresh id, _c, tp', v' in
+        v == RefV id &
+        tp == RefT (_c, tp') &
+        mem_geto mem id v' &
+        tags_checko mem v' tp' } |
+      { fresh vs, ts in
+        List.mapo (tags_checko mem) vs ts }
+  }
+
   (* - statement evaluation *)
-  (* TODO *)
 
   let rec stmt_addarg_foldero vals st_with_id mtp e st_with_id' = ocanren {
     fresh st, x, m, tp, st' in
@@ -920,16 +1146,26 @@ struct
     addargo st vals x tp e st' &
     st_with_id' == Std.pair st' (Nat.s x)
   }
+  and f_tags_check_foldero mem vals x mtp x' = ocanren {
+    fresh m, tp, id', v' in
+    mtp == Std.pair m tp &
+    vals_assoco x vals id' &
+    mem_geto mem id' v' &
+    tags_checko mem v' tp &
+    x' == Nat.s x
+  }
   and stmt_eval_func_foldero mem types vals visited stmt visited' =
     let open StEnv in
     ocanren {
       { fresh visited_add, st,
-              st', mem', types', vals' in
+              st', mem', types', vals',
+              _x' in
         not_visited_checko visited stmt &
         visited_addo visited stmt visited_add &
         st == StEnv (mem, types, vals, visited_add) &
         stmt_evalo st stmt st' &
-        st' == StEnv (mem', types', vals', visited') } |
+        st' == StEnv (mem', types', vals', visited') &
+        list_foldlo (f_tags_check_foldero mem' vals') 0 ts _x' } |
       { visited_checko visited stmt &
         visited == visited' }
   }
@@ -950,6 +1186,7 @@ struct
     let open TypesEnv in
     let open ValsEnv in
     let open RevPath in
+    let open Action in
     ocanren {
       fresh mem, types, vals, visited in
       st == StEnv (mem, types, vals, visited) &
@@ -995,13 +1232,25 @@ struct
           vals_assoco x vals id &
           mem_geto mem id v &
           pathrevo p VarRP rp &
-          valupdo mem v rp ZeroV (Std.pair mem_upd v_upd) &
+          valupdo mem v rp AlwaysWriteA (Std.pair mem_upd v_upd) &
           mem_seto mem_upd id v_upd mem_set &
           st' == StEnv (mem_set, types, vals, visited) } |
-        { fresh p in
+        { fresh p, tp, _r, _w, x, id, v, rp,
+                mem_upd, v_upd, mem_set in
           s == ReadS p &
-          pathvalo mem vals p ZeroV &
-          st == st' } |
+          pathtypeo types p tp &
+          tp == UnitT (_r, _w) &
+          pathvaro p x &
+          vals_assoco x vals id &
+          mem_geto mem id v &
+          pathrevo p VarRP rp &
+          valupdo mem v rp ReadA (Std.pair mem_upd v_upd) &
+          mem_seto mem_upd id v_upd mem_set &
+          st' == StEnv (mem_set, types, vals, visited) } |
+        (* { fresh p in *)
+          (* s == ReadS p & *)
+          (* pathvalo mem vals p ZeroV & *)
+          (* st == st' } | *)
         { fresh sl, sr, stl in
           s == SeqS (sl, sr) &
           stmt_evalo st sl stl &

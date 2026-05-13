@@ -237,8 +237,6 @@ struct
 
   (* - value update *)
 
-  (* TODO: change and modify are different *)
-
   let rec valchange (mem : mem) (v : value) (p : revpath) (b : value) : mem * value = match p, v with
     | VarRP, _ -> (mem, b)
     | DerefRP p, RefV id -> let (mem', v') = valchange mem (mem_get mem id) p b in
@@ -336,7 +334,6 @@ struct
   (* - call values spoil *)
 
   (* TODO: check assignment type matches types separately later ?? *)
-  (* TODO: check all cases *)
   let is_correct_tags (r : read_cap) (w : write_cap)
                       (m : mode) (c : copy_cap) : bool =
     (snd m != Out || c == Rf) &&
@@ -509,7 +506,7 @@ struct
                      | TupleT _ -> raise @@ Eval_error "write: tuple type"
                      | _ -> raise @@ Eval_error "write: type")
     | ReadS p -> (match pathtype types p with
-                    | UnitT (r, _) ->
+                    | UnitT (_, _) ->
                       (* NOTE: not required *)
                       (* if r == NRd *)
                       (* then raise @@ Eval_error "read: not read tag" *)
