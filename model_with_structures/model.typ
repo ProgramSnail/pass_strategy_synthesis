@@ -247,7 +247,8 @@ $v in value$ - произвольное значение
 #let action = `action`
 #let readA = $#[`READ`]_a$
 #let writeA = $#[`WRITE`]_a$
-#let spoilA = $#[`SPOIL`]_a$
+#let mbwriteA = $#[`MAYWRITE`]_a$
+// #let spoilA = $#[`SPOIL`]_a$
 // #let nospoilA = $#[`NOSPOIL`]_a$
 
 #bnf(
@@ -264,7 +265,9 @@ $v in value$ - произвольное значение
     {
       Or[$readA$][value read]
       Or[$writeA$][value written]
-      Or[$spoilA$][value passed as funciton argument and spoiled]
+      Or[$mbwriteA$][value maybe written]
+      // NOTE: not required, spoils only first element ?
+      // Or[$spoilA$][value passed as funciton argument and spoiled]
       // NOTE: probably acutally can't reliebly forbid Cp
       // Or[$nospoilA$][value passed as funciton argument and not changed,
       //                but could be spoiled if mode will be $Copy$ instead of $Ref$]
@@ -639,10 +642,14 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     // $writeA$, $top$, $-$,
     $writeA$, $?$, $0$,
     $writeA$, $bot$, $0$,
-    $spoilA$, $0$, $bot$,
-    // $spoilA$, $top$, $bot$,
-    $spoilA$, $?$, $bot$,
-    $spoilA$, $bot$, $bot$,
+    $mbwriteA$, $0$, $0$,
+    // $mbwriteA$, $top$, $top$,
+    $mbwriteA$, $?$, $?$,
+    $mbwriteA$, $bot$, $?$,
+    // $spoilA$, $0$, $bot$,
+    // // $spoilA$, $top$, $bot$,
+    // $spoilA$, $?$, $bot$,
+    // $spoilA$, $bot$, $bot$,
     // $nospoilA$, $0$, $top$,
     // $nospoilA$, $top$, $top$,
     // $nospoilA$, $?$, $-$, // ??
@@ -660,10 +667,13 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $writeA$, $1$, $1$,
     $writeA$, $0$, $top$,
     $writeA$, $top$, $top$,
+    $mbwriteA$, $1$, $1$,
+    $mbwriteA$, $0$, $0$,
+    $mbwriteA$, $top$, $top$,
 
-    $spoilA$, $1$, $1$,
-    $spoilA$, $0$, $0$,
-    $spoilA$, $top$, $top$,
+    // $spoilA$, $1$, $1$,
+    // $spoilA$, $0$, $0$,
+    // $spoilA$, $top$, $top$,
     // $nospoilA$, $1$, $1$,
     // $nospoilA$, $0$, $0$,
     // $nospoilA$, $top$, $top$,
@@ -680,10 +690,13 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $writeA$, $1$, $1$,
     $writeA$, $?$, $1$,
     $writeA$, $0$, $1$,
+    $mbwriteA$, $1$, $1$,
+    $mbwriteA$, $?$, $?$,
+    $mbwriteA$, $0$, $?$,
 
-    $spoilA$, $1$, $1$,
-    $spoilA$, $?$, $?$,
-    $spoilA$, $0$, $0$,
+    // $spoilA$, $1$, $1$,
+    // $spoilA$, $?$, $?$,
+    // $spoilA$, $0$, $0$,
     // $nospoilA$, $1$, $1$,
     // $nospoilA$, $?$, $?$,
     // $nospoilA$, $0$, $0$,
@@ -1050,39 +1063,19 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 === Call Values Spoil
 
 #let spoil = `spoil`
+#let tryread = `try read`
 
-*TODO: use actions* // TODO: FIXME:
-
-// TODO: FIXME: complete rule check
 #let tcorrectnew = $attach(tack.r.double, br: #[correct])$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ correctness],
 
-    $r = Read => v = 0$,
-    $r = Read => m = (In, \_)$, 
+    $m = (\_, Out) => c = Ref$, 
     $m = (\_, Out) => w = AlwaysWrite$,
-    $(w = AlwaysWrite or w = MaybeWrite) and (m = (\_, Out) or c = Ref) => w' = AlwaysWrite$,
+    $r = Read => m = (In, \_)$, 
 
-    $v in {0, ?, bot}$,
-
-    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
-  )
-))
-
-// TODO: extract correctness
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ spoil step],
-
-    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
-
-    $w = AlwaysWrite or w = MaybeWrite$,
-    $v in {0, ?, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \, (\_, not Out) \, not Copy)_spoil cl bot, mu cr$,
+    $ tcorrectnew cl r, w, m, c cr $,
   )
 ))
 
@@ -1091,13 +1084,64 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ fix step],
+    name: [ argument read],
 
-    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
+    $cl v_m, v_r, v_w cr,
+     xarrowSquiggly(Read)_tryread
+     cl v_m modW readA, v_r modR readA, v_w modW readA cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ argument not read],
+
+    $cl v_m, v_r, v_w cr,
+     xarrowSquiggly(not Read)_tryread
+     cl v_m, v_r, v_w cr$,
+  )
+))
+
+// TODO: extract correctness
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ write spoil step],
+
+    $ tcorrectnew cl r, w, m, c cr $,
+    $cl v_m, v_r, v_w cr,
+     xarrowSquiggly(r)_tryread
+     cl v_m', v_r', v_w' cr$,
 
     $w = AlwaysWrite$,
-    $v in {0, ?, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \,  (\_, Out) \, c)_spoil cl 0, mu cr$,
+    $cl cdl v_m, v_r, v_w cdr, mu cr
+     xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, Ref)_spoil
+     cl cdl bot, v_r' modR writeA, v_w' modW writeA cdr, cdr, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ maybe write step],
+
+    $ tcorrectnew cl r, w, m, c cr $,
+    $cl v_m, v_r, v_w cr,
+     xarrowSquiggly(r)_tryread
+     cl v_m', v_r', v_w' cr$,
+
+    $w = MaybeWrite$,
+    $cl cdl v_m, v_r, v_w cdr, mu cr
+     xarrowSquiggly(cl r \, w cr \, (\_, not Out) \, Ref)_spoil
+     cl cdl ?, v_r' modR mbwriteA, v_w' modW mbwriteA cdr, mu cr$,
   )
 ))
 
@@ -1108,12 +1152,13 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ skip step],
 
-    $ tcorrectnew cl v, r, w, r', w', m, c cr $,
+    $ tcorrectnew cl r, w, m, c cr $,
 
-    $not "spoil step"$,
-    $not "fix step"$,
-    $v in {0, ?, bot}$,
-    $cl v, mu cr xarrowSquiggly(cl r \, w cr \, cl r' \, w' cr \, (\_, not Out) \, c)_spoil cl v, mu cr$,
+    $o == Out or c == Copy or w = NotWrite$,
+
+    $cl cdl v_m, v_r, v_w cdr, mu cr
+     xarrowSquiggly(cl r \, w cr cr \, (\_, o) \, c)_spoil
+     cl cdl v_m, v_r, v_w cdr mu cr$,
   )
 ))
 
