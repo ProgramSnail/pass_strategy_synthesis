@@ -16,6 +16,7 @@ open WriteCap
 open InCap
 open OutCap
 open Mode
+open StEnv
 
 @type answer =
   StEnv.ground GT.list with show
@@ -25,8 +26,6 @@ open Mode
   (CopyCap.ground GT.list) GT.list with show
 
 (* - shortcuts *)
-
-(* TODO *)
 
 (* NOTE: redo with fold ?? *)
 let rec seqo stmts stmt' = ocanren {
@@ -120,6 +119,18 @@ let prog_eval_t_simple_var_wr_rd _ = show(answer) (Stream.take (run q
 
   (* - basic call tests *)
 
+(* NOTE: should add ? *)
+(* let prog_eval_t_simple_call_noarg _ = show(answer) (Stream.take (run q *)
+  (* (fun q -> ocanren { *)
+              (* fresh prog, xg, fg, xd, fd in *)
+              (* globals_min_ido xg & *)
+              (* fg == Nat.s xg & *)
+              (* xd == VarD (UnitT (Rd, NeverWr), UnitE) & *)
+              (* fd == FunD ([], SkipS) & *)
+              (* prog == Prg ([xd; fd], CallS (VarP fg, [])) & *)
+              (* prog_evalo prog q }) *)
+  (* (fun q -> q#reify (StEnv.prj_exn)))) *)
+
 let prog_eval_t_simple_call_rd _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg, fg, xd, fd in
@@ -137,9 +148,9 @@ let prog_eval_t_simple_call_rd_ref _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, MayWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, MayWr)))],
+              xd == VarD (UnitT (Rd, NeverWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, NeverWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))],
                           ReadS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
               prog_evalo prog q })
@@ -151,9 +162,9 @@ let prog_eval_t_simple_call_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, MayWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, MayWr)))],
+              xd == VarD (UnitT (NRd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
               prog_evalo prog q })
@@ -194,9 +205,9 @@ let prog_eval_t_simple_call_ref_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+              xd == VarD (UnitT (NRd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
               prog_evalo prog q })
@@ -223,9 +234,9 @@ let prog_eval_t_simple_call_ref_wr_with_fix _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+              xd == VarD (UnitT (NRd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr)), RefE xg) &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
                                          SeqS (WriteS (DerefP (VarP yg)),
@@ -242,9 +253,9 @@ let prog_eval_t_call_in_call _ = show(answer) (Stream.take (run q
               f2g == Nat.s fg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
-              f2d == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+              f2d == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
                            SeqS (CallS (VarP fg, [PathE (VarP 0)]),
                                  WriteS (DerefP (VarP 0)))) &
               prog == Prg ([xd; yd; fd; f2d], SeqS (CallS (VarP f2g, [PathE (VarP yg)]),
@@ -260,7 +271,7 @@ let prog_eval_t_call_in_call_rec _ = show(answer) (Stream.take (run q
               fg == Nat.s yg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
                           SeqS (CallS (VarP fg, [PathE (VarP 0)]),
                                 WriteS (DerefP (VarP 0)))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -295,7 +306,7 @@ let prog_eval_t_call_with_glob_usage _ = show(answer) (Stream.take (run q
               fg == Nat.s yg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))],
                           SeqS (WriteS (VarP xg),
                                 ReadS (DerefP (VarP 0)))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -363,10 +374,10 @@ let prog_eval_t_call_with_dif_mods_cp _ = show(answer) (Stream.take (run q
                     WriteS (DerefP (VarP 1));
                     WriteS (DerefP (VarP 2));
                     WriteS (DerefP (VarP 3))] fstmts &
-              fd == FunD ([(Mode (NIn, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)));
+              fd == FunD ([(Mode (NIn, NOut), RefT (Cp, UnitT (NRd, NeverWr)));
                            (Mode (In, NOut), RefT (Cp, UnitT (Rd, AlwaysWr)));
-                           (Mode (NIn, Out), RefT (Cp, UnitT (NRd, AlwaysWr)));
-                           (Mode (In, Out), RefT (Cp, UnitT (Rd, AlwaysWr)))],
+                           (Mode (NIn, Out), RefT (Rf, UnitT (NRd, AlwaysWr)));
+                           (Mode (In, Out), RefT (Rf, UnitT (Rd, AlwaysWr)))],
                           fstmts) &
               seqo [CallS (VarP fg, [PathE (VarP yg);
                                      PathE (VarP y2g);
@@ -454,7 +465,7 @@ let prog_cp_cap_synt_t_simple_call_ref_wr _ = show(answerCpCap) (Stream.take (ru
               fg == Nat.s yg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
               prog_evalo prog st })
@@ -483,7 +494,7 @@ let prog_cp_cap_synt_t_simple_call_ref_fbd_wr _ = show(answerCpCap) (Stream.take
               fg == Nat.s yg &
               xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
               yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (Rd, AlwaysWr)))],
+              fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
                                                ReadS (DerefP (VarP yg)))) &
@@ -655,10 +666,83 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
 
+(* rw versions *)
+
 let rw_unitTo tp = ocanren {
     (* fresh r, w in *)
     tp == UnitT (Rd, AlwaysWr)
   }
+
+let rw_user_utilsTo tp = ocanren {
+    fresh x, y in
+    rw_unitTo x &
+    rw_unitTo y &
+    tp == TupleT [x; y]
+  }
+
+let rw_user_infoTo tp = ocanren {
+    fresh x, y, z in
+    rw_unitTo x &
+    rw_unitTo y &
+    rw_unitTo z &
+    tp == TupleT [x; y; z]
+  }
+
+let rw_versionTo tp = ocanren {
+    fresh x, y, z in
+    rw_unitTo x &
+    rw_unitTo y &
+    rw_unitTo z &
+    tp == TupleT [x; y; z]
+  }
+
+let rw_utilsTo tp = ocanren {
+    fresh x, y in
+    rw_unitTo x &
+    rw_unitTo y &
+    tp == TupleT [x; y]
+  }
+
+let rw_dataTo tp = ocanren {
+    rw_unitTo tp
+  }
+
+let rw_op_dateTo tp = ocanren {
+    rw_unitTo tp
+  }
+
+let rw_userTo cu ci tp = ocanren {
+    fresh utilsT, infoT in
+    rw_user_infoTo infoT &
+    rw_user_utilsTo utilsT &
+    tp == TupleT [RefT (cu, utilsT) (* 0 utils *);
+                  RefT (ci, infoT) (* 1 info *)]
+  }
+
+let rw_requestTo cus cv cut cd cus_u cus_i tp = ocanren {
+    fresh userT, versionT, utilsT, dataT, op_dateT in
+    rw_userTo cus_u cus_i userT &
+    rw_versionTo versionT &
+    rw_utilsTo utilsT &
+    rw_dataTo dataT &
+    rw_op_dateTo op_dateT &
+    tp == TupleT [RefT (cus, userT) (* 0 user *);
+                  RefT (cv, versionT) (* 1 version *);
+                  RefT (cut, utilsT) (* 2 utils *);
+                  RefT (cd, dataT) (* 3 data *);
+                  op_dateT (* 4 operation_date *)]
+  }
+let rw_moded_requestTo cus cv cut cd cus_u cus_i tp = ocanren {
+    fresh requestT in
+    rw_requestTo cus cv cut cd cus_u cus_i requestT &
+    tp == (Mode (In, NOut), requestT)
+  }
+let rw_boxed_moded_requestTo tp = ocanren {
+    fresh cus, cv, cut, cd, cus_u, cus_i in
+    rw_moded_requestTo cus cv cut cd cus_u cus_i tp
+  }
+
+(* any versions *)
 
 let any_unitTo tp = ocanren {
     fresh r, w in
@@ -667,40 +751,40 @@ let any_unitTo tp = ocanren {
 
 let any_user_utilsTo tp = ocanren {
     fresh x, y in
-    rw_unitTo x &
-    rw_unitTo y &
+    any_unitTo x &
+    any_unitTo y &
     tp == TupleT [x; y]
   }
 
 let any_user_infoTo tp = ocanren {
     fresh x, y, z in
-    rw_unitTo x &
-    rw_unitTo y &
-    rw_unitTo z &
+    any_unitTo x &
+    any_unitTo y &
+    any_unitTo z &
     tp == TupleT [x; y; z]
   }
 
 let any_versionTo tp = ocanren {
     fresh x, y, z in
-    rw_unitTo x &
-    rw_unitTo y &
-    rw_unitTo z &
+    any_unitTo x &
+    any_unitTo y &
+    any_unitTo z &
     tp == TupleT [x; y; z]
   }
 
 let any_utilsTo tp = ocanren {
     fresh x, y in
-    rw_unitTo x &
-    rw_unitTo y &
+    any_unitTo x &
+    any_unitTo y &
     tp == TupleT [x; y]
   }
 
 let any_dataTo tp = ocanren {
-    rw_unitTo tp
+    any_unitTo tp
   }
 
 let any_op_dateTo tp = ocanren {
-    rw_unitTo tp
+    any_unitTo tp
   }
 
 let any_userTo cu ci tp = ocanren {
@@ -767,13 +851,13 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
                     (* synt *)
                     st in
               (* types *)
-              any_unitTo uT_r_aw &
-              any_user_utilsTo user_utilsT &
-              any_user_infoTo user_infoT &
-              any_userTo Cp Cp userT &
-              any_versionTo versionT &
-              any_utilsTo utilsT &
-              any_requestTo Cp Cp Cp Cp Cp Cp requestT &
+              rw_unitTo uT_r_aw &
+              rw_user_utilsTo user_utilsT &
+              rw_user_infoTo user_infoT &
+              rw_userTo Cp Cp userT &
+              rw_versionTo versionT &
+              rw_utilsTo utilsT &
+              rw_requestTo Cp Cp Cp Cp Cp Cp requestT &
               (* moded_requestTo moded_requestT & *)
               (* global vars init exprs *)
               user_utilsE == TupleE [UnitE (* 0 id *); UnitE] &
@@ -849,15 +933,16 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
                    send_allF &
 
               fresh mrT_gvi, mrT_uv, mrT_s, mrT_sa in
-              fresh gvi_c0, gvi_c1, gvi_c2, gvi_c3, gvi_c4, gvi_c5, mrT' in
-              any_moded_requestTo gvi_c0 gvi_c1 gvi_c2 gvi_c3 gvi_c4 gvi_c5 mrT' &
+              (* fresh gvi_c0, gvi_c1, gvi_c2, gvi_c3, gvi_c4, gvi_c5, mrT' in *)
+              (* any_moded_requestTo gvi_c0 gvi_c1 gvi_c2 gvi_c3 gvi_c4 gvi_c5 mrT' & *)
               (* TODO *)
-              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_gvi & *)
-              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_uv & *)
-              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_s & *)
-              (* any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_sa & *)
+              any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_gvi &
+              any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_uv &
+              any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_s &
+              any_moded_requestTo Cp Cp Cp Cp Cp Cp mrT_sa &
 
-              q == [gvi_c0; gvi_c1; gvi_c2; gvi_c3; gvi_c4; gvi_c5] &
+              q == [Cp] &
+              (* [gvi_c0; gvi_c1; gvi_c2; gvi_c3; gvi_c4; gvi_c5] & *)
 
               prog == Prg ([
                 VarD (user_utilsT, user_utilsE);
@@ -867,14 +952,14 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
                 VarD (utilsT, utilsE);
                 VarD (uT_r_aw, UnitE); (* data *)
                 VarD (requestT, requestE);
-                FunD ([mrT'], get_version_idF);
-                FunD ([mrT'], updated_versionF);
-                FunD ([mrT'], sendF);
-                FunD ([mrT'], send_allF)
-                (* FunD ([mrT_gvi], get_version_idF); *)
-                (* FunD ([mrT_uv], updated_versionF); *)
-                (* FunD ([mrT_s], sendF); *)
-                (* FunD ([mrT_sa], send_allF) *)
+                (* FunD ([mrT'], get_version_idF); *)
+                (* FunD ([mrT'], updated_versionF); *)
+                (* FunD ([mrT'], sendF); *)
+                (* FunD ([mrT'], send_allF) *)
+                FunD ([mrT_gvi], get_version_idF);
+                FunD ([mrT_uv], updated_versionF);
+                FunD ([mrT_s], sendF);
+                FunD ([mrT_sa], send_allF)
               ],
               (* SkipS *)
               CallS (VarP send_allID, [PathE (VarP requestID)])

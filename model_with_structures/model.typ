@@ -154,7 +154,7 @@
 
 == Value Model
 
-#let deepValue = `deepvalue`
+// #let deepValue = `deepvalue`
 #let value = `value`
 #let vmem = $v_#[`mem`]$
 #let vread = $v_#[`read`]$

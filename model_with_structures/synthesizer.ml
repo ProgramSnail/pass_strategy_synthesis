@@ -981,11 +981,13 @@ struct
         is_correct_tagso r w m c &
         tryreado r v_m v_r v_w v' &
         {
-          { c == Cp & w == NeverWr &
+          { { c == Cp | { c == Rf & w == NeverWr } } &
             mem_with_v' == Std.pair mem v' } |
           { fresh v_m', v_r', v_w',
                   v_m'', v_r'', v_w'',
                   v_m''' in
+            c == Rf &
+            { w == AlwaysWr | w == MayWr } &
             v' == UnitV (v_m', v_r', v_w') &
             {
               { w == AlwaysWr &
@@ -1024,7 +1026,7 @@ struct
 
   (* full spoil *)
 
-  let argspoilpo st m tp p mem' =
+  let argsspoilpo st m tp p mem' =
     let open StEnv in
     let open CopyCap in
     let open RevPath in
@@ -1038,20 +1040,20 @@ struct
       pathvalo mem vals p b &
       (* pathtypeo types p tp' & *)
       valspoilo mem b tp m Cp (Std.pair mem_sp b_sp) &
-      mem_geto mem_sp id v_sp &
       pathrevo p VarRP rp &
+      mem_geto mem_sp id v_sp &
       valchangeo mem_sp v_sp rp b_sp (Std.pair mem_upd v_upd) &
       mem_seto mem_upd id v_upd mem'
   }
 
-  let rec argspoile_foldero types vals visited m mem tp e mem' =
+  let rec argsspoile_foldero types vals visited m mem tp e mem' =
     let open StEnv in
     ocanren {
       fresh st in
       st == StEnv (mem, types, vals, visited) &
-      argspoileo st m tp e mem'
+      argsspoileo st m tp e mem'
   }
-  and argspoileo st m tp e mem' =
+  and argsspoileo st m tp e mem' =
     let open StEnv in
     let open Expr in
     let open Type in
@@ -1065,14 +1067,14 @@ struct
           mem' == mem } |
         { fresh p in
           e == PathE p &
-          argspoilpo st m tp p mem' } |
+          argsspoilpo st m tp p mem' } |
         { fresh x in
           e == RefE x &
-          argspoilpo st m tp (VarP x) mem' } |
+          argsspoilpo st m tp (VarP x) mem' } |
         { fresh es, tps in
           e == TupleE es &
           tp == TupleT tps &
-          list_foldl2o (argspoile_foldero types vals visited m) mem tps es mem'}
+          list_foldl2o (argsspoile_foldero types vals visited m) mem tps es mem'}
       }
   }
 
@@ -1131,8 +1133,10 @@ struct
         tp == RefT (_c, tp') &
         mem_geto mem id v' &
         tags_checko mem v' tp' } |
-      { fresh vs, ts in
-        List.mapo (tags_checko mem) vs ts }
+      { fresh vs, tps in
+        v == TupleV vs &
+        tp == TupleT tps &
+        List.mapo (tags_checko mem) vs tps }
   }
 
   (* - statement evaluation *)
@@ -1157,13 +1161,15 @@ struct
     ocanren {
       { fresh visited_add, st,
               st', mem', types', vals',
-              _x' in
+              _x', visited'' in
         not_visited_checko visited stmt &
         visited_addo visited stmt visited_add &
         st == StEnv (mem, types, vals, visited_add) &
         stmt_evalo st stmt st' &
-        st' == StEnv (mem', types', vals', visited') &
-        list_foldlo (f_tags_check_foldero mem' vals') 0 tps _x' } |
+        st' == StEnv (mem', types', vals', visited'') &
+        list_foldlo (f_tags_check_foldero mem' vals') 0 tps _x' &
+        visited' == visited''
+         } |
       { visited_checko visited stmt &
         visited == visited' }
   }
@@ -1173,7 +1179,7 @@ struct
       fresh m, tp, st in
       Std.pair m tp == mtp &
       st == StEnv (mem, types, vals, visited) &
-      argspoileo st m tp e mem'
+      argsspoileo st m tp e mem'
   }
   and stmt_evalo st s st' =
     let open StEnv in
