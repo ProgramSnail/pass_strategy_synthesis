@@ -864,7 +864,6 @@ struct
                 types', vals' in
           d == VarD (tp, e) &
           exprvalo mem vals e v &
-          (* v == TupleV [ZeroV; ZeroV] & (* FIXME TMP *) *)
           valcopyo mem v tp (Pair.pair mem_cp v_cp) &
           (* mem_cp == mem & v_cp == v & *)
           mem_addo mem_cp v_cp (Pair.pair mem_add id_add) &
@@ -970,7 +969,6 @@ struct
   and valspoilo mem v tp m c mem_with_v' =
     let open Type in
     let open Value in
-    let open Mode in
     let open WriteCap in
     let open CopyCap in
     let open Action in
@@ -1007,14 +1005,14 @@ struct
         tp == FunT ts &
         v == FunV _stmts &
         mem_with_v' == Std.pair mem v } |
-      { fresh ctp', tp', cu', id', v', mem_sp, v_sp, mem_set in
+      { fresh ctp', tp', id', v', mem_sp, v_sp, mem_set in
         tp == RefT (ctp', tp') &
         v == RefV id' &
         mem_geto mem id' v' &
         valspoilo mem v' tp' m ctp' (Std.pair mem_sp v_sp) &
         mem_seto mem_sp id' v_sp mem_set &
         mem_with_v' == Std.pair mem_set (RefV id') } |
-      { fresh tps, us, vs, mem_sp, vs_sp in
+      { fresh tps, vs, mem_sp, vs_sp in
         tp == TupleT tps &
         v == TupleV vs &
         list_foldr2o (valspoil_foldero m c)
@@ -1039,7 +1037,7 @@ struct
       vals_assoco x vals id &
       pathvalo mem vals p b &
       (* pathtypeo types p tp' & *)
-      valspoilo mem b tp tp' m Cp (Std.pair mem_sp b_sp) &
+      valspoilo mem b tp m Cp (Std.pair mem_sp b_sp) &
       mem_geto mem_sp id v_sp &
       pathrevo p VarRP rp &
       valchangeo mem_sp v_sp rp b_sp (Std.pair mem_upd v_upd) &
@@ -1116,14 +1114,14 @@ struct
     ocanren {
       { fresh v_m, v_r, v_w,
               r, w in
-        v == unitV (v_m, v_r, v_w) &
+        v == UnitV (v_m, v_r, v_w) &
         tp == UnitT (r, w) &
         {
-          { r == R & v_r == OneRV } |
+          { r == Rd & v_r == OneRV } |
           { r == NRd & v_r == ZeroRV } |
           { r == NRd & v_r == TopRV }
         } &
-        writeval_to_vapo v_w w
+        writeval_to_capo v_w w
          } |
       { fresh _stmts, _ts in
         v == FunV _stmts &
@@ -1154,7 +1152,7 @@ struct
     tags_checko mem v' tp &
     x' == Nat.s x
   }
-  and stmt_eval_func_foldero mem types vals visited stmt visited' =
+  and stmt_eval_func_foldero mem types vals tps visited stmt visited' =
     let open StEnv in
     ocanren {
       { fresh visited_add, st,
@@ -1165,7 +1163,7 @@ struct
         st == StEnv (mem, types, vals, visited_add) &
         stmt_evalo st stmt st' &
         st' == StEnv (mem', types', vals', visited') &
-        list_foldlo (f_tags_check_foldero mem' vals') 0 ts _x' } |
+        list_foldlo (f_tags_check_foldero mem' vals') 0 tps _x' } |
       { visited_checko visited stmt &
         visited == visited' }
   }
@@ -1216,7 +1214,7 @@ struct
                        (Std.pair st_call 0) tps es
                        (Std.pair state_with_args _arg_id) &
           state_with_args == StEnv (mem_swa, types_swa, vals_swa, visited_swa) &
-          list_foldlo (stmt_eval_func_foldero mem_swa types_swa vals_swa) visited_swa fstmts visited' &
+          list_foldlo (stmt_eval_func_foldero mem_swa types_swa vals_swa tps) visited_swa fstmts visited' &
           (* TODO: FIXME check left or right order *)
           list_foldl2o (stmt_eval_spoil_foldero types vals (* NOTE: not important*) visited')
                        mem tps es mem_spoiled &
