@@ -46,6 +46,14 @@ let seqo stmts stmt' = ocanren {
     (* } *)
   (* } *)
 
+let deref_accesso id v p' = ocanren {
+    p' == DerefP (AccessP (VarP v, id))
+  }
+
+let access_deref_accesso id_ext id_int v p' = ocanren {
+    p' == AccessP (DerefP (AccessP (VarP v, id_int)), id_ext)
+  }
+
   (* - basic var tests *)
 
 let prog_eval_t_empty _ = show(answer) (Stream.take (run q
@@ -525,6 +533,8 @@ let prog_cp_cap_synt_t_simple_call_ref_fbd_wr' _ = show(answerCpCap) (Stream.tak
 
 (* - presentation tests *)
 
+(* simple types *)
+
 let prog_eval_t_presentation_simple_tp _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xbg, xg,
@@ -672,7 +682,7 @@ let prog_synt_t_presentation_simple_tp _ = show(answerCpCapList) (Stream.take (r
               })
   (fun q -> q#reify (List.prj_exn CopyCap.prj_exn))))
 
-(* - complex tests *)
+(* complex type *)
 
 let deref_accesso id v p' = ocanren {
     p' == DerefP (AccessP (VarP v, id))
@@ -681,6 +691,256 @@ let deref_accesso id v p' = ocanren {
 let access_deref_accesso id_ext id_int v p' = ocanren {
     p' == AccessP (DerefP (AccessP (VarP v, id_int)), id_ext)
   }
+
+(* --- *)
+
+let p_rw_unitTo tp = ocanren {
+    (* fresh r, w in *)
+    tp == UnitT (Rd, AlwaysWr)
+  }
+
+let p_rw_userTo tp = ocanren {
+    fresh x, y, z in
+    p_rw_unitTo x &
+    p_rw_unitTo y &
+    p_rw_unitTo z &
+    tp == TupleT [x; y; z]
+  }
+
+let p_rw_dataTo tp = ocanren {
+    fresh x, y in
+    p_rw_unitTo x &
+    p_rw_unitTo y &
+    tp == TupleT [x; y]
+  }
+
+let p_rw_timeTo tp = ocanren {
+    p_rw_unitTo tp
+  }
+
+let p_rw_requestTo cu cd ct tp = ocanren {
+    fresh userT, dataT, timeT in
+    p_rw_userTo userT &
+    p_rw_dataTo dataT &
+    p_rw_timeTo timeT &
+    tp == TupleT [RefT (cu, userT);
+                  RefT (cd, dataT);
+                  RefT (ct, timeT)]
+  }
+
+(* --- *)
+
+let p_any_unitTo tp = ocanren {
+    fresh r, w in
+    tp == UnitT (r, w)
+  }
+
+let p_any_userTo tp = ocanren {
+    fresh x, y, z in
+    p_any_unitTo x &
+    p_any_unitTo y &
+    p_any_unitTo z &
+    tp == TupleT [x; y; z]
+  }
+
+let p_any_dataTo tp = ocanren {
+    fresh x, y in
+    p_any_unitTo x &
+    p_any_unitTo y &
+    tp == TupleT [x; y]
+  }
+
+let p_any_timeTo tp = ocanren {
+    p_any_unitTo tp
+  }
+
+let p_any_requestTo cu cd ct tp = ocanren {
+    fresh userT, dataT, timeT in
+    p_any_userTo userT &
+    p_any_dataTo dataT &
+    p_any_timeTo timeT &
+    tp == TupleT [RefT (cu, userT);
+                  RefT (cd, dataT);
+                  RefT (ct, timeT)]
+  }
+
+(* --- *)
+
+let prog_eval_t_presentation_complex_tp _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog,
+                    userT, dataT, timeT, requestT,
+                    requestArgsT,
+                    userE, dataE, timeE, requestE,
+                    userVID, dataVID, timeVID, requestVID,
+                    sendFID, sendD, sendBranchStmts, sendStmts,
+                    stmts in
+              globals_min_ido userVID &
+              dataVID == Nat.s userVID &
+              timeVID == Nat.s dataVID &
+              requestVID == Nat.s timeVID &
+              sendFID == Nat.s requestVID &
+
+              p_rw_userTo userT &
+              p_rw_dataTo dataT &
+              p_rw_timeTo timeT &
+              p_rw_requestTo Cp Cp Cp requestT &
+              p_any_requestTo Cp Cp Cp requestArgsT & (* NOTE: for now *)
+
+              userE == TupleE [UnitE; UnitE; UnitE] &
+              dataE == TupleE [UnitE; UnitE] &
+              timeE == UnitE &
+              requestE == TupleE [RefE userVID; RefE dataVID; RefE timeVID] &
+
+              fresh data_p0, data_p1, time_p,
+                    user_id_p, user_name_p, user_surname_p in
+              access_deref_accesso 0 1 0 data_p0 &
+              access_deref_accesso 1 1 0 data_p1 &
+              deref_accesso 2 0 time_p &
+              access_deref_accesso 0 0 0 user_id_p &
+              access_deref_accesso 1 0 0 user_name_p &
+              access_deref_accesso 2 0 0 user_surname_p &
+              seqo [ReadS data_p0;
+                    ReadS data_p1;
+                    WriteS data_p0;
+                    WriteS data_p1;
+
+                    ReadS user_name_p;
+                    WriteS user_name_p] sendBranchStmts &
+              seqo [sendBranchStmts; (* TMP *)
+                    (* TODO: FIXME *)
+                    (* ChoiceS (sendBranchStmts, SkipS); *)
+                    WriteS time_p;
+
+                    ReadS data_p0;
+                    ReadS data_p1;
+                    ReadS time_p;
+                    ReadS user_id_p;
+                    ReadS user_name_p;
+                    ReadS user_surname_p] sendStmts &
+              (* sendStmts == SkipS & *)
+              sendD == FunD ([(Mode (In, NOut), requestArgsT)], sendStmts) &
+
+              fresh time_gp, user_name_gp, user_surname_gp in
+              deref_accesso 2 requestVID time_gp &
+              access_deref_accesso 1 0 requestVID user_name_gp &
+              access_deref_accesso 2 0 requestVID user_surname_gp &
+              seqo [
+                    CallS (VarP sendFID, [PathE (VarP requestVID)]);
+                    WriteS time_gp;
+                    (* TODO: FIXME *)
+                    (* ChoiceS (ReadS user_name_gp, *)
+                             (* ReadS user_surname_gp); *)
+                    ReadS user_name_gp; (* TMP *)
+                    ReadS user_surname_gp; (* TMP *)
+                    ReadS time_gp
+                  ] stmts &
+              prog == Prg ([
+                            VarD (userT, userE);
+                            VarD (dataT, dataE);
+                            VarD (timeT, timeE);
+                            VarD (requestT, requestE);
+                            sendD
+                            ],
+                           stmts
+                           ) &
+              prog_evalo prog q
+              })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_synt_t_presentation_complex_tp _ = show(answerCpCapList) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog,
+                    userT, dataT, timeT, requestT,
+                    requestArgsT,
+                    userE, dataE, timeE, requestE,
+                    userVID, dataVID, timeVID, requestVID,
+                    sendFID, sendD, sendBranchStmts, sendStmts,
+                    stmts,
+                    st, c_u, c_d, c_t in
+              globals_min_ido userVID &
+              dataVID == Nat.s userVID &
+              timeVID == Nat.s dataVID &
+              requestVID == Nat.s timeVID &
+              sendFID == Nat.s requestVID &
+
+              p_rw_userTo userT &
+              p_rw_dataTo dataT &
+              p_rw_timeTo timeT &
+              p_rw_requestTo Cp Cp Cp requestT &
+              p_any_requestTo c_u c_d c_t requestArgsT & (* NOTE: for now *)
+
+              userE == TupleE [UnitE; UnitE; UnitE] &
+              dataE == TupleE [UnitE; UnitE] &
+              timeE == UnitE &
+              requestE == TupleE [RefE userVID; RefE dataVID; RefE timeVID] &
+
+              fresh data_p0, data_p1, time_p,
+                    user_id_p, user_name_p, user_surname_p in
+              access_deref_accesso 0 1 0 data_p0 &
+              access_deref_accesso 1 1 0 data_p1 &
+              deref_accesso 2 0 time_p &
+              access_deref_accesso 0 0 0 user_id_p &
+              access_deref_accesso 1 0 0 user_name_p &
+              access_deref_accesso 2 0 0 user_surname_p &
+              seqo [ReadS data_p0;
+                    ReadS data_p1;
+                    WriteS data_p0;
+                    WriteS data_p1;
+
+                    ReadS user_name_p;
+                    WriteS user_name_p] sendBranchStmts &
+              seqo [sendBranchStmts; (* TMP *)
+                    (* TODO: FIXME *)
+                    (* ChoiceS (sendBranchStmts, SkipS); *)
+                    WriteS time_p;
+
+                    ReadS data_p0;
+                    ReadS data_p1;
+                    ReadS time_p;
+                    ReadS user_id_p;
+                    ReadS user_name_p;
+                    ReadS user_surname_p] sendStmts &
+              (* sendStmts == SkipS & *)
+              sendD == FunD ([(Mode (In, NOut), requestArgsT)], sendStmts) &
+
+              fresh time_gp, user_name_gp, user_surname_gp in
+              deref_accesso 2 requestVID time_gp &
+              access_deref_accesso 1 0 requestVID user_name_gp &
+              access_deref_accesso 2 0 requestVID user_surname_gp &
+              seqo [
+                    CallS (VarP sendFID, [PathE (VarP requestVID)]);
+                    WriteS time_gp;
+                    (* TODO: FIXME *)
+                    (* ChoiceS (ReadS user_name_gp, *)
+                             (* ReadS user_surname_gp); *)
+                    ReadS user_name_gp; (* TMP *)
+                    ReadS user_surname_gp; (* TMP *)
+                    ReadS time_gp
+                  ] stmts &
+              prog == Prg ([
+                            VarD (userT, userE);
+                            VarD (dataT, dataE);
+                            VarD (timeT, timeE);
+                            VarD (requestT, requestE);
+                            sendD
+                            ],
+                           stmts
+                           ) &
+              prog_evalo prog st &
+              q == [c_u; c_d; c_t]
+              })
+  (fun q -> q#reify (List.prj_exn CopyCap.prj_exn))))
+
+(* - complex tests *)
+
+(* let deref_accesso id v p' = ocanren { *)
+    (* p' == DerefP (AccessP (VarP v, id)) *)
+  (* } *)
+
+(* let access_deref_accesso id_ext id_int v p' = ocanren { *)
+    (* p' == AccessP (DerefP (AccessP (VarP v, id_int)), id_ext) *)
+  (* } *)
 
 let access_deref_access_deref_accesso id_ext id_mid id_int v p' = ocanren {
     p' == AccessP (DerefP (AccessP (DerefP (AccessP (VarP v, id_int)), id_mid)), id_ext)

@@ -569,11 +569,11 @@ struct
         pathvalo mem vals p' v' &
         v' == RefV id &
         mem_geto mem id v } |
-      { fresh p', id, v', vs in
-        p == AccessP (p', id) &
+      { fresh p', id', v', vs in
+        p == AccessP (p', id') &
         pathvalo mem vals p' v' &
         v' == TupleV vs &
-        list_ntho vs id v }
+        list_ntho vs id' v }
   }
 
   (* --- eval rules --- *)
