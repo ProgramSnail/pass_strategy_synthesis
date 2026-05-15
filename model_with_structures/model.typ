@@ -13,7 +13,7 @@
 
 == Syntax
 
-*TODO: top-level value copy mode ??* // TODO: FIXME
+// *TODO: top-level value copy mode ??* // TODO: FIXME
 
 *TODO: add formal global env to all types and vals (as in code) ??* // TODO: FIXME
 
@@ -581,28 +581,26 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   )
 ))
 
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ new reference ref value],
+
+//     $cl rf l, mu cr xarrowSquiggly(rf Ref t)_new cl rf l, mu cr$,
+//   )
+// ))
+
+// NOTE: due to new memory cells types (with rw subcells) valnue should always be copied
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ new reference ref value],
-
-    // TODO: FIXME: recursive copy ?? (what heppens if ref field has copy substructure ??)
-    // <- forbidden ??
-
-    $cl rf l, mu cr xarrowSquiggly(rf Ref t)_new cl rf l, mu cr$,
-  )
-))
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new reference copy value],
+    name: [ new reference /* copy */ value],
 
     $cl mu[l], mu cr xarrowSquiggly(t)_new cl v, mu_v cr$,
 
     $mu_v xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
 
-    $cl rf l, mu cr xarrowSquiggly(rf Copy t)_new cl rf l', mu_a cr$,
+    $cl rf l, mu cr xarrowSquiggly(rf c /*Copy*/ t)_new cl rf l', mu_a cr$,
   )
 ))
 

@@ -592,7 +592,7 @@ struct
     let open Type in
     let open Value in
     let open ReadCap in
-    let open CopyCap in
+    (* let open CopyCap in *)
     let open MemVal in
     let open ReadVal in
     let open WriteVal in
@@ -613,13 +613,13 @@ struct
       { fresh c, tp', id in
         v == RefV id &
         tp == RefT (c, tp') &
-        { { c == Rf & mem_with_id' == Std.pair mem v } |
-          { fresh v', mem_cp, v_cp, mem_add, id_add in
-            c == Cp &
-            mem_geto mem id v' &
-            valcopyo mem v' tp' (Std.pair mem_cp v_cp) &
-            mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
-            mem_with_id' == (mem_add, RefV id_add) } } } |
+        (* { c == Rf & mem_with_id' == Std.pair mem v } | *)
+        { fresh v', mem_cp, v_cp, mem_add, id_add in
+          (* c == Cp & *)
+          mem_geto mem id v' &
+          valcopyo mem v' tp' (Std.pair mem_cp v_cp) &
+          mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
+          mem_with_id' == (mem_add, RefV id_add) } } |
       { fresh vs, tps, mem', vs' in
         v == TupleV vs &
         tp == TupleT tps &
@@ -727,8 +727,8 @@ struct
     ocanren {
       { u == ZeroMV & v == ZeroMV & u' == ZeroMV } |
       { u == BotMV & v == BotMV & u' == BotMV } |
-      { u =/= ZeroMV & v =/= ZeroMV &
-        u =/= BotMV & v =/= BotMV & 
+      { { u =/= ZeroMV | { u == ZeroMV & v =/= ZeroMV } } &
+        { u =/= BotMV | { u == BotMV & v =/= BotMV } } & 
         u' == SmthMV }
   }
 
@@ -749,8 +749,8 @@ struct
     ocanren {
       { u == OneWV & v == OneWV & u' == OneWV } |
       { u == ZeroWV & v == ZeroWV & u' == ZeroWV } |
-      { u =/= ZeroWV & v =/= ZeroWV &
-        u =/= OneWV & v =/= OneWV & 
+      { { u =/= ZeroWV | { u == ZeroWV & v =/= ZeroWV } } &
+        { u =/= OneWV | { u == OneWV & v =/= OneWV } } & 
         u' == SmthWV }
   }
 
@@ -775,7 +775,8 @@ struct
     { fresh a, b in
       u == RefV a &
       v == RefV b &
-      a == b } |
+      a == b &
+      u' == RefV a } |
     { fresh us, vs, us' in
       u == TupleV us &
       v == TupleV vs &

@@ -28,17 +28,23 @@ open StEnv
 (* - shortcuts *)
 
 (* NOTE: redo with fold ?? *)
-let rec seqo stmts stmt' = ocanren {
-    { stmts == [] & stmt' == SkipS } |
-    { fresh s in
-      stmts == [s] &
-      stmt' == s } |
-    { fresh s, s', ss, stmt_rest' in
-      stmts == s :: s' :: ss &
-      seqo (s' :: ss) stmt_rest' &
-      stmt' == SeqS(s, stmt_rest')
-    }
+let seq_foldero stmt_acc stmt stmt_acc' = ocanren {
+    stmt_acc' == SeqS(stmt, stmt_acc)
   }
+let seqo stmts stmt' = ocanren {
+    list_foldro seq_foldero SkipS stmts stmt'
+  }
+(* ocanren { *)
+    (* { stmts == [] & stmt' == SkipS } | *)
+    (* { fresh s in *)
+      (* stmts == [s] & *)
+      (* stmt' == s } | *)
+    (* { fresh s, s', ss, stmt_rest' in *)
+      (* stmts == s :: s' :: ss & *)
+      (* seqo (s' :: ss) stmt_rest' & *)
+      (* stmt' == SeqS(s, stmt_rest') *)
+    (* } *)
+  (* } *)
 
   (* - basic var tests *)
 
@@ -517,6 +523,155 @@ let prog_cp_cap_synt_t_simple_call_ref_fbd_wr' _ = show(answerCpCap) (Stream.tak
               prog_evalo prog st })
   (fun q -> q#reify (CopyCap.prj_exn))))
 
+(* - presentation tests *)
+
+let prog_eval_t_presentation_simple_tp _ = show(answer) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xbg, xg,
+                          ybg, yg,
+                          zbg, zg,
+                          kbg, kg,
+                          fg, wg, gg, rg,
+                          xbd, xd,
+                          ybd, yd,
+                          zbd, zd,
+                          kbd, kd,
+                          fd, wd, gd, rd,
+                          fstmts, gstmts,
+                          stmts in
+              globals_min_ido xbg &
+              xg == Nat.s xbg &
+              ybg == Nat.s xg &
+              yg == Nat.s ybg &
+              zbg == Nat.s yg &
+              zg == Nat.s zbg &
+              kbg == Nat.s zg &
+              kg == Nat.s kbg &
+              fg == Nat.s kg &
+              wg == Nat.s fg &
+              gg == Nat.s wg &
+              rg == Nat.s gg &
+              xbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              xd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xbg) &
+              ybd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE ybg) &
+              zbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              zd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE zbg) &
+              kbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              kd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE kbg) &
+              seqo [ReadS (DerefP (VarP 0));
+                    WriteS (DerefP (VarP 0));
+                    ReadS (DerefP (VarP 1))] fstmts &
+              fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)));
+                           (Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))],
+                          fstmts) &
+              wd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, MayWr)))],
+                          ChoiceS (WriteS (DerefP (VarP 0)), SkipS)) &
+              seqo [WriteS (DerefP (VarP 0));
+                    ChoiceS (WriteS (DerefP (VarP 1)), WriteS (DerefP (VarP 0)));
+                    ReadS (DerefP (VarP 0));
+                    ReadS (DerefP (VarP 1))] gstmts &
+              gd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)));
+                           (Mode (In, NOut), RefT (Cp, UnitT (Rd, MayWr)))],
+                          gstmts) &
+              rd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))],
+                          ReadS (DerefP (VarP 0))) &
+              seqo [
+                    CallS (VarP wg, [PathE (VarP xg)]);
+                    CallS (VarP rg, [PathE (VarP xg)]);
+                    CallS (VarP fg, [PathE (VarP xg); PathE (VarP yg)]);
+                    CallS (VarP rg, [PathE (VarP yg)]);
+                    CallS (VarP gg, [PathE (VarP zg); PathE (VarP kg)]);
+                    CallS (VarP wg, [PathE (VarP zg)]);
+                    WriteS (DerefP (VarP zg));
+                    CallS (VarP fg, [PathE (VarP yg); PathE (VarP zg)]);
+                    CallS (VarP rg, [PathE (VarP kg)])
+                  ] stmts &
+              prog == Prg ([xbd; xd;
+                            ybd; yd;
+                            zbd; zd;
+                            kbd; kd;
+                            fd; wd; gd; rd],
+                           stmts) &
+              prog_evalo prog q
+              })
+  (fun q -> q#reify (StEnv.prj_exn))))
+
+let prog_synt_t_presentation_simple_tp _ = show(answerCpCapList) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, xbg, xg,
+                          ybg, yg,
+                          zbg, zg,
+                          kbg, kg,
+                          fg, wg, gg, rg,
+                          xbd, xd,
+                          ybd, yd,
+                          zbd, zd,
+                          kbd, kd,
+                          fd, wd, gd, rd,
+                          fstmts, gstmts,
+                          stmts,
+                          c_fx, c_fy, c_wx, c_gx, c_gy, c_rx,
+                          st in
+              globals_min_ido xbg &
+              xg == Nat.s xbg &
+              ybg == Nat.s xg &
+              yg == Nat.s ybg &
+              zbg == Nat.s yg &
+              zg == Nat.s zbg &
+              kbg == Nat.s zg &
+              kg == Nat.s kbg &
+              fg == Nat.s kg &
+              wg == Nat.s fg &
+              gg == Nat.s wg &
+              rg == Nat.s gg &
+              xbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              xd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xbg) &
+              ybd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE ybg) &
+              zbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              zd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE zbg) &
+              kbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
+              kd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE kbg) &
+              seqo [ReadS (DerefP (VarP 0));
+                    WriteS (DerefP (VarP 0));
+                    ReadS (DerefP (VarP 1))] fstmts &
+              fd == FunD ([(Mode (In, NOut), RefT (c_fx, UnitT (Rd, AlwaysWr)));
+                           (Mode (In, NOut), RefT (c_fy, UnitT (Rd, NeverWr)))],
+                          fstmts) &
+              wd == FunD ([(Mode (In, NOut), RefT (c_wx, UnitT (NRd, MayWr)))],
+                          ChoiceS (WriteS (DerefP (VarP 0)), SkipS)) &
+              seqo [WriteS (DerefP (VarP 0));
+                    ChoiceS (WriteS (DerefP (VarP 1)), WriteS (DerefP (VarP 0)));
+                    ReadS (DerefP (VarP 0));
+                    ReadS (DerefP (VarP 1))] gstmts &
+              gd == FunD ([(Mode (In, NOut), RefT (c_gx, UnitT (NRd, AlwaysWr)));
+                           (Mode (In, NOut), RefT (c_gy, UnitT (Rd, MayWr)))],
+                          gstmts) &
+              rd == FunD ([(Mode (In, NOut), RefT (c_rx, UnitT (Rd, NeverWr)))],
+                          ReadS (DerefP (VarP 0))) &
+              seqo [
+                    CallS (VarP wg, [PathE (VarP xg)]);
+                    CallS (VarP rg, [PathE (VarP xg)]);
+                    CallS (VarP fg, [PathE (VarP xg); PathE (VarP yg)]);
+                    CallS (VarP rg, [PathE (VarP yg)]);
+                    CallS (VarP gg, [PathE (VarP zg); PathE (VarP kg)]);
+                    CallS (VarP wg, [PathE (VarP zg)]);
+                    WriteS (DerefP (VarP zg));
+                    CallS (VarP fg, [PathE (VarP yg); PathE (VarP zg)]);
+                    CallS (VarP rg, [PathE (VarP kg)])
+                  ] stmts &
+              prog == Prg ([xbd; xd;
+                            ybd; yd;
+                            zbd; zd;
+                            kbd; kd;
+                            fd; wd; gd; rd],
+                           stmts) &
+              prog_evalo prog st &
+              q ==  [c_fx; c_fy; c_wx; c_gx; c_gy; c_rx]
+              })
+  (fun q -> q#reify (List.prj_exn CopyCap.prj_exn))))
+
 (* - complex tests *)
 
 let deref_accesso id v p' = ocanren {
@@ -965,4 +1120,4 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
               CallS (VarP send_allID, [PathE (VarP requestID)])
               ) &
               prog_evalo prog st })
-  (fun q -> q#reify (List.prj_exn CopyCap.prj_exn)))) (* TODO: list *)
+  (fun q -> q#reify (List.prj_exn CopyCap.prj_exn))))

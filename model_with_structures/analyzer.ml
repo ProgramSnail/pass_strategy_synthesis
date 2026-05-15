@@ -200,8 +200,8 @@ struct
     | UnitT (Rd, _), UnitV (v_m, _, _) -> (mem, UnitV (v_m, ZeroRV, ZeroWV))
     | UnitT (NRd, _), UnitV _ -> (mem, UnitV (BotMV, ZeroRV, ZeroWV))
     | FunT _, FunV _ -> (mem, v)
-    | RefT (Rf, _), RefV _ -> (mem, v)
-    | RefT (Cp, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
+    (* | RefT (Rf, _), RefV _ -> (mem, v) *)
+    | RefT (_, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
                                let (mem'', id'') = mem_add mem' v' in
                                (mem'', RefV id'') 
     | TupleT ts, TupleV vs -> let folder = fun (mem, vs') v t -> let (mem', v') = valcopy mem v t in
@@ -570,6 +570,7 @@ struct
   let vg8 = VarP (globals_min_id + 8)
   let vg9 = VarP (globals_min_id + 9)
   let vg10 = VarP (globals_min_id + 10)
+  let vg11 = VarP (globals_min_id + 11)
 
   let rf0E = RefE 0
   let rf1E = RefE 1
@@ -983,6 +984,72 @@ struct
       (rdS @@ drf @@ vg3) #.
       (rdS @@ drf @@ vg5) #.
       (rdS @@ drf @@ vg7)
+    );
+    Printf.printf "done!";
+    [%expect {| done! |}]
+
+  (* - tests for presentation *)
+
+  let%expect_test "presentation test 1 (simple types), dsl" =
+    prog_eval_noret (
+      [
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg0E; (* x *)
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg2E; (* y *)
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg4E; (* z *)
+        defgu uT_r_aw;
+        defg (rfT uT_r_aw) rfg6E; (* k *)
+        FunD ( (* f *)
+          [
+            (moded @@ rfT @@ uT_r_aw);
+            (moded @@ rfT @@ uT_r);
+          ],
+          (rdS @@ drf @@ v0) #.
+          (wrS @@ drf @@ v0) #.
+          (rdS @@ drf @@ v1)
+        );
+        FunD ( (* w *)
+          [
+            (moded @@ cpT @@ uT_mw);
+          ],
+          (wrS @@ drf @@ v0) |. skp
+        );
+        FunD ( (* g *)
+          [
+            (moded @@ rfT @@ uT_aw);
+            (moded @@ cpT @@ uT_r_mw);
+          ],
+          (wrS @@ drf @@ v0) #.
+          ((wrS @@ drf @@ v1) |. (wrS @@ drf @@ v0)) #.
+          (rdS @@ drf @@ v0) #.
+          (rdS @@ drf @@ v1)
+        );
+        FunD ( (* r *)
+          [
+            (moded @@ rfT @@ uT_r);
+          ],
+          (rdS @@ drf @@ v0)
+        )
+      ],
+      let xV = vg1 in
+      let yV = vg3 in
+      let zV = vg5 in
+      let kV = vg7 in
+      let fF = vg8 in
+      let wF = vg9 in
+      let gF = vg10 in
+      let rF = vg11 in
+      (callS wF [pE xV]) #.
+      (callS rF [pE xV]) #.
+      (callS fF [pE xV; pE yV]) #.
+      (callS rF [pE yV]) #.
+      (callS gF [pE zV; pE kV]) #.
+      (wrS @@ drf @@ zV) #.
+      (callS wF [pE zV]) #.
+      (callS fF [pE yV; pE zV]) #.
+      (callS rF [pE kV])
     );
     Printf.printf "done!";
     [%expect {| done! |}]
