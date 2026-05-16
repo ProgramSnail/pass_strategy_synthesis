@@ -247,6 +247,13 @@ struct
 
   let rec valupd (mem : mem) (v : value) (p : revpath) (a : action) : mem * value = match p, v with
     | VarRP, UnitV (v_m, v_r, v_w) -> (mem, UnitV (memvmod a v_m, readvmod a v_r, writevmod a v_w))
+    | VarRP, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p a in
+                            (mem_set mem' id v', RefV id)
+    (* TODO: add test on foldl vs foldr in this situation *)
+    | VarRP, TupleV vs -> let (mem', vs') = List.fold_right
+                                              (fun v (mem, vs') -> let (mem', v') = valupd mem v p a in
+                                              (mem', v' :: vs')) vs (mem, []) in
+                              (mem', TupleV vs')
     | DerefRP p, RefV id -> let (mem', v') = valupd mem (mem_get mem id) p a in
                             (mem_set mem' id v', RefV id)
     | AccessRP (p, id), TupleV vs -> let (mem', v') = valupd mem (List.nth vs id) p a in
@@ -452,6 +459,15 @@ struct
       | TupleV vs, TupleT ts -> ignore @@ List.map2 (tags_check mem) vs ts
       | _, _ -> raise @@ Typing_error "tags_check"
 
+  (* - writable type *)
+
+  let rec is_all_type_writable (t : atype) : bool =
+    match t with
+      | UnitT (_, w) -> w == MayWr || w == AlwaysWr
+      | FunT _ -> true
+      | RefT (_, t) -> is_all_type_writable t
+      | TupleT ts -> List.for_all is_all_type_writable ts
+
   (* - statement evaluation *)
 
   let rec stmt_eval (state : state) (s : stmt) : state =
@@ -493,32 +509,18 @@ struct
                           | FunV _, _ -> raise @@ Eval_error "call: function type"
                           | _, FunT _ -> raise @@ Eval_error "call: function val"
                           | _, _ -> raise @@ Eval_error "call: function type & val")
-    | WriteS p -> (match pathtype types p with
-                     | UnitT (_, w) ->
-                       if w == NeverWr
-                       then raise @@ Eval_error "write: write tag"
-                       else let x = pathvar p in
-                            let id = vals_assoc x vals in
-                            let pi = pathrev p VarRP in
-                            let (mem', v') = valupd mem (mem_get mem id) pi AlwaysWriteA in
-                            (mem_set mem' id v', types, vals, visited)
-                     | RefT _ -> raise @@ Eval_error "write: ref type"
-                     | TupleT _ -> raise @@ Eval_error "write: tuple type"
-                     | _ -> raise @@ Eval_error "write: type")
-    | ReadS p -> (match pathtype types p with
-                    | UnitT (_, _) ->
-                      (* NOTE: not required *)
-                      (* if r == NRd *)
-                      (* then raise @@ Eval_error "read: not read tag" *)
-                      (* else *)
-                      let x = pathvar p in
-                      let id = vals_assoc x vals in
-                      let pi = pathrev p VarRP in
-                      let (mem', v') = valupd mem (mem_get mem id) pi ReadA in
-                      (mem_set mem' id v', types, vals, visited)
-                    | RefT _ -> raise @@ Eval_error "read: ref type"
-                    | TupleT _ -> raise @@ Eval_error "read: tuple type"
-                    | _ -> raise @@ Eval_error "read: type")
+    | WriteS p -> if not @@ is_all_type_writable @@ pathtype types p
+                  then raise @@ Eval_error "write: write tag"
+                  else let x = pathvar p in
+                       let id = vals_assoc x vals in
+                       let pi = pathrev p VarRP in
+                       let (mem', v') = valupd mem (mem_get mem id) pi AlwaysWriteA in
+                       (mem_set mem' id v', types, vals, visited)
+    | ReadS p -> let x = pathvar p in
+                 let id = vals_assoc x vals in
+                 let pi = pathrev p VarRP in
+                 let (mem', v') = valupd mem (mem_get mem id) pi ReadA in
+                 (mem_set mem' id v', types, vals, visited)
                  (* NOTE: handled inside through undefined in memvmod *)
                  (* if pathval mem vals p == SmthV || pathval mem vals p == BotV *) 
                  (* then raise @@ Eval_error "read: spoiled value" *)

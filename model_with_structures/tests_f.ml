@@ -875,18 +875,15 @@ let prog_synt_t_presentation_complex_tp _ = show(answerCpCapList) (Stream.take (
               timeE == UnitE &
               requestE == TupleE [RefE userVID; RefE dataVID; RefE timeVID] &
 
-              fresh data_p0, data_p1, time_p,
+              fresh data_p, time_p,
                     user_id_p, user_name_p, user_surname_p in
-              access_deref_accesso 0 1 0 data_p0 &
-              access_deref_accesso 1 1 0 data_p1 &
+              deref_accesso 1 0 data_p &
               deref_accesso 2 0 time_p &
               access_deref_accesso 0 0 0 user_id_p &
               access_deref_accesso 1 0 0 user_name_p &
               access_deref_accesso 2 0 0 user_surname_p &
-              seqo [ReadS data_p0;
-                    ReadS data_p1;
-                    WriteS data_p0;
-                    WriteS data_p1;
+              seqo [ReadS data_p;
+                    WriteS data_p;
 
                     ReadS user_name_p;
                     WriteS user_name_p] sendBranchStmts &
@@ -894,13 +891,8 @@ let prog_synt_t_presentation_complex_tp _ = show(answerCpCapList) (Stream.take (
                     (* TODO: FIXME *)
                     (* ChoiceS (sendBranchStmts, SkipS); *)
                     WriteS time_p;
-
-                    ReadS data_p0;
-                    ReadS data_p1;
-                    ReadS time_p;
-                    ReadS user_id_p;
-                    ReadS user_name_p;
-                    ReadS user_surname_p] sendStmts &
+                    ReadS (VarP 0)
+              ] sendStmts &
               (* sendStmts == SkipS & *)
               sendD == FunD ([(Mode (In, NOut), requestArgsT)], sendStmts) &
 

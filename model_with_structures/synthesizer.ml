@@ -381,6 +381,14 @@ struct
     { xs == [] & ys == [] & zs == [] }
   }
 
+  let rec list_checko f xs = ocanren {
+    { xs == [] } |
+    { fresh x', xs' in
+      xs == x' :: xs' &
+      f x' &
+      list_checko f xs' }
+  }
+
   (* NOTE: unrequired ? *)
   (* let list_map2o f xs ys zs = ocanren { *)
     (* { xs == [] & ys == [] } | *)
@@ -388,7 +396,7 @@ struct
       (* xs == x' :: xs' & *)
       (* ys == y' :: ys' & *)
       (* f x' y' z' *)
-      (* mapo f xs' ys' zs' & *)
+      (* list_map2o f xs' ys' zs' & *)
       (* zs == z' :: zs' } *)
   (* } *)
 
@@ -688,7 +696,13 @@ struct
   }
 
   (* NOTE: reversed path used *)
-  let rec valupdo mem v rp a mem_with_v' =
+  let rec substructure_tuple_foldero rp a mem_with_vs v mem_with_vs' = ocanren {
+    fresh mem, vs, mem', v' in
+    Std.pair mem vs == mem_with_vs &
+    valupdo mem v rp a (Std.pair mem' v') &
+    mem_with_vs' == Std.pair mem' (v' :: vs)
+  }
+  and valupdo mem v rp a mem_with_v' =
     let open RevPath in
     let open Value in
     ocanren {
@@ -703,19 +717,23 @@ struct
         v' == UnitV (v_m', v_r', v_w') &
         mem_with_v' == Std.pair mem v' } |
       { fresh rp', id, v', mem_upd, v_upd, mem_with_v_upd, mem_st in
-        rp == DerefRP rp' &
+        { rp == DerefRP rp' | { rp == VarRP & rp' == VarRP } } & (* ref path or substructure *)
         v == RefV id &
         mem_geto mem id v' &
         valupdo mem v' rp' a mem_with_v_upd &
         Std.pair mem_upd v_upd == mem_with_v_upd &
         mem_seto mem_upd id v_upd mem_st &
         mem_with_v' == Std.pair mem_st (RefV id) } |
-      { fresh rp', id, vs', v', mem_upd, v_upd, mem_with_v_upd, vs_upd in
+      { fresh vs', mem_upd, vs_upd in
+        rp == VarRP &
+        v == TupleV vs' &
+        list_foldro (substructure_tuple_foldero rp a) (Std.pair mem []) vs' (Std.pair mem_upd vs_upd) &
+        mem_with_v' == Std.pair mem_upd (TupleV vs_upd) } |
+      { fresh rp', id, vs', v', mem_upd, v_upd, vs_upd in
         rp == AccessRP (rp', id) &
         v == TupleV vs' &
         list_ntho vs' id v' &
-        valupdo mem v' rp' a mem_with_v_upd &
-        Std.pair mem_upd v_upd == mem_with_v_upd &
+        valupdo mem v' rp' a (Std.pair mem_upd v_upd) &
         list_replaceo vs' id v_upd vs_upd &
         mem_with_v' == Std.pair mem_upd (TupleV vs_upd) }
   }
@@ -1140,6 +1158,25 @@ struct
         List.mapo (tags_checko mem) vs tps }
   }
 
+  (* - writable type *)
+
+  let rec is_all_type_writableo tp =
+    let open Type in
+    let open WriteCap in
+    ocanren {
+      { fresh _r, w in
+        tp == UnitT (_r, w) &
+        { w == MayWr | w == AlwaysWr } } |
+      { fresh _tps in
+        tp == FunT _tps } |
+      { fresh _c, tp' in
+        tp == RefT (_c, tp') &
+        is_all_type_writableo tp' } |
+      { fresh tps' in
+        tp == TupleT tps' &
+        list_checko is_all_type_writableo tps' }
+  }
+
   (* - statement evaluation *)
 
   let rec stmt_addarg_foldero vals st_with_id mtp e st_with_id' = ocanren {
@@ -1187,7 +1224,7 @@ struct
     let open Stmt in
     let open Value in
     let open Type in
-    let open WriteCap in
+    (* let open WriteCap in *)
     let open TypesEnv in
     let open ValsEnv in
     let open RevPath in
@@ -1227,12 +1264,11 @@ struct
                        mem tps es mem_spoiled &
           st' == StEnv (mem_spoiled, types, vals, visited')
         } |
-        { fresh p, tp, _r, w, x, id, v, rp,
+        { fresh p, tp, x, id, v, rp,
                 mem_upd, v_upd, mem_set in
           s == WriteS p &
           pathtypeo types p tp &
-          tp == UnitT (_r, w) &
-          { w == AlwaysWr | w == MayWr } &
+          is_all_type_writableo tp &
           pathvaro p x &
           vals_assoco x vals id &
           mem_geto mem id v &
@@ -1240,11 +1276,9 @@ struct
           valupdo mem v rp AlwaysWriteA (Std.pair mem_upd v_upd) &
           mem_seto mem_upd id v_upd mem_set &
           st' == StEnv (mem_set, types, vals, visited) } |
-        { fresh p, tp, _r, _w, x, id, v, rp,
+        { fresh p, _tp, _r, _w, x, id, v, rp,
                 mem_upd, v_upd, mem_set in
           s == ReadS p &
-          pathtypeo types p tp &
-          tp == UnitT (_r, _w) &
           pathvaro p x &
           vals_assoco x vals id &
           mem_geto mem id v &

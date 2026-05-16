@@ -1471,6 +1471,69 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
 #h(10pt)
 
+=== Writable Type
+
+#let twrite = $attach(tack.r, br: #[`write`])$
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ writable unit type: MaybeWrite],
+
+    $twrite cl r, MaybeWrite cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ writable unit type: AlwaysWrite],
+
+    $twrite cl r, AlwaysWrite cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ writable  ref type],
+
+    $twrite t$,
+    $twrite rf c space t$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ writable lambda type],
+
+    $twrite lambda space overline(t)$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ writable tuple type],
+
+    $twrite t_1$,
+    $...$,
+    $twrite t_n$,
+    $twrite [t_1, ... t_n]$,
+  )
+))
+
+#h(10pt)
+
 === Statement Evaluation
 
 #align(center, prooftree(
@@ -1517,8 +1580,8 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ WRITE $p$],
 
-    $types ttype p : cl r, w cr$,
-    $w = MaybeWrite or w = AlwaysWrite$,
+    $types ttype p : t$,
+    $twrite t$,
     $p arrpath x$,
     $l = vals[x]$,
     $p arrrevpath^(\#.) pi$,
@@ -1539,8 +1602,6 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     // $vals, mu tval p eqmu cdr v_m, \_, \_ cdl$,
     // $v_m in { 0, top }$,
 
-    $types ttype p : cl r, w cr$,
-    $r = Read$,
     $p arrpath x$,
     $l = vals[x]$,
     $p arrrevpath^(\#.) pi$,
