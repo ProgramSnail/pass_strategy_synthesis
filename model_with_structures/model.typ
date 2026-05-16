@@ -758,11 +758,37 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ modify final value],
+    name: [ modify final value: unit],
 
     $cl cdl v_m, v_r, v_w cdr, mu cr
      xarrowSquiggly(cl \# . \, a cr)_modify
      cl cdl v_m modM a, v_r modR a, v_w modW a cdr, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ modify final value: ref],
+
+    $cl mu[l], mu cr xarrowSquiggly(cl \# . \, a cr)_modify cl v', mu' cr$,
+    $cl rf l, mu cr xarrowSquiggly(cl \# . \, a cr)_modify cl rf l, mu'[l <- v'] cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ modify final value: tuple],
+
+    $cl v_1, mu_0 cr xarrowSquiggly(cl \# . \, a cr)_modify cl v'_1, mu_1, cr$,
+    $...$,
+    $cl v_n, mu_(n - 1) cr xarrowSquiggly(cl \# . \, a cr)_modify cl v'_n, mu_n, cr$,
+    $cl [v_1, ... v_n], mu cr xarrowSquiggly(cl \# . \, a cr)_modify cl [v'_1, ... v'_n], mu_n cr$,
   )
 ))
 
@@ -785,7 +811,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ modify tuple value],
 
-    $cl v_i, mu cr xarrowSquiggly(cl p \, a cr)_modify cl v'_i, mu', cr$,
+    $cl v_i, mu cr xarrowSquiggly(cl pi \, a cr)_modify cl v'_i, mu', cr$,
     $cl [v_1, ... v_i, ... v_n], mu cr xarrowSquiggly(cl i.pi \, a cr)_modify cl [v_1, ... v'_i, ... v_n], mu' cr$,
   )
 ))
