@@ -1471,20 +1471,9 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 
 #h(10pt)
 
-=== Writable Type
+=== Writability Check
 
 #let twrite = $attach(tack.r, br: #[`write`])$
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ writable unit type: MaybeWrite],
-
-    $twrite cl r, MaybeWrite cr$,
-  )
-))
-
-#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -1500,7 +1489,18 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ writable  ref type],
+    name: [ writable unit type: MaybeWrite],
+
+    $twrite cl r, MaybeWrite cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ writable ref type],
 
     $twrite t$,
     $twrite rf c space t$,

@@ -459,7 +459,7 @@ struct
       | TupleV vs, TupleT ts -> ignore @@ List.map2 (tags_check mem) vs ts
       | _, _ -> raise @@ Typing_error "tags_check"
 
-  (* - writable type *)
+  (* - writability check *)
 
   let rec is_all_type_writable (t : atype) : bool =
     match t with

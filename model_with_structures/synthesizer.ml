@@ -1158,7 +1158,7 @@ struct
         List.mapo (tags_checko mem) vs tps }
   }
 
-  (* - writable type *)
+  (* - writability check *)
 
   let rec is_all_type_writableo tp =
     let open Type in
