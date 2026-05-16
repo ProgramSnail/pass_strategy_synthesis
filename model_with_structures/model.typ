@@ -1418,6 +1418,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     // TODO: FIXME: introduce global types and vals
     $types_0 = types_#[glob]$,
     $vals_0 = vals_#[glob]$,
+    $mu_0 = mu$,
 
     // NOTE: dashed arrow to fill context
     $cl types_0, vals_0,  mu_0 cr
@@ -1569,6 +1570,33 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
     $cl types, vals, mu cr
      xarrow(s | t)
      cl types_t, vals_t, mu' cr$,
+  )
+))
+
+=== Program Evaluation
+
+#let progeval = `prog eval`
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ program evaluation],
+
+    // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
+    // expect well typed program
+
+    $cl types_0, vals_0, mu_0 cr xarrowSquiggly(d_1)_init cl types_1, vals_1, mu_1 cr$,
+    $...$,
+    $cl types_(n - 1), vals_(n - 1), mu_(n - 1) cr xarrowSquiggly(d_n)_init cl types_n, vals_n, mu_n cr$,
+
+    // TODO: FIXME: some easy way to pass to eval ??
+    $types_#[glob] = types_n$,
+    $vals_#[glob] = vals_n$,
+    $mu_#[glob] = mu_n$,
+
+    $cl types_n, vals_n, mu_n cr xarrow(s) cl types', vals', mu' cr$,
+
+    $cl types_0, vals_0, mu_0 cr xarrowSquiggly(d_1 ... d_n s)_prog_eval  cl types', vals', mu' cr$
   )
 ))
 
