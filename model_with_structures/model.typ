@@ -1385,7 +1385,7 @@ $s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
   rule(
     name: [ lambda check],
 
-    $mu ttags lambda space overline(s) :$,
+    $mu ttags lambda space overline(s) : lambda overline(t)$,
   )
 ))
 #align(center, prooftree(
