@@ -540,9 +540,69 @@ $action$ - действия, совершаемые с примитивным з
 
 === Value Construction
 
+#let build = `build`
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ build trivial read value],
+
+    $mu xarrowSquiggly(cl Read \, w cr)_build
+     cl cdl 0_m, 0_r, 0_w cdr, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ build trivial $not$ read value],
+
+    $mu xarrowSquiggly(cl not Read \, w cr)_build
+     cl cdl bot, 0_r, 0_w cdr, mu cr$,
+  )
+))
+
+#h(10pt)
+
+// TODO: function pointer type ??
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ build reference value],
+
+    $mu xarrowSquiggly(t)_build cl v, mu_v cr$,
+
+    $mu_v xarrowSquiggly(v)_#[add] cl l, mu_a cr$,
+
+    $mu xarrowSquiggly(rf c t)_build cl rf l, mu_a cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ build tuple value],
+
+    $mu_0 xarrowSquiggly(t_1)_build cl v_1, mu_1 cr$,
+    $...$,
+    $mu_(n - 1) xarrowSquiggly(t_n)_build cl v_n, mu_n cr$,
+
+    $mu_0 xarrowSquiggly([t_1, ... t_n])_build cl [v_1, ... v_n], mu_n cr$,
+  )
+))
+
+#h(10pt)
+
+// ---
+
 // TODO: FIXME:add ref / copy modes correctness check ??
 
-#let new = `new`
+// #let copy = `copy`
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -551,10 +611,12 @@ $action$ - действия, совершаемые с примитивным з
 
     $v_m in {0, ?, bot}$,
     $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl Read \, w cr)_new
-     cl cdl v_m, 0, 0 cdr, mu cr$,
+     xarrowSquiggly(cl Read \, w cr)_copy
+     cl cdl v_m, 0_r, 0_w cdr, mu cr$,
   )
 ))
+
+#h(10pt)
 
 // #align(center, prooftree(
 //   vertical-spacing: 4pt,
@@ -562,10 +624,12 @@ $action$ - действия, совершаемые с примитивным з
 //     name: [ new trivial read $top$ value],
 
 //     $cl cdl top, v_r, v_w cdr, mu cr
-//      xarrowSquiggly(cl Read \, w cr)_new
+//      xarrowSquiggly(cl Read \, w cr)_copy
 //      cl cdl 0, 0, 0 cdr, mu cr$,
 //   )
 // ))
+
+#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -574,28 +638,34 @@ $action$ - действия, совершаемые с примитивным з
 
     $v_m in {0, ?, bot/*, top */}$,
     $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl not Read \, w cr)_new
-     cl cdl bot, 0, 0 cdr, mu cr$,
+     xarrowSquiggly(cl not Read \, w cr)_copy
+     cl cdl bot, 0_r, 0_w cdr, mu cr$,
   )
 ))
+
+#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ new funciton pointer value],
 
-    $cl lambda overline(s), mu cr xarrowSquiggly(lambda space c space overline(t))_new cl lambda overline(s), mu cr$,
+    $cl lambda overline(s), mu cr xarrowSquiggly(lambda space c space overline(t))_copy cl lambda overline(s), mu cr$,
   )
 ))
+
+#h(10pt)
 
 // #align(center, prooftree(
 //   vertical-spacing: 4pt,
 //   rule(
 //     name: [ new reference ref value],
 
-//     $cl rf l, mu cr xarrowSquiggly(rf Ref t)_new cl rf l, mu cr$,
+//     $cl rf l, mu cr xarrowSquiggly(rf Ref t)_copy cl rf l, mu cr$,
 //   )
 // ))
+
+// #h(10pt)
 
 // NOTE: due to new memory cells types (with rw subcells) valnue should always be copied
 #align(center, prooftree(
@@ -603,24 +673,26 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ new reference /* copy */ value],
 
-    $cl mu[l], mu cr xarrowSquiggly(t)_new cl v, mu_v cr$,
+    $cl mu[l], mu cr xarrowSquiggly(t)_copy cl v, mu_v cr$,
 
     $mu_v xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
 
-    $cl rf l, mu cr xarrowSquiggly(rf c /*Copy*/ t)_new cl rf l', mu_a cr$,
+    $cl rf l, mu cr xarrowSquiggly(rf c /*Copy*/ t)_copy cl rf l', mu_a cr$,
   )
 ))
+
+#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ new tuple value],
 
-    $cl v_1, mu_0 cr xarrowSquiggly(t_1)_new cl lambda v'_1, mu_1 cr$,
+    $cl v_1, mu_0 cr xarrowSquiggly(t_1)_copy cl v'_1, mu_1 cr$,
     $...$,
-    $cl v_n, mu_(n - 1) cr xarrowSquiggly(t_n)_new cl lambda v'_n, mu_n cr$,
+    $cl v_n, mu_(n - 1) cr xarrowSquiggly(t_n)_copy cl v'_n, mu_n cr$,
 
-    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly([t_1, ... t_n])_new cl [v'_1, ... v'_n], mu_n cr$,
+    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly([t_1, ... t_n])_copy cl [v'_1, ... v'_n], mu_n cr$,
   )
 ))
 
@@ -1067,7 +1139,7 @@ $action$ - действия, совершаемые с примитивным з
     // expect well typed program
 
     $vals, mu texpre e eqmu v$,
-    $cl v, mu cr xarrowSquiggly(t)_new cl v', mu' cr$, // TODO: FIXME check (required?)
+    $cl v, mu cr xarrowSquiggly(t)_copy cl v', mu' cr$, // TODO: FIXME check (required?)
     $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
 
     $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu'' cr$
@@ -1354,7 +1426,7 @@ $action$ - действия, совершаемые с примитивным з
     // TODO: check type compatibility for t and type for path p (?)
     // [*TODO: check t ~ t' in sme way (?)*],
     // <- programs considired to be well-typed
-    $cl v, mu cr xarrowSquiggly(t)_new cl v', mu' cr$,
+    $cl v, mu cr xarrowSquiggly(t)_copy cl v', mu' cr$,
     $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
 
     // TODO save type mode somewhere ?? // <- not needed because is described by other params <- ??
