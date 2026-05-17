@@ -757,8 +757,7 @@ struct
       { u == ZeroRV & v == ZeroRV & u' == ZeroRV } |
       { u == TopRV & v == ZeroRV & u' == ZeroRV } |
       { u == ZeroRV & v == TopRV & u' == ZeroRV } |
-      { u =/= TopRV & v =/= TopRV &
-        u =/= ZeroRV & v =/= ZeroRV & 
+      { { u == OneRV | { u =/= OneRV & v == OneRV } } &
         u' == OneRV }
   }
 

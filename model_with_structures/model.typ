@@ -286,18 +286,25 @@ $X$ - можество переменных
 #let types = $Gamma$
 #let envv = $#[env]_Sigma$
 #let envt = $#[env]_Gamma$
-$sigma : envv := X -> LL, space vals : envv$ - #[ метки памяти перменных контекста, частично определённая функция ]
-$sigma : envt := X -> type, space types : envt$ - #[ типы значений перменных контекста, частично определённая функция ]
+$envv := X -> LL, space vals : envv$ - #[ метки памяти перменных контекста, частично определённая функция ]
+$envt := X -> type, space types : envt$ - #[ типы значений перменных контекста, частично определённая функция ]
 
 $revpath$ - путь в обратную сторону, используется для обновления значений
 
 $action$ - действия, совершаемые с примитивным значением,
            модифицирующие содержащуюся таминформацию
 
-// $DD : X -> decl$ - глобальные определения, частично определённая функция
-
-// $d in decl, $
-$s in stmt, f in X, x in X, a in X, p in path, pi in revpath$
+- $r in readTag, w in writeTag$
+- $c in copyTag$
+- $i in inTag, o in outTag$
+- $s in stmt$
+- $f, x, a in X$
+- $a in action$
+- $p in path$
+- $v in value$
+- $v_m in vmem, v_r in vread, v_w in vwrite$
+- $t, u in type$
+- $pi in revpath$
 
 === Path Accessors
 

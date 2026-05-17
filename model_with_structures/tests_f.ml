@@ -792,32 +792,27 @@ let prog_eval_t_presentation_complex_tp _ = show(answer) (Stream.take (run q
               timeE == UnitE &
               requestE == TupleE [RefE userVID; RefE dataVID; RefE timeVID] &
 
-              fresh data_p0, data_p1, time_p,
-                    user_id_p, user_name_p, user_surname_p in
-              access_deref_accesso 0 1 0 data_p0 &
-              access_deref_accesso 1 1 0 data_p1 &
+              fresh data_p, time_p,
+                    user_id_p, user_name_p in
+              deref_accesso 1 0 data_p &
               deref_accesso 2 0 time_p &
               access_deref_accesso 0 0 0 user_id_p &
               access_deref_accesso 1 0 0 user_name_p &
-              access_deref_accesso 2 0 0 user_surname_p &
-              seqo [ReadS data_p0;
-                    ReadS data_p1;
-                    WriteS data_p0;
-                    WriteS data_p1;
-
+              seqo [ReadS data_p;
+                    WriteS data_p;
                     ReadS user_name_p;
                     WriteS user_name_p] sendBranchStmts &
-              seqo [sendBranchStmts; (* TMP *)
-                    (* TODO: FIXME *)
-                    (* ChoiceS (sendBranchStmts, SkipS); *)
+              seqo [ChoiceS (sendBranchStmts, SkipS);
                     WriteS time_p;
 
-                    ReadS data_p0;
-                    ReadS data_p1;
-                    ReadS time_p;
-                    ReadS user_id_p;
-                    ReadS user_name_p;
-                    ReadS user_surname_p] sendStmts &
+                    ReadS (VarP 0)
+                    (* ReadS data_p0; *)
+                    (* ReadS data_p1; *)
+                    (* ReadS time_p; *)
+                    (* ReadS user_id_p; *)
+                    (* ReadS user_name_p; *)
+                    (* ReadS user_surname_p *)
+              ] sendStmts &
               (* sendStmts == SkipS & *)
               sendD == FunD ([(Mode (In, NOut), requestArgsT)], sendStmts) &
 
@@ -828,11 +823,8 @@ let prog_eval_t_presentation_complex_tp _ = show(answer) (Stream.take (run q
               seqo [
                     CallS (VarP sendFID, [PathE (VarP requestVID)]);
                     WriteS time_gp;
-                    (* TODO: FIXME *)
-                    (* ChoiceS (ReadS user_name_gp, *)
-                             (* ReadS user_surname_gp); *)
-                    ReadS user_name_gp; (* TMP *)
-                    ReadS user_surname_gp; (* TMP *)
+                    ChoiceS (ReadS user_name_gp,
+                             ReadS user_surname_gp);
                     ReadS time_gp
                   ] stmts &
               prog == Prg ([
@@ -884,12 +876,9 @@ let prog_synt_t_presentation_complex_tp _ = show(answerCpCapList) (Stream.take (
               access_deref_accesso 2 0 0 user_surname_p &
               seqo [ReadS data_p;
                     WriteS data_p;
-
                     ReadS user_name_p;
                     WriteS user_name_p] sendBranchStmts &
-              seqo [sendBranchStmts; (* TMP *)
-                    (* TODO: FIXME *)
-                    (* ChoiceS (sendBranchStmts, SkipS); *)
+              seqo [ChoiceS (sendBranchStmts, SkipS);
                     WriteS time_p;
                     ReadS (VarP 0)
               ] sendStmts &
@@ -903,10 +892,8 @@ let prog_synt_t_presentation_complex_tp _ = show(answerCpCapList) (Stream.take (
               seqo [
                     CallS (VarP sendFID, [PathE (VarP requestVID)]);
                     WriteS time_gp;
-                    (* TODO: FIXME *)
-                    (* ChoiceS (ReadS user_name_gp, *)
-                             (* ReadS user_surname_gp); *)
-                    ReadS user_name_gp; (* TMP *)
+                    ChoiceS (ReadS user_name_gp,
+                             ReadS user_surname_gp);
                     ReadS user_surname_gp; (* TMP *)
                     ReadS time_gp
                   ] stmts &
@@ -1031,9 +1018,8 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
                     ReadS sb_access3]
                    sendFBranch &
               seqo [ChoiceS (sendFBranch, SkipS);
-                    WriteS (AccessP (VarP 0, 4));
-                    (* TODO: read all the substructure ?? *)
-                    ReadS (AccessP (VarP 0, 4)) (*rdS v0*)] (* FIXME: TMP, parial read, should be full *)
+                    WriteS (VarP 0));
+                    ReadS (VarP 0))]
                    sendF &
 
               fresh sa_access0, sa_access1, sa_access2, sa_access3 in
@@ -1041,7 +1027,7 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
               access_deref_accesso 1 1 0 sa_access1 &
               access_deref_access_deref_accesso 0 0 0 0 sa_access2 &
               access_deref_accesso 0 1 0 sa_access3 &
-              seqo [WriteS (AccessP (VarP 0, 4)) (*wrS v0*); (* FIXME: TMP, parial write, should be full *)
+              seqo [WriteS (VarP 0));
                     CallS (VarP sendID, [PathE (VarP 0)]);
                     CallS (VarP get_version_idID, [PathE (VarP 0)]);
                     CallS (VarP updated_versionID, [PathE (VarP 0)]);
@@ -1317,8 +1303,7 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
                    sendFBranch &
               seqo [ChoiceS (sendFBranch, SkipS);
                     WriteS (AccessP (VarP 0, 4));
-                    (* TODO: read all the substructure ?? *)
-                    ReadS (AccessP (VarP 0, 4)) (*rdS v0*)] (* FIXME: TMP, parial read, should be full *)
+                    ReadS (VarP 0)]
                    sendF &
 
               fresh sa_access0, sa_access1, sa_access2, sa_access3 in
@@ -1326,11 +1311,10 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
               access_deref_accesso 1 1 0 sa_access1 &
               access_deref_access_deref_accesso 0 0 0 0 sa_access2 &
               access_deref_accesso 0 1 0 sa_access3 &
-              seqo [WriteS (AccessP (VarP 0, 4)) (*wrS v0*); (* FIXME: TMP, parial write, should be full *)
+              seqo [WriteS (AccessP (VarP 0, 4));
                     CallS (VarP sendID, [PathE (VarP 0)]);
                     CallS (VarP get_version_idID, [PathE (VarP 0)]);
                     CallS (VarP updated_versionID, [PathE (VarP 0)]);
-                    (* TODO: read all the substructure ?? *)
                     WriteS sa_access0;
                     WriteS sa_access1;
                     ChoiceS (
