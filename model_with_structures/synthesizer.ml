@@ -588,6 +588,44 @@ struct
 
   (* - value construction *)
 
+  let rec valbuild_foldero mem_with_vs tp mem_with_vs' =
+    ocanren {
+      fresh mem, vs, mem', v', vs' in
+      Std.pair mem vs == mem_with_vs &
+      valbuildo mem tp (Std.pair mem' v') &
+      vs' == v' :: vs &
+      mem_with_vs' == Std.pair mem' vs'
+  }
+  and valbuildo mem tp mem_with_id' = 
+    let open Type in
+    let open Value in
+    let open ReadCap in
+    (* let open CopyCap in *)
+    let open MemVal in
+    let open ReadVal in
+    let open WriteVal in
+    ocanren {
+      { fresh r, w in
+        tp == UnitT (r, w) &
+        { { r == Rd &
+            mem_with_id' == Std.pair mem (UnitV (ZeroMV, ZeroRV, ZeroWV)) } |
+          { r == NRd &
+            mem_with_id' == Std.pair mem (UnitV (BotMV, ZeroRV, ZeroWV)) } } } |
+      (* { fresh ts in *)
+        (* tp == FunT ts & *)
+        (* ??? } | *)
+      { fresh c, tp' in
+        tp == RefT (c, tp') &
+        { fresh mem_cp, v_cp, mem_add, id_add in
+          valbuildo mem tp' (Std.pair mem_cp v_cp) &
+          mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
+          mem_with_id' == (mem_add, RefV id_add) } } |
+      { fresh tps, mem', vs' in
+        tp == TupleT tps &
+        list_foldro valbuild_foldero (Std.pair mem []) tps (Std.pair mem' vs') &
+        mem_with_id' == Std.pair mem' (TupleV vs') }
+  }
+
   let rec valcopy_foldero mem_with_vs v tp mem_with_vs' =
     ocanren {
       fresh mem, vs, mem', v', vs' in
@@ -606,7 +644,6 @@ struct
     let open WriteVal in
     ocanren {
       { fresh r, w in
-        is_trivial_vo v &
         tp == UnitT (r, w) &
         { { fresh v_m, _v_r, _v_w in
             r == Rd &

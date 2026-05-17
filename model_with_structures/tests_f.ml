@@ -1018,8 +1018,8 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
                     ReadS sb_access3]
                    sendFBranch &
               seqo [ChoiceS (sendFBranch, SkipS);
-                    WriteS (VarP 0));
-                    ReadS (VarP 0))]
+                    WriteS (VarP 0);
+                    ReadS (VarP 0)]
                    sendF &
 
               fresh sa_access0, sa_access1, sa_access2, sa_access3 in
@@ -1027,7 +1027,7 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
               access_deref_accesso 1 1 0 sa_access1 &
               access_deref_access_deref_accesso 0 0 0 0 sa_access2 &
               access_deref_accesso 0 1 0 sa_access3 &
-              seqo [WriteS (VarP 0));
+              seqo [WriteS (VarP 0);
                     CallS (VarP sendID, [PathE (VarP 0)]);
                     CallS (VarP get_version_idID, [PathE (VarP 0)]);
                     CallS (VarP updated_versionID, [PathE (VarP 0)]);

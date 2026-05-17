@@ -195,6 +195,19 @@ struct
 
   (* - value construction *)
 
+  let rec valbuild (mem : mem) (t : atype) : mem * value =
+    match t with
+    | UnitT (Rd, _) -> (mem, UnitV (ZeroMV, ZeroRV, ZeroWV))
+    | UnitT (NRd, _) -> (mem, UnitV (BotMV, ZeroRV, ZeroWV))
+    | FunT _ -> raise @@ Typing_error "valbuild: funciton value is not supported"
+    | RefT (_, t) -> let (mem', v') = valbuild mem t in
+                     let (mem'', id'') = mem_add mem' v' in
+                     (mem'', RefV id'') 
+    | TupleT ts -> let folder = fun t (mem, vs') -> let (mem', v') = valbuild mem t in
+                                                        (mem', v' :: vs') in 
+                   let mem', vs' = List.fold_right folder ts (mem, []) in
+                   (mem', TupleV vs')
+
   let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value =
     match t, v with
     | UnitT (Rd, _), UnitV (v_m, _, _) -> (mem, UnitV (v_m, ZeroRV, ZeroWV))
@@ -204,10 +217,10 @@ struct
     | RefT (_, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
                                let (mem'', id'') = mem_add mem' v' in
                                (mem'', RefV id'') 
-    | TupleT ts, TupleV vs -> let folder = fun (mem, vs') v t -> let (mem', v') = valcopy mem v t in
+    | TupleT ts, TupleV vs -> let folder = fun v t (mem, vs') -> let (mem', v') = valcopy mem v t in
                                                                  (mem', v' :: vs') in 
-                              let mem', vs' = List.fold_left2 folder (mem, []) vs ts in
-                              (mem', TupleV (List.rev vs')) (* TODO: FIXME: should reverse or not ?? *)
+                              let mem', vs' = List.fold_right2 folder vs ts (mem, []) in
+                              (mem', TupleV vs')
     | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type"
 
   (* - action rules *)
