@@ -1118,7 +1118,7 @@ $action$ - действия, совершаемые с примитивным з
     // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
     // expect well typed program
 
-    $cl mu cr xarrowSquiggly(t)_build cl v, mu' cr$, // TODO: FIXME check (required?)
+    $cl mu cr xarrowSquiggly(t)_build cl v, mu' cr$,
     $mu' xarrowSquiggly(v)_#[add] cl l, mu'' cr$,
 
     $cl types, vals, mu cr xarrowSquiggly("var" x : t)_init cl types[x <- t], vals[x <- l], mu'' cr$
@@ -1515,6 +1515,8 @@ $action$ - действия, совершаемые с примитивным з
     $types_0, vals_0, mu_0 tfunceval "fun" f [(x_1 m_1 t_1), .. (x_n m_n x_n)] = s$,
   )
 ))
+
+#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,

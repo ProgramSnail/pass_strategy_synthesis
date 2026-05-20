@@ -147,7 +147,7 @@ struct
   module Decl = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ((* 'd, *) 't, 'e, (* 'dl, *) 'mtl, 's) t = VarD of (* 'd * *) 't * 'e | FunD of (* 'd * 'dl * *) 'mtl * 's
+      type nonrec ((* 'd, *) 't, 'e, (* 'dl, *) 'mtl, 's) t = VarD of (* 'd * *) 't | FunD of (* 'd * 'dl * *) 'mtl * 's
       [@@deriving gt ~options:{ show; gmap }]
       type ground = ((* Nat.ground, *) Type.ground, Expr.ground, (* Nat.ground List.ground, *) (Mode.ground * Type.ground) List.ground, Stmt.ground) t
     ]
@@ -194,13 +194,12 @@ struct
   module Value = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('vm, 'vr, 'vw, 'sl, 'd, 'vl) t = UnitV of 'vm * 'vr * 'vw
-                                                  | FunV of 'sl
-                                                  | RefV of 'd
-                                                  | TupleV of 'vl
+      type nonrec ('vm, 'vr, 'vw, 'd, 'vl) t = UnitV of 'vm * 'vr * 'vw
+                                             | FunV
+                                             | RefV of 'd
+                                             | TupleV of 'vl
       [@@deriving gt ~options:{ show; gmap }]
       type ground = (MemVal.ground, ReadVal.ground, WriteVal.ground,
-                     ((* Nat.ground List.ground * *) Stmt.ground) List.ground,
                      Nat.ground, ground List.ground) t
     ]
   end
@@ -237,7 +236,7 @@ struct
   module TypesEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec 'dtl t = TypesEnv of 'dtl (* glob *) * 'dtl (* glob + loc *)
+      type nonrec 'dtl t = TypesEnv of 'dtl
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = ((Nat.ground * Type.ground) List.ground) t
     ]
@@ -246,27 +245,18 @@ struct
   module ValsEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec 'ddl t = ValsEnv of 'ddl (* glob *) * 'ddl (* glob + loc *)
+      type nonrec 'ddl t = ValsEnv of 'ddl
       [@@deriving gt ~options:{ show; gmap }]
       type nonrec ground = ((Nat.ground * Nat.ground) List.ground) t
-    ]
-  end
-
-  module VisitedEnv = struct
-    [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
-    [%%ocanren_inject
-      type nonrec 'sl t = VisitedEnv of 'sl
-      [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (Stmt.ground List.ground) t
     ]
   end
 
   module StEnv = struct
     [@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
     [%%ocanren_inject
-      type nonrec ('mem, 'types, 'vals, 'visited) t = StEnv of 'mem * 'types * 'vals * 'visited
+      type nonrec ('mem, 'types, 'vals) t = StEnv of 'mem * 'types * 'vals
       [@@deriving gt ~options:{ show; gmap }]
-      type nonrec ground = (MemEnv.ground, TypesEnv.ground, ValsEnv.ground, VisitedEnv.ground) t
+      type nonrec ground = (MemEnv.ground, TypesEnv.ground, ValsEnv.ground) t
     ]
   end
 
@@ -405,86 +395,34 @@ struct
   let types_assoco id types tp =
     let open TypesEnv in
     ocanren {
-      fresh _glob_tps, tps in
-      types == TypesEnv (_glob_tps, tps) &
+      fresh tps in
+      types == TypesEnv tps &
       List.assoco id tps tp
     }
 
   let vals_assoco id vals v =
     let open ValsEnv in
     ocanren {
-      fresh _glob_vs, vs in
-      vals == ValsEnv (_glob_vs, vs) &
+      fresh vs in
+      vals == ValsEnv vs &
       List.assoco id vs v
     }
-
-  let types_glob_addo types x tp types' = 
-    let open TypesEnv in
-    ocanren {
-      fresh glob_tps, tps in
-      types == TypesEnv (glob_tps, tps) &
-      types' == TypesEnv ((Std.pair x tp) :: glob_tps,
-                          (Std.pair x tp) :: tps)
-  }
 
   let types_addo types x tp types' = 
     let open TypesEnv in
     ocanren {
-      fresh glob_tps, tps in
-      types == TypesEnv (glob_tps, tps) &
-      types' == TypesEnv (glob_tps, (Std.pair x tp) :: tps)
-  }
-
-  let vals_glob_addo vals x v vals' = 
-    let open ValsEnv in
-    ocanren {
-      fresh glob_vs, vs in
-      vals == ValsEnv (glob_vs, vs) &
-      vals' == ValsEnv ((Std.pair x v) :: glob_vs,
-                        (Std.pair x v) :: vs)
+      fresh tps in
+      types == TypesEnv tps &
+      types' == TypesEnv ((Std.pair x tp) :: tps)
   }
 
   let vals_addo vals x v vals' = 
     let open ValsEnv in
     ocanren {
-      fresh glob_vs, vs in
-      vals == ValsEnv (glob_vs, vs) &
-      vals' == ValsEnv (glob_vs, (Std.pair x v) :: vs)
+      fresh vs in
+      vals == ValsEnv vs &
+      vals' == ValsEnv ((Std.pair x v) :: vs)
   }
-
-  let visited_appendo visitedl visitedr visited' = 
-    let open VisitedEnv in
-    ocanren {
-      fresh vsl, vsr, vs' in
-      visitedl == VisitedEnv vsl &
-      visitedr == VisitedEnv vsr &
-      List.appendo vsl vsr vs' &
-      visited' == VisitedEnv vs'
-  }
-
-  let visited_checko visited stmt =
-    let open VisitedEnv in
-    ocanren {
-      fresh vs in
-      visited == VisitedEnv vs &
-      List.membero vs stmt
-    }
-
-  let not_visited_checko visited stmt =
-    let open VisitedEnv in
-    ocanren {
-      fresh vs in
-      visited == VisitedEnv vs &
-      list_not_membero vs stmt
-    }
-
-  let visited_addo visited stmt visited' =
-    let open VisitedEnv in
-    ocanren {
-      fresh vs in
-      visited == VisitedEnv vs &
-      visited' == VisitedEnv (stmt :: vs)
-    }
 
   (* --- *)
 
@@ -626,51 +564,51 @@ struct
         mem_with_id' == Std.pair mem' (TupleV vs') }
   }
 
-  let rec valcopy_foldero mem_with_vs v tp mem_with_vs' =
-    ocanren {
-      fresh mem, vs, mem', v', vs' in
-      Std.pair mem vs == mem_with_vs &
-      valcopyo mem v tp (Std.pair mem' v') &
-      vs' == v' :: vs &
-      mem_with_vs' == Std.pair mem' vs'
-  }
-  and valcopyo mem v tp mem_with_id' = 
-    let open Type in
-    let open Value in
-    let open ReadCap in
+  (* let rec valcopy_foldero mem_with_vs v tp mem_with_vs' = *)
+    (* ocanren { *)
+      (* fresh mem, vs, mem', v', vs' in *)
+      (* Std.pair mem vs == mem_with_vs & *)
+      (* valcopyo mem v tp (Std.pair mem' v') & *)
+      (* vs' == v' :: vs & *)
+      (* mem_with_vs' == Std.pair mem' vs' *)
+  (* } *)
+  (* and valcopyo mem v tp mem_with_id' = *) 
+    (* let open Type in *)
+    (* let open Value in *)
+    (* let open ReadCap in *)
     (* let open CopyCap in *)
-    let open MemVal in
-    let open ReadVal in
-    let open WriteVal in
-    ocanren {
-      { fresh r, w in
-        tp == UnitT (r, w) &
-        { { fresh v_m, _v_r, _v_w in
-            r == Rd &
-            v == UnitV (v_m, _v_r, _v_w) &
-            mem_with_id' == Std.pair mem (UnitV (v_m, ZeroRV, ZeroWV)) } |
-          { r == NRd &
-            mem_with_id' == Std.pair mem (UnitV (BotMV, ZeroRV, ZeroWV)) } } } |
-      { fresh stmts, ts in
-        v == FunV stmts &
-        tp == FunT ts &
-        mem_with_id' == Std.pair mem v } |
-      { fresh c, tp', id in
-        v == RefV id &
-        tp == RefT (c, tp') &
+    (* let open MemVal in *)
+    (* let open ReadVal in *)
+    (* let open WriteVal in *)
+    (* ocanren { *)
+      (* { fresh r, w in *)
+        (* tp == UnitT (r, w) & *)
+        (* { { fresh v_m, _v_r, _v_w in *)
+            (* r == Rd & *)
+            (* v == UnitV (v_m, _v_r, _v_w) & *)
+            (* mem_with_id' == Std.pair mem (UnitV (v_m, ZeroRV, ZeroWV)) } | *)
+          (* { r == NRd & *)
+            (* mem_with_id' == Std.pair mem (UnitV (BotMV, ZeroRV, ZeroWV)) } } } | *)
+      (* { fresh stmts, ts in *)
+        (* v == FunV stmts & *)
+        (* tp == FunT ts & *)
+        (* mem_with_id' == Std.pair mem v } | *)
+      (* { fresh c, tp', id in *)
+        (* v == RefV id & *)
+        (* tp == RefT (c, tp') & *)
         (* { c == Rf & mem_with_id' == Std.pair mem v } | *)
-        { fresh v', mem_cp, v_cp, mem_add, id_add in
+        (* { fresh v', mem_cp, v_cp, mem_add, id_add in *)
           (* c == Cp & *)
-          mem_geto mem id v' &
-          valcopyo mem v' tp' (Std.pair mem_cp v_cp) &
-          mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
-          mem_with_id' == (mem_add, RefV id_add) } } |
-      { fresh vs, tps, mem', vs' in
-        v == TupleV vs &
-        tp == TupleT tps &
-        list_foldr2o valcopy_foldero (Std.pair mem []) vs tps (Std.pair mem' vs') &
-        mem_with_id' == Std.pair mem' (TupleV vs') }
-  }
+          (* mem_geto mem id v' & *)
+          (* valcopyo mem v' tp' (Std.pair mem_cp v_cp) & *)
+          (* mem_addo mem_cp v_cp (Std.pair mem_add id_add) & *)
+          (* mem_with_id' == (mem_add, RefV id_add) } } | *)
+      (* { fresh vs, tps, mem', vs' in *)
+        (* v == TupleV vs & *)
+        (* tp == TupleT tps & *)
+        (* list_foldr2o valcopy_foldero (Std.pair mem []) vs tps (Std.pair mem' vs') & *)
+        (* mem_with_id' == Std.pair mem' (TupleV vs') } *)
+  (* } *)
 
   (* - action rules *)
 
@@ -820,12 +758,9 @@ struct
       readvalcombo u_r v_r u_r' &
       writevalcombo u_w v_w u_w' &
       u' == UnitV (u_m', u_r', u_w') } |
-    { fresh ustmts, vstmts, ustmts' in
-      u == FunV ustmts &
-      v == FunV vstmts &
-      (* TODO: swap stmts order o efficiency ? *)
-      List.appendo ustmts vstmts ustmts' &
-      u' == FunV ustmts' } |
+    { u == FunV &
+      v == FunV &
+      u' == FunV } |
     { fresh a, b in
       u == RefV a &
       v == RefV b &
@@ -910,32 +845,26 @@ struct
     let open Value in
     let open Type in
     ocanren {
-      fresh mem, types, vals, visited in
-      st == StEnv (mem, types, vals, visited) &
+      fresh mem, types, vals in
+      st == StEnv (mem, types, vals) &
       {
-        { fresh tp, e, v,
-                mem_cp, v_cp,
+        { fresh tp, mem_bd, v_bd,
                 mem_add, id_add,
                 types', vals' in
-          d == VarD (tp, e) &
-          exprvalo mem vals e v &
-          valcopyo mem v tp (Pair.pair mem_cp v_cp) &
-          (* mem_cp == mem & v_cp == v & *)
-          mem_addo mem_cp v_cp (Pair.pair mem_add id_add) &
-          (* mem_add == mem_cp & *)
-          types_glob_addo types x tp types' &
-          (* types == types' & *)
-          (* vals == vals' & *)
-          vals_glob_addo vals x id_add vals' &
-          st' == StEnv (mem_add, types', vals', visited) } |
+          d == VarD tp &
+          valbuildo mem tp (Pair.pair mem_bd v_bd) &
+          mem_addo mem_bd v_bd (Pair.pair mem_add id_add) &
+          types_addo types x tp types' &
+          vals_addo vals x id_add vals' &
+          st' == StEnv (mem_add, types', vals') } |
         { fresh tps, s,
                 mem_add, id_add,
                 types', vals' in
           d == FunD (tps, s) &
-          mem_addo mem (FunV [s]) (Pair.pair mem_add id_add) &
-          types_glob_addo types x (FunT tps) types' &
-          vals_glob_addo vals x id_add vals' &
-          st' == StEnv (mem_add, types', vals', visited)
+          mem_addo mem FunV (Pair.pair mem_add id_add) &
+          types_addo types x (FunT tps) types' &
+          vals_addo vals x id_add vals' &
+          st' == StEnv (mem_add, types', vals')
          }
       }
   }
@@ -948,11 +877,10 @@ struct
     let open StEnv in
     let open TypesEnv in
     let open ValsEnv in
-    let open VisitedEnv in
     ocanren {
       fresh m in
       empty_memo m &
-      st == StEnv (m, TypesEnv ([], []), ValsEnv ([], []), VisitedEnv [])
+      st == StEnv (m, TypesEnv [], ValsEnv [])
   }
 
   (* TODO: better way ??? *)
@@ -1058,9 +986,9 @@ struct
             v'' == UnitV (v_m''', v_r'', v_w'') &
             mem_with_v' == Std.pair mem v'' }
         } } |
-      { fresh ts, _stmts in
+      { fresh ts in
         tp == FunT ts &
-        v == FunV _stmts &
+        v == FunV &
         mem_with_v' == Std.pair mem v } |
       { fresh ctp', tp', id', v', mem_sp, v_sp, mem_set in
         tp == RefT (ctp', tp') &
@@ -1086,10 +1014,10 @@ struct
     let open CopyCap in
     let open RevPath in
     ocanren {
-      fresh mem, types, vals, visited,
+      fresh mem, types, vals,
             x, id, b(* , tp' *), rp,
             mem_sp, b_sp, v_sp, mem_upd, v_upd in
-      st == StEnv (mem, types, vals, visited) &
+      st == StEnv (mem, types, vals) &
       pathvaro p x &
       vals_assoco x vals id &
       pathvalo mem vals p b &
@@ -1101,11 +1029,11 @@ struct
       mem_seto mem_upd id v_upd mem'
   }
 
-  let rec argsspoile_foldero types vals visited m mem tp e mem' =
+  let rec argsspoile_foldero types vals m mem tp e mem' =
     let open StEnv in
     ocanren {
       fresh st in
-      st == StEnv (mem, types, vals, visited) &
+      st == StEnv (mem, types, vals) &
       argsspoileo st m tp e mem'
   }
   and argsspoileo st m tp e mem' =
@@ -1114,8 +1042,8 @@ struct
     let open Type in
     let open Path in
     ocanren {
-      fresh _r, _w, mem, types, vals, visited in
-      st == StEnv (mem, types, vals, visited) &
+      fresh _r, _w, mem, types, vals in
+      st == StEnv (mem, types, vals) &
       {
         { e == UnitE &
           tp == UnitT (_r, _w) &
@@ -1129,30 +1057,28 @@ struct
         { fresh es, tps in
           e == TupleE es &
           tp == TupleT tps &
-          list_foldl2o (argsspoile_foldero types vals visited m) mem tps es mem'}
+          list_foldl2o (argsspoile_foldero types vals m) mem tps es mem'}
       }
   }
 
   (* - funciton argument addition *)
 
-  let addargo st oldvals x tp e st' =
+  let addargo st x tp st' =
     let open StEnv in
     ocanren {
-      fresh mem, types, vals, visited, v,
-            mem_cp, v_cp,
+      fresh mem, types, vals,
+            mem_bd, v_bd,
             mem_add, id_add,
             types', vals' in
-      st == StEnv (mem, types, vals, visited) &
-      exprvalo mem oldvals e v &
-      valcopyo mem v tp (Std.pair mem_cp v_cp) &
-      mem_addo mem_cp v_cp (Std.pair mem_add id_add) &
+      st == StEnv (mem, types, vals) &
+      valbuildo mem tp (Std.pair mem_bd v_bd) &
+      mem_addo mem_bd v_bd (Std.pair mem_add id_add) &
       types_addo types x tp types' &
       vals_addo vals x id_add vals' &
-      st' == StEnv (mem_add, types', vals', visited)
+      st' == StEnv (mem_add, types', vals')
   }
 
-  (* - function evaluation *)
-  (* NOTE: not needed due to performed optimization in stmt_eval ? *)
+  (* --- *)
 
   let writeval_to_capo v_w w' =
     let open WriteVal in
@@ -1180,8 +1106,8 @@ struct
         } &
         writeval_to_capo v_w w
          } |
-      { fresh _stmts, _ts in
-        v == FunV _stmts &
+      { fresh _ts in
+        v == FunV &
         tp == FunT _ts } |
       { fresh id, _c, tp', v' in
         v == RefV id &
@@ -1215,90 +1141,34 @@ struct
 
   (* - statement evaluation *)
 
-  let rec stmt_addarg_foldero vals st_with_id mtp e st_with_id' = ocanren {
-    fresh st, x, m, tp, st' in
-    Std.pair st x == st_with_id &
-    Std.pair m tp == mtp &
-    addargo st vals x tp e st' &
-    st_with_id' == Std.pair st' (Nat.s x)
-  }
-  and f_tags_check_foldero mem vals x mtp x' = ocanren {
-    fresh m, tp, id', v' in
-    mtp == Std.pair m tp &
-    vals_assoco x vals id' &
-    mem_geto mem id' v' &
-    tags_checko mem v' tp &
-    x' == Nat.s x
-  }
-  and stmt_eval_func_foldero mem types vals tps visited stmt visited' =
-    let open StEnv in
-    ocanren {
-      { fresh visited_add, st,
-              st', mem', types', vals',
-              _x', visited'' in
-        not_visited_checko visited stmt &
-        visited_addo visited stmt visited_add &
-        st == StEnv (mem, types, vals, visited_add) &
-        stmt_evalo st stmt st' &
-        st' == StEnv (mem', types', vals', visited'') &
-        list_foldlo (f_tags_check_foldero mem' vals') 0 tps _x' &
-        visited' == visited''
-         } |
-      { visited_checko visited stmt &
-        visited == visited' }
-  }
-  and stmt_eval_spoil_foldero types vals visited mem mtp e mem' =
+  let rec stmt_eval_spoil_foldero types vals mem mtp e mem' =
     let open StEnv in
     ocanren {
       fresh m, tp, st in
       Std.pair m tp == mtp &
-      st == StEnv (mem, types, vals, visited) &
+      st == StEnv (mem, types, vals) &
       argsspoileo st m tp e mem'
   }
   and stmt_evalo st s st' =
     let open StEnv in
     let open Stmt in
-    let open Value in
     let open Type in
-    (* let open WriteCap in *)
-    let open TypesEnv in
-    let open ValsEnv in
     let open RevPath in
     let open Action in
     ocanren {
-      fresh mem, types, vals, visited in
-      st == StEnv (mem, types, vals, visited) &
+      fresh mem, types, vals in
+      st == StEnv (mem, types, vals) &
       {
         { s == SkipS & st == st' } |
-        { fresh f, es, v, tp,
-                glob_tps, _tps,
-                glob_vs, _vs,
-                types_call, vals_call,
-                fstmts, tps, st_call,
-                state_with_args,
-                mem_swa, types_swa,
-                vals_swa, visited_swa,
-                _arg_id, mem_spoiled,
-                visited' in
+        { fresh f, es, tp,
+                _tps, _vs, tps,
+                mem_spoiled in
           s == CallS (f, es) &
-          pathvalo mem vals f v &
           pathtypeo types f tp &
-          types == TypesEnv (glob_tps, _tps) &
-          vals == ValsEnv (glob_vs, _vs) &
-          types_call == TypesEnv (glob_tps, glob_tps) &
-          vals_call == ValsEnv (glob_vs, glob_vs) &
-          v == FunV fstmts &
           tp == FunT tps &
-          st_call == StEnv (mem, types_call, vals_call, visited) &
-          list_foldl2o (stmt_addarg_foldero vals)
-                       (Std.pair st_call 0) tps es
-                       (Std.pair state_with_args _arg_id) &
-          state_with_args == StEnv (mem_swa, types_swa, vals_swa, visited_swa) &
-          list_foldlo (stmt_eval_func_foldero mem_swa types_swa vals_swa tps) visited_swa fstmts visited' &
-          (* TODO: FIXME check left or right order *)
-          list_foldl2o (stmt_eval_spoil_foldero types vals (* NOTE: not important*) visited')
+          list_foldl2o (stmt_eval_spoil_foldero types vals)
                        mem tps es mem_spoiled &
-          st' == StEnv (mem_spoiled, types, vals, visited')
+          st' == StEnv (mem_spoiled, types, vals)
         } |
         { fresh p, tp, x, id, v, rp,
                 mem_upd, v_upd, mem_set in
@@ -1311,7 +1181,7 @@ struct
           pathrevo p VarRP rp &
           valupdo mem v rp AlwaysWriteA (Std.pair mem_upd v_upd) &
           mem_seto mem_upd id v_upd mem_set &
-          st' == StEnv (mem_set, types, vals, visited) } |
+          st' == StEnv (mem_set, types, vals) } |
         { fresh p, _tp, _r, _w, x, id, v, rp,
                 mem_upd, v_upd, mem_set in
           s == ReadS p &
@@ -1321,7 +1191,7 @@ struct
           pathrevo p VarRP rp &
           valupdo mem v rp ReadA (Std.pair mem_upd v_upd) &
           mem_seto mem_upd id v_upd mem_set &
-          st' == StEnv (mem_set, types, vals, visited) } |
+          st' == StEnv (mem_set, types, vals) } |
         (* { fresh p in *)
           (* s == ReadS p & *)
           (* pathvalo mem vals p ZeroV & *)
@@ -1331,22 +1201,58 @@ struct
           stmt_evalo st sl stl &
           stmt_evalo stl sr st' } |
         { fresh sl, sr, stl, str,
-                meml, typesl, valsl, visitedl,
-                memr, typesr, valsr, visitedr,
-                visited', mem' in
+                meml, typesl, valsl,
+                memr, typesr, valsr,
+                mem' in
           s == ChoiceS (sl, sr) &
           stmt_evalo st sl stl &
           stmt_evalo st sr str &
-          stl == StEnv (meml, typesl, valsl, visitedl) &
-          str == StEnv (memr, typesr, valsr, visitedr) &
+          stl == StEnv (meml, typesl, valsl) &
+          str == StEnv (memr, typesr, valsr) &
           typesl == typesr &
           valsl == valsr &
           memcombo meml memr mem' &
-          visited_appendo visitedr visitedl visited' &
-          st' == StEnv (mem', typesl, valsl, visited') }
+          st' == StEnv (mem', typesl, valsl) }
       }
   }
 
+  (* - function evaluation *)
+
+  let rec f_addarg_foldero st_with_id mtp st_with_id' = ocanren {
+    fresh st, x, m, tp, st' in
+    Std.pair st x == st_with_id &
+    Std.pair m tp == mtp &
+    addargo st x tp st' &
+    st_with_id' == Std.pair st' (Nat.s x)
+  }
+  and f_tags_check_foldero mem vals x mtp x' = ocanren {
+    fresh m, tp, id', v' in
+    mtp == Std.pair m tp &
+    vals_assoco x vals id' &
+    mem_geto mem id' v' &
+    tags_checko mem v' tp &
+    x' == Nat.s x
+  }
+
+  (* list_foldlo (stmt_eval_func_foldero mem_swa types_swa vals_swa tps) visited_swa fstmts visited' & *)
+  and func_evalo st d =
+    let open StEnv in
+    let open Decl in
+    ocanren {
+      { fresh tps, stmt,
+              state_with_args, _arg_id, st_after_stmt,
+              mem_after_stmt, _types_after_stmt, vals_after_stmt, _x' in
+        d == FunD (tps, stmt) &
+        list_foldlo f_addarg_foldero
+                    (Std.pair st 0) tps
+                    (Std.pair state_with_args _arg_id) &
+        stmt_evalo state_with_args stmt st_after_stmt &
+        state_with_args == StEnv (mem_after_stmt, _types_after_stmt, vals_after_stmt) &
+        list_foldlo (f_tags_check_foldero mem_after_stmt vals_after_stmt) 0 tps _x'
+         } |
+      { fresh _tp in
+        d == VarD _tp }
+  }
   (* --- program execution --- *)
 
   let prog_evalo prog st' =
@@ -1355,6 +1261,7 @@ struct
       fresh decls, s, init_st in
       prog == Prg (decls, s) &
       prog_inito prog init_st &
+      list_checko (func_evalo init_st) decls &
       stmt_evalo init_st s st'
   }
 end

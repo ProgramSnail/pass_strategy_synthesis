@@ -438,6 +438,8 @@ struct
     let (mem'', id) = mem_add mem' v in
     (mem'', types_add types x t, vals_add vals x id)
 
+  (* --- *)
+
   let writeval_to_cap (v_w : writeval) : write_cap =
     match v_w with
       | ZeroWV -> NeverWr
@@ -468,29 +470,9 @@ struct
       | RefT (_, t) -> is_all_type_writable t
       | TupleT ts -> List.for_all is_all_type_writable ts
 
-
-  (* - function evaluation *)
-
-  let rec func_eval (state : state) (d : decl) : unit =
-    match d with
-    | FunD (ts, stmt) ->
-      (match state with (mem, types, vals) ->
-       let (state_with_args, _) = List.fold_left
-         (fun (st, x) (m, t) -> (addarg st x t, x + 1))
-         (state, 0) ts in
-    (* NOTE: same x's, so can use same args for all the statements *)
-       match stmt_eval state_with_args stmt with (mem_after_stmt, _, vals_after_stmt) ->
-       ignore @@ List.fold_left
-         (fun x (_, t) ->
-            let id = vals_assoc x vals_after_stmt in
-            let v = mem_get mem_after_stmt id in
-            tags_check mem_after_stmt v t; x + 1)
-         0 ts)
-    | VarD _ -> ()
-
   (* - statement evaluation *)
 
-  and stmt_eval (state : state) (s : stmt) : state =
+  let rec stmt_eval (state : state) (s : stmt) : state =
     match state with (mem, types, vals) -> match s with
     | SkipS -> state
     | CallS (f, es) -> let v = pathval mem vals f in
@@ -529,6 +511,23 @@ struct
                           then raise @@ Eval_error "choice"
                           (* TODO: FIXME: better list union ??  *)
                           else (memcomb meml memr, typesl, valsl)
+
+  (* - function evaluation *)
+
+  let rec func_eval (state : state) (d : decl) : unit =
+    match d with
+    | FunD (ts, stmt) ->
+      (let (state_with_args, _) = List.fold_left
+         (fun (st, x) (m, t) -> (addarg st x t, x + 1))
+         (state, 0) ts in
+       match stmt_eval state_with_args stmt with (mem_after_stmt, _, vals_after_stmt) ->
+       ignore @@ List.fold_left
+         (fun x (_, t) ->
+            let id = vals_assoc x vals_after_stmt in
+            let v = mem_get mem_after_stmt id in
+            tags_check mem_after_stmt v t; x + 1)
+         0 ts)
+    | VarD _ -> ()
 
   (* --- program execution --- *)
 
@@ -610,8 +609,7 @@ struct
 
   let moded t = ((In, NOut), t)
 
-  let defgu t = VarD t
-  let defg t e = VarD t
+  let defg t = VarD t
 
   let wrS p = WriteS p 
   let rdS p = ReadS p 
@@ -712,8 +710,8 @@ struct
   let%expect_test "simple call with read, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_mw;
-        defg (rfT uT_r_mw) rfg0E;
+        defg uT_r_mw;
+        defg (rfT uT_r_mw);
         FunD (
           [moded @@ cpT @@ uT_r],
           rdS @@ drf @@ v0
@@ -727,8 +725,8 @@ struct
   let%expect_test "simple call with write, dsl" =
     prog_eval_noret (
       [
-        defgu uT_aw;
-        defg (rfT uT_aw) rfg0E;
+        defg uT_aw;
+        defg (rfT uT_aw);
         FunD (
           [moded @@ cpT @@ uT_aw],
           wrS @@ drf @@ v0
@@ -742,8 +740,8 @@ struct
   let%expect_test "simple call with read after write, dsl" =
     prog_eval_noret (
       [
-        defgu uT_aw;
-        defg (rfT uT_aw) rfg0E;
+        defg uT_aw;
+        defg (rfT uT_aw);
         FunD (
           [moded @@ cpT @@ uT_aw],
           (wrS @@ drf @@ v0) #.
@@ -758,8 +756,8 @@ struct
   let%expect_test "simple call with forbidden write, dsl" =
     try (prog_eval_noret (
       [
-        defgu uT_r_mw;
-        defg (rfT uT_r_mw) rfg0E;
+        defg uT_r_mw;
+        defg (rfT uT_r_mw);
         FunD (
           [moded @@ cpT @@ uT_r],
           wrS @@ drf @@ v0
@@ -775,8 +773,8 @@ struct
   let%expect_test "simple call with write to ref, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [moded @@ rfT @@ uT_aw],
           wrS @@ drf @@ v0
@@ -790,8 +788,8 @@ struct
   let%expect_test "simple call with forbidden write to ref, dsl" =
     try (prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [moded @@ rfT @@ uT_aw],
           wrS @@ drf @@ v0
@@ -807,8 +805,8 @@ struct
   let%expect_test "simple call with write to ref with fix, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [moded @@ rfT @@ uT_aw],
           wrS @@ drf @@ v0
@@ -824,8 +822,8 @@ struct
   let%expect_test "call inside call, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [moded @@ rfT @@ uT_aw],
           wrS @@ drf @@ v0
@@ -846,8 +844,8 @@ struct
   let%expect_test "call inside call, recursive, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [moded @@ cpT @@ uT_aw],
           (callS vg2 [pE v0]) #.
@@ -863,8 +861,8 @@ struct
   let%expect_test "call to fix after call, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [moded @@ rfT @@ uT_aw],
           wrS @@ drf @@ v0
@@ -884,8 +882,8 @@ struct
   let%expect_test "simple call with global variable usage, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r) rfg0E;
+        defg uT_r_aw;
+        defg (rfT uT_r);
         FunD (
           [moded @@ cpT @@ uT],
           (wrS @@ vg0) #.
@@ -901,10 +899,10 @@ struct
   let%expect_test "simple call with read & write (2 args), dsl" =
     prog_eval_noret (
       [
-        defgu uT_r;
-        defg (rfT uT_r) rfg0E;
-        defgu uT_aw;
-        defg (rfT uT_aw) rfg2E;
+        defg uT_r;
+        defg (rfT uT_r);
+        defg uT_aw;
+        defg (rfT uT_aw);
         FunD (
           [
             moded @@ rfT @@ uT_r;
@@ -922,14 +920,14 @@ struct
   let%expect_test "simple call with different arguments modifiers, copy, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E;
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg2E;
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg4E;
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg6E;
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [
             ((NIn, NOut), cpT @@ uT);
@@ -956,14 +954,14 @@ struct
   let%expect_test "simple call with different arguments modifiers, ref, dsl" =
     prog_eval_noret (
       [
-        defgu uT_r;
-        defg (rfT uT_r) rfg0E;
-        defgu uT_r;
-        defg (rfT uT_r) rfg2E;
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg4E;
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg6E;
+        defg uT_r;
+        defg (rfT uT_r);
+        defg uT_r;
+        defg (rfT uT_r);
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
+        defg uT_r_aw;
+        defg (rfT uT_r_aw);
         FunD (
           [
             ((NIn, NOut), rfT @@ uT);
@@ -991,14 +989,14 @@ struct
   let%expect_test "presentation test 1 (simple types), dsl" =
     prog_eval_noret (
       [
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg0E; (* x *)
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg2E; (* y *)
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg4E; (* z *)
-        defgu uT_r_aw;
-        defg (rfT uT_r_aw) rfg6E; (* k *)
+        defg uT_r_aw;
+        defg (rfT uT_r_aw); (* x *)
+        defg uT_r_aw;
+        defg (rfT uT_r_aw); (* y *)
+        defg uT_r_aw;
+        defg (rfT uT_r_aw); (* z *)
+        defg uT_r_aw;
+        defg (rfT uT_r_aw); (* k *)
         FunD ( (* f *)
           [
             (moded @@ rfT @@ uT_r_aw);
@@ -1069,7 +1067,7 @@ struct
       (* [ *)
         (* defg userT userE; *)
         (* defg dataT dataE; *)
-        (* defgu uT_r_aw; (* time *) *)
+        (* defg uT_r_aw; (* time *) *)
         (* defg requestT requestE; *)
         (* FunD ( (* send *) *)
           (* [ *)
@@ -1164,7 +1162,7 @@ struct
         (* defg userT userE; *)
         (* defg versionT versionE; *)
         (* defg utilsT utilsE; *)
-        (* defgu uT_r_aw; *)
+        (* defg uT_r_aw; *)
         (* defg requestT requestE; *)
         (* get_version_idF; *)
         (* updated_versionF; *)

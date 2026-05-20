@@ -67,7 +67,7 @@ let prog_eval_t_simple_var _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg in
               globals_min_ido xg &
-              prog == Prg ([VarD (UnitT (Rd, MayWr), UnitE)],
+              prog == Prg ([VarD (UnitT (Rd, MayWr))],
                            ReadS (VarP xg)) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
@@ -87,7 +87,7 @@ let prog_eval_t_simple_var_fbd_rd _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg in
               globals_min_ido xg &
-              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE)],
+              prog == Prg ([VarD (UnitT (NRd, MayWr))],
                            ReadS (VarP xg)) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
@@ -97,8 +97,8 @@ let prog_eval_t_simple_vars_fbd_rd_rd _ = show(answer) (Stream.take (run q
               fresh prog, xg, yg in
               globals_min_ido xg &
               yg == Nat.s xg &
-              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE);
-                            VarD (UnitT (Rd, MayWr), UnitE)],
+              prog == Prg ([VarD (UnitT (NRd, MayWr));
+                            VarD (UnitT (Rd, MayWr))],
                            ReadS (VarP yg)) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
@@ -107,7 +107,7 @@ let prog_eval_t_simple_var_wr _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg in
               globals_min_ido xg &
-              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE)],
+              prog == Prg ([VarD (UnitT (NRd, MayWr))],
                            WriteS (VarP xg)) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
@@ -116,7 +116,7 @@ let prog_eval_t_simple_var_fbd_wr _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg in
               globals_min_ido xg &
-              prog == Prg ([VarD (UnitT (NRd, NeverWr), UnitE)],
+              prog == Prg ([VarD (UnitT (NRd, NeverWr))],
                            WriteS (VarP xg)) &
               prog_evalo prog q })
   (fun q -> q#reify (StEnv.prj_exn))))
@@ -125,7 +125,7 @@ let prog_eval_t_simple_var_wr_rd _ = show(answer) (Stream.take (run q
   (fun q -> ocanren {
               fresh prog, xg in
               globals_min_ido xg &
-              prog == Prg ([VarD (UnitT (NRd, MayWr), UnitE)],
+              prog == Prg ([VarD (UnitT (NRd, MayWr))],
                            SeqS (WriteS (VarP xg),
                                  ReadS (VarP xg))) &
               prog_evalo prog q })
@@ -139,7 +139,7 @@ let prog_eval_t_simple_var_wr_rd _ = show(answer) (Stream.take (run q
               (* fresh prog, xg, fg, xd, fd in *)
               (* globals_min_ido xg & *)
               (* fg == Nat.s xg & *)
-              (* xd == VarD (UnitT (Rd, NeverWr), UnitE) & *)
+              (* xd == VarD (UnitT (Rd, NeverWr)) & *)
               (* fd == FunD ([], SkipS) & *)
               (* prog == Prg ([xd; fd], CallS (VarP fg, [])) & *)
               (* prog_evalo prog q }) *)
@@ -150,7 +150,7 @@ let prog_eval_t_simple_call_rd _ = show(answer) (Stream.take (run q
               fresh prog, xg, fg, xd, fd in
               globals_min_ido xg &
               fg == Nat.s xg &
-              xd == VarD (UnitT (Rd, NeverWr), UnitE) &
+              xd == VarD (UnitT (Rd, NeverWr)) &
               fd == FunD ([(Mode (In, NOut), UnitT (Rd, NeverWr))], ReadS (VarP 0)) &
               prog == Prg ([xd; fd], CallS (VarP fg, [PathE (VarP xg)])) &
               prog_evalo prog q })
@@ -162,8 +162,8 @@ let prog_eval_t_simple_call_rd_ref _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, NeverWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, NeverWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, NeverWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, NeverWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))],
                           ReadS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
@@ -176,8 +176,8 @@ let prog_eval_t_simple_call_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (NRd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (NRd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
@@ -190,8 +190,8 @@ let prog_eval_t_simple_call_wr_rd _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (NRd, MayWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (NRd, MayWr)), RefE xg) &
+              xd == VarD (UnitT (NRd, MayWr)) &
+              yd == VarD (RefT (Rf, UnitT (NRd, MayWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
                           SeqS (WriteS (DerefP (VarP 0)),
                                 ReadS (DerefP (VarP 0)))) &
@@ -205,8 +205,8 @@ let prog_eval_t_simple_call_fbd_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, MayWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, MayWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, MayWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
@@ -219,8 +219,8 @@ let prog_eval_t_simple_call_ref_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (NRd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (NRd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
@@ -233,8 +233,8 @@ let prog_eval_t_simple_call_ref_fbd_wr _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -248,8 +248,8 @@ let prog_eval_t_simple_call_ref_wr_with_fix _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (NRd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (NRd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (NRd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -265,8 +265,8 @@ let prog_eval_t_call_in_call _ = show(answer) (Stream.take (run q
               yg == Nat.s xg &
               fg == Nat.s yg &
               f2g == Nat.s fg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               f2d == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
@@ -283,8 +283,8 @@ let prog_eval_t_call_in_call_rec _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, AlwaysWr)))],
                           SeqS (CallS (VarP fg, [PathE (VarP 0)]),
                                 WriteS (DerefP (VarP 0)))) &
@@ -300,8 +300,8 @@ let prog_eval_t_fix_call_after_call _ = show(answer) (Stream.take (run q
               yg == Nat.s xg &
               fg == Nat.s yg &
               f2g == Nat.s fg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               f2d == FunD ([(Mode (In, Out), RefT (Rf, UnitT (NRd, AlwaysWr)))],
@@ -318,8 +318,8 @@ let prog_eval_t_call_with_glob_usage _ = show(answer) (Stream.take (run q
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))],
                           SeqS (WriteS (VarP xg),
                                 ReadS (DerefP (VarP 0)))) &
@@ -337,10 +337,10 @@ let prog_eval_t_call_with_rd_wr_2_args _ = show(answer) (Stream.take (run q
               x2g == Nat.s yg &
               y2g == Nat.s x2g &
               fg == Nat.s y2g &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              x2d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x2g) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x2d == VarD (UnitT (Rd, AlwaysWr)) &
+              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr)));
                            (Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr)))],
                           SeqS (ReadS (DerefP (VarP 0)),
@@ -375,14 +375,14 @@ let prog_eval_t_call_with_dif_mods_cp _ = show(answer) (Stream.take (run q
               x4g == Nat.s y3g &
               y4g == Nat.s x4g &
               fg == Nat.s y4g &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              x2d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x2g) &
-              x3d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y3d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x3g) &
-              x4d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y4d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x4g) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x2d == VarD (UnitT (Rd, AlwaysWr)) &
+              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x3d == VarD (UnitT (Rd, AlwaysWr)) &
+              y3d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x4d == VarD (UnitT (Rd, AlwaysWr)) &
+              y4d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               seqo [ReadS (DerefP (VarP 1));
                     ReadS (DerefP (VarP 3));
                     WriteS (DerefP (VarP 1));
@@ -434,14 +434,14 @@ let prog_eval_t_call_with_dif_mods_rf _ = show(answer) (Stream.take (run q
               x4g == Nat.s y3g &
               y4g == Nat.s x4g &
               fg == Nat.s y4g &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
-              x2d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x2g) &
-              x3d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y3d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x3g) &
-              x4d == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              y4d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE x4g) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x2d == VarD (UnitT (Rd, AlwaysWr)) &
+              y2d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x3d == VarD (UnitT (Rd, AlwaysWr)) &
+              y3d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              x4d == VarD (UnitT (Rd, AlwaysWr)) &
+              y4d == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               seqo [ReadS (DerefP (VarP 1));
                     ReadS (DerefP (VarP 3));
                     WriteS (DerefP (VarP 2));
@@ -477,8 +477,8 @@ let prog_cp_cap_synt_t_simple_call_ref_wr _ = show(answerCpCap) (Stream.take (ru
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
@@ -492,8 +492,8 @@ let prog_cp_cap_synt_t_simple_call_ref_wr' _ = show(answerCpCap) (Stream.take (r
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (rd_cap, wr_cap)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], CallS (VarP fg, [PathE (VarP yg)])) &
@@ -506,8 +506,8 @@ let prog_cp_cap_synt_t_simple_call_ref_fbd_wr _ = show(answerCpCap) (Stream.take
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (NRd, AlwaysWr)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -522,8 +522,8 @@ let prog_cp_cap_synt_t_simple_call_ref_fbd_wr' _ = show(answerCpCap) (Stream.tak
               globals_min_ido xg &
               yg == Nat.s xg &
               fg == Nat.s yg &
-              xd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xg) &
+              xd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               fd == FunD ([(Mode (In, NOut), RefT (q, UnitT (rd_cap, wr_cap)))],
                           WriteS (DerefP (VarP 0))) &
               prog == Prg ([xd; yd; fd], SeqS (CallS (VarP fg, [PathE (VarP yg)]),
@@ -561,14 +561,14 @@ let prog_eval_t_presentation_simple_tp _ = show(answer) (Stream.take (run q
               wg == Nat.s fg &
               gg == Nat.s wg &
               rg == Nat.s gg &
-              xbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              xd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xbg) &
-              ybd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE ybg) &
-              zbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              zd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE zbg) &
-              kbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              kd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE kbg) &
+              xbd == VarD (UnitT (Rd, AlwaysWr)) &
+              xd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              ybd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              zbd == VarD (UnitT (Rd, AlwaysWr)) &
+              zd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              kbd == VarD (UnitT (Rd, AlwaysWr)) &
+              kd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               seqo [ReadS (DerefP (VarP 0));
                     WriteS (DerefP (VarP 0));
                     ReadS (DerefP (VarP 1))] fstmts &
@@ -635,14 +635,14 @@ let prog_synt_t_presentation_simple_tp _ = show(answerCpCapList) (Stream.take (r
               wg == Nat.s fg &
               gg == Nat.s wg &
               rg == Nat.s gg &
-              xbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              xd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE xbg) &
-              ybd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE ybg) &
-              zbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              zd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE zbg) &
-              kbd == VarD (UnitT (Rd, AlwaysWr), UnitE) &
-              kd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr)), RefE kbg) &
+              xbd == VarD (UnitT (Rd, AlwaysWr)) &
+              xd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              ybd == VarD (UnitT (Rd, AlwaysWr)) &
+              yd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              zbd == VarD (UnitT (Rd, AlwaysWr)) &
+              zd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
+              kbd == VarD (UnitT (Rd, AlwaysWr)) &
+              kd == VarD (RefT (Rf, UnitT (Rd, AlwaysWr))) &
               seqo [ReadS (DerefP (VarP 0));
                     WriteS (DerefP (VarP 0));
                     ReadS (DerefP (VarP 1))] fstmts &
@@ -828,10 +828,10 @@ let prog_eval_t_presentation_complex_tp _ = show(answer) (Stream.take (run q
                     ReadS time_gp
                   ] stmts &
               prog == Prg ([
-                            VarD (userT, userE);
-                            VarD (dataT, dataE);
-                            VarD (timeT, timeE);
-                            VarD (requestT, requestE);
+                            VarD userT;
+                            VarD dataT;
+                            VarD timeT;
+                            VarD requestT;
                             sendD
                             ],
                            stmts
@@ -898,10 +898,10 @@ let prog_synt_t_presentation_complex_tp _ = show(answerCpCapList) (Stream.take (
                     ReadS time_gp
                   ] stmts &
               prog == Prg ([
-                            VarD (userT, userE);
-                            VarD (dataT, dataE);
-                            VarD (timeT, timeE);
-                            VarD (requestT, requestE);
+                            VarD userT;
+                            VarD dataT;
+                            VarD timeT;
+                            VarD requestT;
                             sendD
                             ],
                            stmts
@@ -1041,13 +1041,13 @@ let prog_eval_compl_test_send _ = show(answer) (Stream.take (run q
                    send_allF &
 
               prog == Prg ([
-                VarD (user_utilsT, user_utilsE);
-                VarD (user_infoT, user_infoE);
-                VarD (userT, userE);
-                VarD (versionT, versionE);
-                VarD (utilsT, utilsE);
-                VarD (uT_r_aw, UnitE); (* data *)
-                VarD (requestT, requestE);
+                VarD user_utilsT;
+                VarD user_infoT;
+                VarD userT;
+                VarD versionT;
+                VarD utilsT;
+                VarD uT_r_aw; (* data *)
+                VarD requestT;
                 FunD ([moded_requestT], get_version_idF);
                 FunD ([moded_requestT], updated_versionF);
                 FunD ([moded_requestT], sendF);
@@ -1336,13 +1336,13 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
               (* [gvi_c0; gvi_c1; gvi_c2; gvi_c3; gvi_c4; gvi_c5] & *)
 
               prog == Prg ([
-                VarD (user_utilsT, user_utilsE);
-                VarD (user_infoT, user_infoE);
-                VarD (userT, userE);
-                VarD (versionT, versionE);
-                VarD (utilsT, utilsE);
-                VarD (uT_r_aw, UnitE); (* data *)
-                VarD (requestT, requestE);
+                VarD user_utilsT;
+                VarD user_infoT;
+                VarD userT;
+                VarD versionT;
+                VarD utilsT;
+                VarD uT_r_aw; (* data *)
+                VarD requestT;
                 (* FunD ([mrT'], get_version_idF); *)
                 (* FunD ([mrT'], updated_versionF); *)
                 (* FunD ([mrT'], sendF); *)

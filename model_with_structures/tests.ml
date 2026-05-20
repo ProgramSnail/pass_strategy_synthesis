@@ -5,19 +5,19 @@ open Relational
   (* - basic var tests *)
 
 let%expect_test "prog eval test: empty" = print_endline (prog_eval_t_empty ());
-  [%expect {| [StEnv (MemEnv ([], O), TypesEnv ([], []), ValsEnv ([], []), VisitedEnv ([]))] |}]
+  [%expect {| [StEnv (MemEnv ([], O), TypesEnv ([]), ValsEnv ([]))] |}]
 let%expect_test "prog eval test: simple var" = print_endline(prog_eval_t_simple_var ());
-  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, OneRV, ZeroWV)], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]), VisitedEnv ([]))] |}]
+  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, OneRV, ZeroWV)], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (Rd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 let%expect_test "simple var, forbidden read" = print_endline(prog_eval_t_simple_var_fbd_rd ());
   [%expect {| [] |}]
 let%expect_test "simple vars, no read & read" = print_endline(prog_eval_t_simple_vars_fbd_rd_rd ());
-  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, OneRV, ZeroWV); UnitV (BotMV, ZeroRV, ZeroWV)], S (S (O))), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), UnitT (Rd, MayWr)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), UnitT (Rd, MayWr)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]), VisitedEnv ([]))] |}]
+  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, OneRV, ZeroWV); UnitV (BotMV, ZeroRV, ZeroWV)], S (S (O))), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), UnitT (Rd, MayWr)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (S (O))))))))))), S (O)); (S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 let%expect_test "simple var, write" = print_endline(prog_eval_t_simple_var_wr ());
-  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, TopRV, OneWV)], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]), VisitedEnv ([]))] |}]
+  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, TopRV, OneWV)], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 let%expect_test "simple var, forbidden write" = print_endline(prog_eval_t_simple_var_fbd_wr ());
   [%expect {| [] |}]
 let%expect_test "simple var, write & read" = print_endline(prog_eval_t_simple_var_wr_rd ());
-  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, TopRV, OneWV)], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)], [(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]), VisitedEnv ([]))] |}]
+  [%expect {| [StEnv (MemEnv ([UnitV (ZeroMV, TopRV, OneWV)], S (O)), TypesEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), UnitT (NRd, MayWr))]), ValsEnv ([(S (S (S (S (S (S (S (S (S (S (O)))))))))), O)]))] |}]
 
   (* - basic call tests *)
 
