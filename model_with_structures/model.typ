@@ -138,14 +138,14 @@
     `decl`,
     {
       // TODO: path not allowed ??
-      // Or[$"var" X : type = expr$][global variable declaration]
+      Or[$"var" X : type$][global variable declaration]
       Or[$"fun" X ((X : modedType)+) = stmt$][function declaration]
     }
   ),
   Prod(
     `prog`,
     {
-      Or[$decl+$][all program definitions]
+      Or[$decl+ stmt$][all program definitions and executed statement]
     }
   ),
 )
@@ -1110,23 +1110,22 @@ $action$ - действия, совершаемые с примитивным з
 
 #let init = `init`
 
-// #align(center, prooftree(
-//   vertical-spacing: 4pt,
-//   rule(
-//     name: [ add variable declaration],
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ add variable declaration],
 
-//     // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
-//     // expect well typed program
+    // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
+    // expect well typed program
 
-//     $vals, mu texpre e eqmu v$,
-//     $cl v, mu cr xarrowSquiggly(t)_copy cl v', mu' cr$, // TODO: FIXME check (required?)
-//     $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
+    $cl mu cr xarrowSquiggly(t)_build cl v, mu' cr$, // TODO: FIXME check (required?)
+    $mu' xarrowSquiggly(v)_#[add] cl l, mu'' cr$,
 
-//     $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu'' cr$
-//   )
-// ))
+    $cl types, vals, mu cr xarrowSquiggly("var" x : t)_init cl types[x <- t], vals[x <- l], mu'' cr$
+  )
+))
 
-// #h(10pt)
+#h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -1492,7 +1491,7 @@ $action$ - действия, совершаемые с примитивным з
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ function evaluation],
+    name: [ function declaration evaluation],
 
     // NOTE: dashed arrow to fill context
     $cl types_0, vals_0,  mu_0 cr
@@ -1513,7 +1512,16 @@ $action$ - действия, совершаемые с примитивным з
     $...$,
     $mu' ttags mu'[vals'[x_n]] : t_n$,
 
-    $types_0, vals_0, mu_0 tfunceval cl "fun" f [(x_1 m_1 t_1), .. (x_n m_n x_n)] = s$,
+    $types_0, vals_0, mu_0 tfunceval "fun" f [(x_1 m_1 t_1), .. (x_n m_n x_n)] = s$,
+  )
+))
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
+    name: [ var declaration evaluation (skip)],
+
+    $types, vals, mu tfunceval "var" x : t$,
   )
 ))
 
@@ -1602,14 +1610,7 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ CALL $f space [e_1, ... e_n]$],
 
-    // $vals, mu_0 tval f eqmu lambda [overline(x)_1 space s_1, ... overline(x)_n space s_n]$,
     $types ttype f : lambda [m_1 t_1, ... m_n t_n] $,
-
-    // NOTE: should be done on decl eval now
-    // NOTE: check that all the possible bodies are possible to eval
-    // $vals, mu_0 tfunceval cl s_1, overline(x)_1, [t_1, ... t_n], [e_1, ... e_n] cr$,
-    // $...$,
-    // $vals, mu_0 tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
 
     // NOTE: "spoil" context for each argument usage
     $mu_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) mu_1$,
