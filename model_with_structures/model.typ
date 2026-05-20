@@ -15,8 +15,6 @@
 
 // *TODO: top-level value copy mode ??* // TODO: FIXME
 
-*TODO: add formal global env to all types and vals (as in code) ??* // TODO: FIXME
-
 #h(10pt)
 
 #let rf = $\& #h(3pt)$
@@ -140,14 +138,14 @@
     `decl`,
     {
       // TODO: path not allowed ??
-      Or[$"var" X : type = expr$][global variable declaration]
+      // Or[$"var" X : type = expr$][global variable declaration]
       Or[$"fun" X ((X : modedType)+) = stmt$][function declaration]
     }
   ),
   Prod(
     `prog`,
     {
-      Or[$decl+ space stmt$][declarations and executed statement]
+      Or[$decl+$][all program definitions]
     }
   ),
 )
@@ -203,7 +201,7 @@
     $value_mu$,
     {
       Or[$cdl vmem, vread, vwrite cdr$][value of the simple type, contains cells for analysis] // `Unit`
-      Or[$lambda space (X+ stmt)+$][function pointer value, set of possible values] // `Fun`
+      Or[$lambda$][function pointer value, carries no information] // `Fun`
       Or[$rf LL$][reference value, contains label of the value in the memory] // `Ref`
       Or[$[value+]$][tuple value] // `Prod`
     }
@@ -275,8 +273,6 @@ $v in value$ - произвольное значение
     }
   ),
 )
-
-// TODO: FIXME: add vars & funcs from global context in the beginnning
 
 // $V := memelem$ - значения памяти
 
@@ -571,6 +567,17 @@ $action$ - действия, совершаемые с примитивным з
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
+    name: [ build funciton pointer value],
+
+    $cl mu cr xarrowSquiggly(lambda space c space overline(t))_build cl lambda, mu cr$,
+  )
+))
+
+#h(10pt)
+
+#align(center, prooftree(
+  vertical-spacing: 4pt,
+  rule(
     name: [ build reference value],
 
     $mu xarrowSquiggly(t)_build cl v, mu_v cr$,
@@ -604,97 +611,75 @@ $action$ - действия, совершаемые с примитивным з
 
 // #let copy = `copy`
 
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new trivial read value],
-
-    $v_m in {0, ?, bot}$,
-    $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl Read \, w cr)_copy
-     cl cdl v_m, 0_r, 0_w cdr, mu cr$,
-  )
-))
-
-#h(10pt)
-
 // #align(center, prooftree(
 //   vertical-spacing: 4pt,
 //   rule(
-//     name: [ new trivial read $top$ value],
+//     name: [ new trivial read value],
 
-//     $cl cdl top, v_r, v_w cdr, mu cr
+//     // NOTE: should not be important to copy v_m, because spoil & tags
+//     // should care for this instead
+//     $v_m in {0, ?, bot}$,
+//     $cl cdl v_m, v_r, v_w cdr, mu cr
 //      xarrowSquiggly(cl Read \, w cr)_copy
-//      cl cdl 0, 0, 0 cdr, mu cr$,
+//      cl cdl v_m, 0_r, 0_w cdr, mu cr$,
 //   )
 // ))
 
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new trivial $not$ read value],
-
-    $v_m in {0, ?, bot/*, top */}$,
-    $cl cdl v_m, v_r, v_w cdr, mu cr
-     xarrowSquiggly(cl not Read \, w cr)_copy
-     cl cdl bot, 0_r, 0_w cdr, mu cr$,
-  )
-))
-
-#h(10pt)
-
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new funciton pointer value],
-
-    $cl lambda overline(s), mu cr xarrowSquiggly(lambda space c space overline(t))_copy cl lambda overline(s), mu cr$,
-  )
-))
-
-#h(10pt)
+// #h(10pt)
 
 // #align(center, prooftree(
 //   vertical-spacing: 4pt,
 //   rule(
-//     name: [ new reference ref value],
+//     name: [ new trivial $not$ read value],
 
-//     $cl rf l, mu cr xarrowSquiggly(rf Ref t)_copy cl rf l, mu cr$,
+//     $v_m in {0, ?, bot/*, top */}$,
+//     $cl cdl v_m, v_r, v_w cdr, mu cr
+//      xarrowSquiggly(cl not Read \, w cr)_copy
+//      cl cdl bot, 0_r, 0_w cdr, mu cr$,
+//   )
+// ))
+
+// #h(10pt)
+
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ new funciton pointer value],
+
+//     $cl lambda, mu cr xarrowSquiggly(lambda space c space overline(t))_copy cl lambda, mu cr$,
 //   )
 // ))
 
 // #h(10pt)
 
 // NOTE: due to new memory cells types (with rw subcells) valnue should always be copied
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new reference /* copy */ value],
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ new reference /* copy */ value],
 
-    $cl mu[l], mu cr xarrowSquiggly(t)_copy cl v, mu_v cr$,
+//     $cl mu[l], mu cr xarrowSquiggly(t)_copy cl v, mu_v cr$,
 
-    $mu_v xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
+//     $mu_v xarrowSquiggly(v)_#[add] cl l', mu_a cr$,
 
-    $cl rf l, mu cr xarrowSquiggly(rf c /*Copy*/ t)_copy cl rf l', mu_a cr$,
-  )
-))
+//     $cl rf l, mu cr xarrowSquiggly(rf c /*Copy*/ t)_copy cl rf l', mu_a cr$,
+//   )
+// ))
 
-#h(10pt)
+// #h(10pt)
 
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ new tuple value],
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ new tuple value],
 
-    $cl v_1, mu_0 cr xarrowSquiggly(t_1)_copy cl v'_1, mu_1 cr$,
-    $...$,
-    $cl v_n, mu_(n - 1) cr xarrowSquiggly(t_n)_copy cl v'_n, mu_n cr$,
+//     $cl v_1, mu_0 cr xarrowSquiggly(t_1)_copy cl v'_1, mu_1 cr$,
+//     $...$,
+//     $cl v_n, mu_(n - 1) cr xarrowSquiggly(t_n)_copy cl v'_n, mu_n cr$,
 
-    $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly([t_1, ... t_n])_copy cl [v'_1, ... v'_n], mu_n cr$,
-  )
-))
+//     $cl [v_1, ... v_n], mu_0 cr xarrowSquiggly([t_1, ... t_n])_copy cl [v'_1, ... v'_n], mu_n cr$,
+//   )
+// ))
 
 === Action Rules
 
@@ -977,12 +962,7 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ combine lambda values],
 
-    $overline(x_1) = overline(x_2)$,
-    $s_1 = s_2$,
-    $lambda space [overline(x^1_1) space s^1_1, ... overline(x^n_1) space s^n_1]
-     plus.o lambda space [overline(x^1_2) space s^1_2, ... overline(x^m_2) space s^m_2]
-     = lambda space [overline(x^1_1) space s^1_1, ... overline(x^n_1) space s^n_1,
-                     overline(x^1_2) space s^1_2, ... overline(x^m_2) space s^m_2]$
+    $lambda plus.o lambda = lambda$
   )
 ))
 
@@ -1130,30 +1110,30 @@ $action$ - действия, совершаемые с примитивным з
 
 #let init = `init`
 
-#align(center, prooftree(
-  vertical-spacing: 4pt,
-  rule(
-    name: [ add variable declaration],
+// #align(center, prooftree(
+//   vertical-spacing: 4pt,
+//   rule(
+//     name: [ add variable declaration],
 
-    // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
-    // expect well typed program
+//     // NOTE: expr type expected to ~ match t (maybe except some automaticc modifiers)
+//     // expect well typed program
 
-    $vals, mu texpre e eqmu v$,
-    $cl v, mu cr xarrowSquiggly(t)_copy cl v', mu' cr$, // TODO: FIXME check (required?)
-    $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
+//     $vals, mu texpre e eqmu v$,
+//     $cl v, mu cr xarrowSquiggly(t)_copy cl v', mu' cr$, // TODO: FIXME check (required?)
+//     $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
 
-    $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu'' cr$
-  )
-))
+//     $cl types, vals, mu cr xarrowSquiggly("var" x : t = e)_init cl types[x <- t], vals[x <- l], mu'' cr$
+//   )
+// ))
 
-#h(10pt)
+// #h(10pt)
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
     name: [ add function declaration],
 
-    $mu xarrowSquiggly(lambda space [[x_1, ... x_n] s])_#[add] cl l, mu' cr$,
+    $mu xarrowSquiggly(lambda)_#[add] cl l, mu' cr$,
 
     $cl types, vals, mu cr
      xarrowSquiggly("fun" f (x_1 space : space m_1 t_1, ... space x_n space : space m_n t_n) space = space s)_init
@@ -1333,8 +1313,6 @@ $action$ - действия, совершаемые с примитивным з
   )
 ))
 
-#h(10pt)
-
 
 #align(center, prooftree(
   vertical-spacing: 4pt,
@@ -1421,17 +1399,13 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ add argument],
 
-    $vals_#[ctx], mu texpre e eqmu v$,
-    // $types ttype p : t'$, // TODO: not required if there is no check
-    // TODO: check type compatibility for t and type for path p (?)
-    // [*TODO: check t ~ t' in sme way (?)*],
-    // <- programs considired to be well-typed
-    $cl v, mu cr xarrowSquiggly(t)_copy cl v', mu' cr$,
-    $mu' xarrowSquiggly(v')_#[add] cl l, mu'' cr$,
+    // programs considired to be well-typed
+    $cl v, mu cr xarrowSquiggly(t)_build cl v, mu' cr$,
+    $mu' xarrowSquiggly(v)_#[add] cl l, mu'' cr$,
 
     // TODO save type mode somewhere ?? // <- not needed because is described by other params <- ??
     $cl types, vals, mu cr
-     xarrowDashed(x space t space e)_(vals_#[ctx])
+     xarrowDashed(x space t)
      cl types[x <- t], vals[x <- l], mu'' cr$,
   )
 ))
@@ -1490,7 +1464,7 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ lambda check],
 
-    $mu ttags lambda space overline(s) : lambda overline(t)$,
+    $mu ttags lambda : lambda overline(t)$,
   )
 ))
 #align(center, prooftree(
@@ -1520,18 +1494,13 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ new reference copy value],
 
-    // TODO: FIXME: introduce global types and vals
-    $types_0 = types_#[glob]$,
-    $vals_0 = vals_#[glob]$,
-    $mu_0 = mu$,
-
     // NOTE: dashed arrow to fill context
     $cl types_0, vals_0,  mu_0 cr
-     xarrowDashed(x_1 space t_1 space e_1)_vals
+     xarrowDashed(x_1 space t_1)
      cl types', vals_1, mu_1 cr$,
     $...$,
     $cl types_(n - 1), vals_(n - 1),  mu_(n - 1) cr
-     xarrowDashed(x_n space t_n space e_n)_vals
+     xarrowDashed(x_n space t_n)
      cl types_n, vals_n, mu_n cr$,
 
     // NOTE: eval function body
@@ -1544,7 +1513,7 @@ $action$ - действия, совершаемые с примитивным з
     $...$,
     $mu' ttags mu'[vals'[x_n]] : t_n$,
 
-    $vals, mu_0 tfunceval cl s, [x_1, .. x_n], [t_1, ... t_n], [e_1, ... e_n] cr$,
+    $types_0, vals_0, mu_0 tfunceval cl "fun" f [(x_1 m_1 t_1), .. (x_n m_n x_n)] = s$,
   )
 ))
 
@@ -1633,13 +1602,14 @@ $action$ - действия, совершаемые с примитивным з
   rule(
     name: [ CALL $f space [e_1, ... e_n]$],
 
-    $vals, mu_0 tval f eqmu lambda [overline(x)_1 space s_1, ... overline(x)_n space s_n]$,
+    // $vals, mu_0 tval f eqmu lambda [overline(x)_1 space s_1, ... overline(x)_n space s_n]$,
     $types ttype f : lambda [m_1 t_1, ... m_n t_n] $,
 
+    // NOTE: should be done on decl eval now
     // NOTE: check that all the possible bodies are possible to eval
-    $vals, mu_0 tfunceval cl s_1, overline(x)_1, [t_1, ... t_n], [e_1, ... e_n] cr$,
-    $...$,
-    $vals, mu_0 tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
+    // $vals, mu_0 tfunceval cl s_1, overline(x)_1, [t_1, ... t_n], [e_1, ... e_n] cr$,
+    // $...$,
+    // $vals, mu_0 tfunceval cl s_n, overline(x)_n, [t_1, ... t_n], [e_1, ... e_n] cr$,
 
     // NOTE: "spoil" context for each argument usage
     $mu_0 stretch(=>)^(m_1 space t_1 space e_1)_(cl vals, types cr) mu_1$,
@@ -1755,14 +1725,11 @@ $action$ - действия, совершаемые с примитивным з
     $...$,
     $cl types_(n - 1), vals_(n - 1), mu_(n - 1) cr xarrowSquiggly(d_n)_init cl types_n, vals_n, mu_n cr$,
 
-    // TODO: FIXME: some easy way to pass to eval ??
-    $types_#[glob] = types_n$,
-    $vals_#[glob] = vals_n$,
-    $mu_#[glob] = mu_n$,
+    $cl types_n, vals_n, mu_n tfunceval d_1$,
+    $...$,
+    $cl types_n, vals_n, mu_n tfunceval d_n$,
 
-    $cl types_n, vals_n, mu_n cr xarrow(s) cl types', vals', mu' cr$,
-
-    $cl types_0, vals_0, mu_0 cr xarrowSquiggly(d_1 ... d_n s)_prog_eval  cl types', vals', mu' cr$
+    $cl types_0, vals_0, mu_0 cr xarrowSquiggly(d_1 ... d_n)_prog_eval  cl types_n, vals_n, mu_n cr$
   )
 ))
 
