@@ -1492,7 +1492,7 @@ $action$ - действия, совершаемые с примитивным з
 #align(center, prooftree(
   vertical-spacing: 4pt,
   rule(
-    name: [ new reference copy value],
+    name: [ function evaluation],
 
     // NOTE: dashed arrow to fill context
     $cl types_0, vals_0,  mu_0 cr
