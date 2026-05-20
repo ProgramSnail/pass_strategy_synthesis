@@ -1247,7 +1247,7 @@ struct
                     (Std.pair st 0) tps
                     (Std.pair state_with_args _arg_id) &
         stmt_evalo state_with_args stmt st_after_stmt &
-        state_with_args == StEnv (mem_after_stmt, _types_after_stmt, vals_after_stmt) &
+        st_after_stmt == StEnv (mem_after_stmt, _types_after_stmt, vals_after_stmt) &
         list_foldlo (f_tags_check_foldero mem_after_stmt vals_after_stmt) 0 tps _x'
          } |
       { fresh _tp in
