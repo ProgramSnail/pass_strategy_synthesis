@@ -38,7 +38,7 @@ struct
             | SeqS of stmt * stmt
             | ChoiceS of stmt * stmt
 
-  type decl = VarD of (* data * *) atype * expr
+  type decl = VarD of (* data * *) atype (* * expr *)
             | FunD of (* data * *) (* (data * *) mtype (* )  *) list * stmt
 
   type prog = decl list * stmt
@@ -71,7 +71,7 @@ struct
   type writeval = ZeroWV | SmthWV | OneWV
 
   type value = UnitV of memval * readval * writeval
-             | FunV of ((* data list * *) stmt) list
+             | FunV (* of ((* data list * *) stmt) list *)
              | RefV of memid
              | TupleV of value list
 
@@ -84,10 +84,9 @@ struct
   (* --- *)
 
   type mem = value list * memid (* NOTE: memory and first free elem *)
-  type types = (data * atype) list (* glob *) * (data * atype) list (* glob + loc *)
-  type vals = (data * memid) list (* glob *) * (data * memid) list (* glob + loc *)
-  type visited = stmt list (* TODO: FIXME: optimize, use ids *)
-  type state = mem * types * vals * visited
+  type types = (data * atype) list
+  type vals = (data * memid) list
+  type state = mem * types * vals
 
   (* --- *)
 
@@ -96,23 +95,17 @@ struct
   let types_assoc (x : data) (types : types) : atype =
     (* try ( List.assoc x (fst types) ) *)
     (* with Not_found -> *)
-    List.assoc x (snd types)
+    List.assoc x types
   let vals_assoc (x : data) (vals : vals) : memid =
     (* try ( List.assoc x (fst vals) ) *)
     (* with Not_found -> *)
-    List.assoc x (snd vals)
-
-  let types_glob_add (types : types) (x : data) (t : atype) =
-    ((x, t) :: fst types, (x, t) :: snd types)
+    List.assoc x vals
 
   let types_add (types : types) (x : data) (t : atype) =
-    (fst types, (x, t) :: snd types)
-
-  let vals_glob_add (vals : vals) (x : data) (id : memid) =
-    ((x, id) :: fst vals, (x, id) :: snd vals)
+    (x, t) :: types
 
   let vals_add (vals : vals) (x : data) (id : memid) =
-    (fst vals, (x, id) :: snd vals)
+    (x, id) :: vals
 
   (* - utils *)
 
@@ -208,20 +201,21 @@ struct
                    let mem', vs' = List.fold_right folder ts (mem, []) in
                    (mem', TupleV vs')
 
-  let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value =
-    match t, v with
-    | UnitT (Rd, _), UnitV (v_m, _, _) -> (mem, UnitV (v_m, ZeroRV, ZeroWV))
-    | UnitT (NRd, _), UnitV _ -> (mem, UnitV (BotMV, ZeroRV, ZeroWV))
-    | FunT _, FunV _ -> (mem, v)
+  (* NOTE: not needed now *)
+  (* let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value = *)
+    (* match t, v with *)
+    (* | UnitT (Rd, _), UnitV (v_m, _, _) -> (mem, UnitV (v_m, ZeroRV, ZeroWV)) *)
+    (* | UnitT (NRd, _), UnitV _ -> (mem, UnitV (BotMV, ZeroRV, ZeroWV)) *)
+    (* | FunT _, FunV -> (mem, v) *)
     (* | RefT (Rf, _), RefV _ -> (mem, v) *)
-    | RefT (_, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in
-                               let (mem'', id'') = mem_add mem' v' in
-                               (mem'', RefV id'') 
-    | TupleT ts, TupleV vs -> let folder = fun v t (mem, vs') -> let (mem', v') = valcopy mem v t in
-                                                                 (mem', v' :: vs') in 
-                              let mem', vs' = List.fold_right2 folder vs ts (mem, []) in
-                              (mem', TupleV vs')
-    | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type"
+    (* | RefT (_, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in *)
+                               (* let (mem'', id'') = mem_add mem' v' in *)
+                               (* (mem'', RefV id'') *) 
+    (* | TupleT ts, TupleV vs -> let folder = fun v t (mem, vs') -> let (mem', v') = valcopy mem v t in *)
+                                                                 (* (mem', v' :: vs') in *) 
+                              (* let mem', vs' = List.fold_right2 folder vs ts (mem, []) in *)
+                              (* (mem', TupleV vs') *)
+    (* | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type" *)
 
   (* - action rules *)
 
@@ -299,7 +293,7 @@ struct
     match u, v with
       | UnitV (u_m, u_r, u_w), UnitV (v_m, v_r, v_w) ->
         UnitV (memvalcomb u_m v_m, readvalcomb u_r v_r, writevalcomb u_w v_w)
-      | FunV ustmts, FunV vstmts -> FunV (ustmts @ vstmts)
+      | FunV, FunV -> FunV
       | RefV a, RefV b -> if a == b then u else raise @@ Typing_error "valcomb: ref"
       | TupleV us, TupleV vs -> TupleV (List.map2 valcomb us vs)
       | _, _ -> raise @@ Typing_error "valcomb"
@@ -331,16 +325,15 @@ struct
   
   (* TODO: check new in vars *)
   let add_decl (state : state) (x : data) (d : decl) : state =
-    match state with (mem, types, vals, visited) -> match d with
-    | VarD (t, e) -> let v = exprval mem vals e in
-                     let (mem', v') = valcopy mem v t in
-                     let (mem'', id) = mem_add mem' v' in
-                     (mem'', types_glob_add types x t, vals_glob_add vals x id, visited)
-    | FunD (ts, s)  -> let (mem', id) = mem_add mem (FunV [s]) in
-                       (mem', types_glob_add types x (FunT ts), vals_glob_add vals x id, visited)
+    match state with (mem, types, vals) -> match d with
+    | VarD t -> let (mem', v) = valbuild mem t in
+                let (mem'', id) = mem_add mem' v in
+                (mem'', types_add types x t, vals_add vals x id)
+    | FunD (ts, s)  -> let (mem', id) = mem_add mem FunV in
+                       (mem', types_add types x (FunT ts), vals_add vals x id)
 
   let empty_mem : mem = ([], 0)
-  let empty_state : state = (empty_mem, ([], []), ([], []), [])
+  let empty_state : state = (empty_mem, [], [])
 
   (* TODO: better way ??? *)
   let globals_min_id : data = 1000
@@ -401,7 +394,7 @@ struct
             let v_m''' = tryspoil m w v_m'' in
             (mem, UnitV (v_m''', v_r'', v_w''))
           | _ -> raise @@ Typing_error "valspoil: value after tryread is not unit")
-    | FunT ts, FunV _ -> (mem, v)
+    | FunT ts, FunV -> (mem, v)
     | RefT (ct, t), RefV id ->
       let (mem', v') = valspoil mem (mem_get mem id) t m ct in
       (mem_set mem id v', RefV id)
@@ -415,7 +408,7 @@ struct
   (* full spoil *)
 
   let argsspoilp (state : state) (m : mode) (t : atype) (p : path) : mem =
-    match state with (mem, types, vals, visited) ->
+    match state with (mem, types, vals) ->
     let x = pathvar p in
     let id = vals_assoc x vals in (* base var address *)
     let b = pathval mem vals p in (* subvalue in var *)
@@ -427,29 +420,23 @@ struct
     mem_set mem'' id v''
 
   let rec argsspoile (state : state) (m : mode) (t : atype) (e : expr) : mem =
-    match state with (mem, types, vals, visited) -> match e, t with
+    match state with (mem, types, vals) -> match e, t with
       | UnitE, UnitT _ -> mem
       | PathE p, t -> argsspoilp state m t p
       | RefE x, t -> argsspoilp state m t (VarP x)
       (* TODO: FIXME: check RefE case ? *)
       | TupleE es, TupleT ts -> List.fold_left2
-                                  (fun mem' t' e' -> argsspoile (mem', types, vals, visited) m t' e')
+                                  (fun mem' t' e' -> argsspoile (mem', types, vals) m t' e')
                                   mem ts es
       | _, _ ->  raise @@ Typing_error "valspoile"
 
   (* - funciton argument addition *)
 
-  let addarg (state : state) (oldvals : vals) (x : data) (t : atype) (e : expr) : state =
-    match state with (mem, types, vals, visited) ->
-    let v = exprval mem oldvals e in
-    (* let t' = pathtype types p in *)
-    let (mem', v') = valcopy mem v t in
-    let (mem'', id) = mem_add mem' v' in
-    (mem'', types_add types x t, vals_add vals x id, visited)
-
-  (* - function evaluation *)
-  (* NOTE: not needed due to performed optimization in stmt_eval *)
-  (* let func_eval (mem : mem) (vals : vals) (s : stmt) (ts : mtype list) (es : expr list) = *)
+  let addarg (state : state) (x : data) (t : atype) : state =
+    match state with (mem, types, vals) ->
+    let (mem', v) = valbuild mem t in
+    let (mem'', id) = mem_add mem' v in
+    (mem'', types_add types x t, vals_add vals x id)
 
   let writeval_to_cap (v_w : writeval) : write_cap =
     match v_w with
@@ -467,7 +454,7 @@ struct
         else if writeval_to_cap v_w != w
           then raise @@ Eval_error "tags_check: wrong write tag"
         else ()
-      | FunV _, FunT _ -> ()
+      | FunV, FunT _ -> ()
       | RefV id, RefT (_, t) -> tags_check mem (mem_get mem id) t
       | TupleV vs, TupleT ts -> ignore @@ List.map2 (tags_check mem) vs ts
       | _, _ -> raise @@ Typing_error "tags_check"
@@ -481,45 +468,40 @@ struct
       | RefT (_, t) -> is_all_type_writable t
       | TupleT ts -> List.for_all is_all_type_writable ts
 
+
+  (* - function evaluation *)
+
+  let rec func_eval (state : state) (d : decl) : unit =
+    match d with
+    | FunD (ts, stmt) ->
+      (match state with (mem, types, vals) ->
+       let (state_with_args, _) = List.fold_left
+         (fun (st, x) (m, t) -> (addarg st x t, x + 1))
+         (state, 0) ts in
+    (* NOTE: same x's, so can use same args for all the statements *)
+       match stmt_eval state_with_args stmt with (mem_after_stmt, _, vals_after_stmt) ->
+       ignore @@ List.fold_left
+         (fun x (_, t) ->
+            let id = vals_assoc x vals_after_stmt in
+            let v = mem_get mem_after_stmt id in
+            tags_check mem_after_stmt v t; x + 1)
+         0 ts)
+    | VarD _ -> ()
+
   (* - statement evaluation *)
 
-  let rec stmt_eval (state : state) (s : stmt) : state =
-    match state with (mem, types, vals, visited) -> match s with
+  and stmt_eval (state : state) (s : stmt) : state =
+    match state with (mem, types, vals) -> match s with
     | SkipS -> state
     | CallS (f, es) -> let v = pathval mem vals f in
                        let t = pathtype types f in
-                       let types' : types = (fst types, fst types) in
-                       let vals' : vals = (fst vals, fst vals) in
                        (match v, t with
-                          | FunV (* xs, *) fstmts (* ) *), FunT ts ->
-                            let (state_with_args, _) = (* FIXME TMP Printf.printf "call, before args\n"; *)
-                                                       List.fold_left2 (* TODO: FIXME: check x's order *)
-                              (fun (st, x) (m, t) e -> (addarg st vals x t e, x + 1))
-                              ((mem, types', vals', visited), 0) ts es in
-                            (* NOTE: same x's, so can use same args for all the statements *)
-                            (match state_with_args with (mem_swa, types_swa, vals_swa, visited_swa) ->
-                             let visited_new = (* FIXME TMP Printf.printf "call, before eval\n"; *)
-                                               List.fold_left
-                                                 (fun visited_old stmt ->
-                                                    if List.mem stmt visited_old
-                                                    then stmt :: visited_old
-                                                    else match stmt_eval (mem_swa, types_swa, vals_swa, stmt :: visited_old) stmt with
-                                                      (mem_after_stmt, _, vals_after_stmt, visited_after_stmt) ->
-                                                        ignore @@ List.fold_left
-                                                          (fun x (_, t) ->
-                                                             let id = vals_assoc x vals_after_stmt in
-                                                             let v = mem_get mem_after_stmt id in
-                                                             tags_check mem_after_stmt v t; x + 1)
-                                                          0 ts;
-                                                        visited_after_stmt)
-                                                 visited_swa
-                                                 fstmts in
-                             let mem_spoiled = (* FIXME TMP Printf.printf "call, before spoil\n"; *)
-                                               List.fold_left2
-                               (fun mem (m, t) e -> argsspoile (mem, types, vals, (* NOTE: not important *) visited_new) m t e)
+                          | FunV, FunT ts ->
+                             let mem_spoiled = List.fold_left2
+                               (fun mem (m, t) e -> argsspoile (mem, types, vals) m t e)
                                mem ts es in
-                             (mem_spoiled, types, vals, visited_new))
-                          | FunV _, _ -> raise @@ Eval_error "call: function type"
+                             (mem_spoiled, types, vals)
+                          | FunV, _ -> raise @@ Eval_error "call: function type"
                           | _, FunT _ -> raise @@ Eval_error "call: function val"
                           | _, _ -> raise @@ Eval_error "call: function type & val")
     | WriteS p -> if not @@ is_all_type_writable @@ pathtype types p
@@ -528,12 +510,12 @@ struct
                        let id = vals_assoc x vals in
                        let pi = pathrev p VarRP in
                        let (mem', v') = valupd mem (mem_get mem id) pi AlwaysWriteA in
-                       (mem_set mem' id v', types, vals, visited)
+                       (mem_set mem' id v', types, vals)
     | ReadS p -> let x = pathvar p in
                  let id = vals_assoc x vals in
                  let pi = pathrev p VarRP in
                  let (mem', v') = valupd mem (mem_get mem id) pi ReadA in
-                 (mem_set mem' id v', types, vals, visited)
+                 (mem_set mem' id v', types, vals)
                  (* NOTE: handled inside through undefined in memvmod *)
                  (* if pathval mem vals p == SmthV || pathval mem vals p == BotV *) 
                  (* then raise @@ Eval_error "read: spoiled value" *)
@@ -541,18 +523,19 @@ struct
                        stmt_eval statel sr
     | ChoiceS (sl, sr) -> let statel = stmt_eval state sl in
                           let stater = stmt_eval state sr in
-                          match statel with (meml, typesl, valsl, visitedl) ->
-                          match stater with (memr, typesr, valsr, visitedr) ->
+                          match statel with (meml, typesl, valsl) ->
+                          match stater with (memr, typesr, valsr) ->
                           if typesl != typesr || valsl != valsr
                           then raise @@ Eval_error "choice"
                           (* TODO: FIXME: better list union ??  *)
-                          else (memcomb meml memr, typesl, valsl, visitedl @ visitedr)
+                          else (memcomb meml memr, typesl, valsl)
 
   (* --- program execution --- *)
 
   let prog_eval (prog : prog) : state =
     match prog with (decls, s) ->
     let init_state = prog_init prog in
+    ignore @@ List.map (func_eval init_state) decls;
     stmt_eval init_state s
 
   let prog_eval_noret (prog : prog) : unit =
@@ -627,8 +610,8 @@ struct
 
   let moded t = ((In, NOut), t)
 
-  let defgu t = VarD (t, UnitE)
-  let defg t e = VarD (t, e)
+  let defgu t = VarD t
+  let defg t e = VarD t
 
   let wrS p = WriteS p 
   let rdS p = ReadS p 
@@ -668,40 +651,40 @@ struct
     [%expect {| done! |}]
 
   let%expect_test "simple var" =
-    prog_eval_noret ([VarD (UnitT (Rd, MayWr), UnitE)],
+    prog_eval_noret ([VarD (UnitT (Rd, MayWr))],
                       ReadS (VarP globals_min_id));
     Printf.printf "done!";
     [%expect {| done! |}]
 
   let%expect_test "simple var, forbidden read" =
-    try(prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)],
+    try(prog_eval_noret ([VarD (UnitT (NRd, MayWr))],
                          ReadS (VarP globals_min_id));
          [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| memvmod: forbidden read |}]
 
   let%expect_test "simple vars, no read & read" =
-    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE);
-                      VarD (UnitT (Rd, MayWr), UnitE)],
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr));
+                      VarD (UnitT (Rd, MayWr))],
                      ReadS (VarP (globals_min_id + 1)));
     Printf.printf "done!";
     [%expect {| done! |}]
 
   let%expect_test "simple var, write" =
-    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)],
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr))],
                      WriteS (VarP globals_min_id));
     Printf.printf "done!";
     [%expect {| done! |}]
 
   let%expect_test "simple var, forbidden write" =
-    try(prog_eval_noret ([VarD (UnitT (NRd, NeverWr), UnitE)],
+    try(prog_eval_noret ([VarD (UnitT (NRd, NeverWr))],
                          WriteS (VarP globals_min_id));
          [%expect.unreachable]);
     with Eval_error msg -> Printf.printf "%s" msg;
     [%expect {| write: write tag |}]
 
   let%expect_test "simple var, write & read" =
-    prog_eval_noret ([VarD (UnitT (NRd, MayWr), UnitE)],
+    prog_eval_noret ([VarD (UnitT (NRd, MayWr))],
                      SeqS (WriteS (VarP globals_min_id),
                            ReadS (VarP globals_min_id)));
     Printf.printf "done!";
@@ -710,7 +693,7 @@ struct
   (* - basic call tests *)
 
   (* let%expect_test "simple call with read" = *)
-    (* prog_eval_noret ([VarD (UnitT (Rd, NeverWr), UnitE); *)
+    (* prog_eval_noret ([VarD (UnitT (Rd, NeverWr)); *)
                       (* FunD ([((In, NOut), UnitT (Rd, NeverWr)], ReadS (VarP 0)))], *)
                      (* CallS (VarP (globals_min_id + 1), *)
                             (* [PathE (VarP globals_min_id)])); *)
@@ -718,7 +701,7 @@ struct
     (* [%expect {| done! |}] *)
 
   (* let%expect_test "simple call with write" = *)
-    (* prog_eval_noret ([VarD ((UnitT (Rd, MayWr)), UnitE); *)
+    (* prog_eval_noret ([VarD ((UnitT (Rd, MayWr))); *)
                       (* VarD (RefT (Rf, UnitT (Rd, MayWr)), RefE globals_min_id); *)
                       (* FunD ([((In, NOut), RefT (Cp, UnitT (Rd, MayWr)))], WriteS (DerefP (VarP 0)))], *)
                      (* CallS (VarP (globals_min_id + 2), *)
