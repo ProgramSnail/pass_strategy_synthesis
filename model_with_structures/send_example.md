@@ -49,19 +49,19 @@ struct Request {
   Version* version;
   Utils* utils;
   Data* data;
-  DateTime operaiton_date;
+  DateTime time;
 };
 
 // example itself
 
-int get_version_id(Request /*[?]*/  r) {
+int get_version_id(Request /*[?]*/ r) {
   if (r.utils.has_version) {
     return r.version.id;
   }
   return old_version_placeholder().id;
 }
 
-Version updated_version(Request /*[?]*/  r) {
+Version updated_version(Request /*[?]*/ r) {
   if (not r.utils.has_version) {
     return old_version_placeholder();
   }
@@ -114,12 +114,12 @@ Request := [& User; # user
             & Version; # version
             & Utils; # utils
             & (); # data
-            ()] # operation_date
+            ()] # time
 # or Request := [& [& [(); ()], & [(); (); ()]]; # user
 #                & [(); (); ()]; # version
 #                & [(); ()]; # utils
 #                & (); # data
-#                ()] # operation_date
+#                ()] # time
 
 # example itself
 
