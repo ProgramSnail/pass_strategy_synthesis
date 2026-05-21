@@ -1357,3 +1357,62 @@ let prog_synt_compl_test_send _ = show(answerCpCapList) (Stream.take (run q
               ) &
               prog_evalo prog st })
   (fun q -> q#reify (List.prj_exn CopyCap.prj_exn))))
+
+(* complex test with already generated rw tags *)
+
+let prog_synt_compl_test_send_gen_rw _ = show(answerCpCapList) (Stream.take (run q
+  (fun q -> ocanren {
+              fresh prog, st,
+                    c00, c01, c02, c03, c04, c05,
+                    c10, c11, c12, c13, c14, c15,
+                    c20, c21, c22, c23, c24, c25,
+                    c30, c31, c32, c33, c34, c35
+              in
+
+              q == [
+                c00; c01; c02; c03; c04; c05;
+                c10; c11; c12; c13; c14; c15;
+                c20; c21; c22; c23; c24; c25;
+                c30; c31; c32; c33; c34; c35
+              ] &
+
+              c00 == Rf &
+              c01 == Rf &
+              c02 == Rf &
+              c03 == Rf &
+              c04 == Rf &
+              c05 == Rf &
+              c10 == Rf &
+              c11 == Rf &
+              c12 == Rf &
+              c13 == Rf &
+              c14 == Rf &
+              c15 == Rf &
+              c20 == Rf &
+              c21 == Rf &
+              c22 == Rf &
+              c23 == Rf &
+              c24 == Cp &
+              c25 == Rf &
+              c30 == Rf &
+              c31 == Rf &
+              c32 == Rf &
+              c33 == Rf &
+              c34 == Rf &
+              c35 == Rf &
+
+              prog == Prg ([
+                VarD (TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr)); UnitT (Rd, AlwaysWr)]));
+                FunD ([(Mode (In, NOut), TupleT ([RefT (c00, TupleT ([RefT (c01, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (c02, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (c03, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (c04, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (c05, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))],
+                      ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)), SkipS));
+                FunD ([(Mode (In, NOut), TupleT ([RefT (c10, TupleT ([RefT (c11, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (c12, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (c13, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (c14, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (c15, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))],
+                      SeqS (SeqS (ReadS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0))), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 1))));
+                FunD ([(Mode (In, NOut), TupleT ([RefT (c20, TupleT ([RefT (c21, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (c22, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)]))])); RefT (c23, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (c24, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (c25, UnitT (Rd, MayWr)); UnitT (NRd, AlwaysWr)]))],
+                      SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (WriteS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (DerefP (AccessP (VarP (0), 3)))), WriteS (DerefP (AccessP (VarP (0), 3)))), ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 1)), 0))), SkipS), WriteS (AccessP (VarP (0), 4))), ReadS (VarP (0))));
+                FunD ([(Mode (In, NOut), TupleT ([RefT (c30, TupleT ([RefT (c31, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (c32, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)]))])); RefT (c33, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (c34, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (c35, UnitT (NRd, AlwaysWr)); UnitT (NRd, AlwaysWr)]))],
+                      SeqS (SeqS (SeqS (SeqS (SeqS (WriteS (VarP (0)), CallS (VarP (13), [PathE (VarP (0))])), CallS (VarP (11), [PathE (VarP (0))])), CallS (VarP (12), [PathE (VarP (0))])), WriteS (DerefP (AccessP (VarP (0), 1)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 0)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)))))
+              ],
+              CallS (VarP (14), [PathE (VarP (10))])
+              ) &
+              prog_evalo prog st })
+  (fun q -> q#reify (List.prj_exn CopyCap.prj_exn))))

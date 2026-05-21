@@ -107,3 +107,6 @@ let%expect_test "presentation test 2 (complex types), synt" = print_endline(prog
 (* let%expect_test "complex test: send" = print_endline(prog_synt_compl_test_send ()); *)
   (* [%expect {| [[Rf; Cp; Cp; Cp; Cp; Cp]; [Cp; Cp; Cp; Cp; Cp; Cp]] |}] (* TODO: FIXME *) *)
 (* TODO *)
+
+let%expect_test "complex test: send, gen rw" = print_endline(prog_synt_compl_test_send_gen_rw ());
+  [%expect {| [[Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Rf; Cp; Rf; Rf; Rf; Rf; Rf; Rf; Rf]] |}]
