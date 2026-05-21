@@ -6,9 +6,9 @@ struct
 
   (* --- syntax --- *)
 
-  type read_cap = Rd | NRd (* | UndefRd ? *)
+  type read_cap = Rd | NRd | UndefRd
 
-  type write_cap = AlwaysWr | MayWr | NeverWr (* | UndefWr ? *)
+  type write_cap = AlwaysWr | MayWr | NeverWr | UndefWr
   type copy_cap = Cp | Rf
 
   type in_cap = In | NIn
@@ -56,6 +56,7 @@ struct
   exception Typing_error of string
   exception Eval_error of string
   exception Cant_fold3_error
+  exception Cant_deduce_rw_error of string
 
   (* value model & memory model *)
 
@@ -190,8 +191,8 @@ struct
 
   let rec valbuild (mem : mem) (t : atype) : mem * value =
     match t with
-    | UnitT (Rd, _) -> (mem, UnitV (ZeroMV, ZeroRV, ZeroWV))
-    | UnitT (NRd, _) -> (mem, UnitV (BotMV, ZeroRV, ZeroWV))
+    (* NOTE: ignore pre-tag in rw-analysis *)
+    | UnitT (_, _) -> (mem, UnitV (ZeroMV, ZeroRV, ZeroWV))
     | FunT _ -> raise @@ Typing_error "valbuild: funciton value is not supported"
     | RefT (_, t) -> let (mem', v') = valbuild mem t in
                      let (mem'', id'') = mem_add mem' v' in
@@ -200,22 +201,6 @@ struct
                                                         (mem', v' :: vs') in 
                    let mem', vs' = List.fold_right folder ts (mem, []) in
                    (mem', TupleV vs')
-
-  (* NOTE: not needed now *)
-  (* let rec valcopy (mem : mem) (v : value) (t : atype) : mem * value = *)
-    (* match t, v with *)
-    (* | UnitT (Rd, _), UnitV (v_m, _, _) -> (mem, UnitV (v_m, ZeroRV, ZeroWV)) *)
-    (* | UnitT (NRd, _), UnitV _ -> (mem, UnitV (BotMV, ZeroRV, ZeroWV)) *)
-    (* | FunT _, FunV -> (mem, v) *)
-    (* | RefT (Rf, _), RefV _ -> (mem, v) *)
-    (* | RefT (_, t), RefV id -> let (mem', v') = valcopy mem (mem_get mem id) t in *)
-                               (* let (mem'', id'') = mem_add mem' v' in *)
-                               (* (mem'', RefV id'') *) 
-    (* | TupleT ts, TupleV vs -> let folder = fun v t (mem, vs') -> let (mem', v') = valcopy mem v t in *)
-                                                                 (* (mem', v' :: vs') in *) 
-                              (* let mem', vs' = List.fold_right2 folder vs ts (mem, []) in *)
-                              (* (mem', TupleV vs') *)
-    (* | _, _ -> raise @@ Typing_error "valcopy: not trivial value, wrong type" *)
 
   (* - action rules *)
 
@@ -350,7 +335,7 @@ struct
   let is_correct_tags (r : read_cap) (w : write_cap)
                       (m : mode) (c : copy_cap) : bool =
     (snd m != Out || c == Rf) &&
-    (snd m != Out || w == AlwaysWr) &&
+    (snd m != Out || w == AlwaysWr || w == UndefWr) &&
     (r != Rd || fst m == In)
 
   let tryread (r : read_cap) (v_m : memval)
@@ -359,7 +344,8 @@ struct
       | Rd -> UnitV (memvmod ReadA v_m,
                      readvmod ReadA v_r,
                      writevmod ReadA v_w)
-      | NRd -> UnitV (v_m, v_r, v_w) 
+      | NRd -> UnitV (v_m, v_r, v_w)
+      | UndefRd -> raise @@ Cant_deduce_rw_error "tryread"
   
   let tryspoil (m : mode) (w : write_cap) (v_m : memval) : memval =
     match m, w with
@@ -367,6 +353,7 @@ struct
       | (_, Out), MayWr -> v_m
       | (_, NOut), AlwaysWr -> BotMV
       | (_, NOut), MayWr -> SmthMV
+      | _, UndefWr -> raise @@ Cant_deduce_rw_error "tryspoil"
       | _ -> raise @@ Typing_error "tryspoil: unexpected pair mode + write cap"
 
   let rec valspoil (mem : mem) (v : value) (t : atype)
@@ -386,10 +373,12 @@ struct
                 then (memvmod AlwaysWriteA v_m',
                       readvmod AlwaysWriteA v_r',
                       writevmod AlwaysWriteA v_w')
-                else (* MayWr *)
-                     (memvmod MayWriteA v_m',
-                      readvmod MayWriteA v_r',
-                      writevmod MayWriteA v_w'))
+              else if w == UndefWr
+                then raise @@ Cant_deduce_rw_error "valspoil"
+              else (* MayWr *)
+                   (memvmod MayWriteA v_m',
+                   readvmod MayWriteA v_r',
+                   writevmod MayWriteA v_w'))
             in
             let v_m''' = tryspoil m w v_m'' in
             (mem, UnitV (v_m''', v_r'', v_w''))
@@ -440,6 +429,12 @@ struct
 
   (* --- *)
 
+  let readval_to_cap (v_w : readval) : read_cap =
+    match v_w with
+      | ZeroRV -> NRd
+      | OneRV -> Rd
+      | TopRV -> NRd
+
   let writeval_to_cap (v_w : writeval) : write_cap =
     match v_w with
       | ZeroWV -> NeverWr
@@ -449,10 +444,8 @@ struct
   let rec tags_check (mem : mem) (v : value) (t : atype) : unit =
     match v, t with
       | UnitV (v_m, v_r, v_w), UnitT (r, w) ->
-        if (r == Rd) && (v_r != OneRV)
+        if readval_to_cap v_r != r
           then raise @@ Eval_error "tags_check: wrong read tag"
-        else if (r == NRd) && (v_r == OneRV)
-          then raise @@ Eval_error "tags_check: wrong not read tag"
         else if writeval_to_cap v_w != w
           then raise @@ Eval_error "tags_check: wrong write tag"
         else ()
@@ -465,7 +458,10 @@ struct
 
   let rec is_all_type_writable (t : atype) : bool =
     match t with
-      | UnitT (_, w) -> w == MayWr || w == AlwaysWr
+      | UnitT (_, MayWr) -> true
+      | UnitT (_, AlwaysWr) -> true
+      | UnitT (_, NeverWr) -> false
+      | UnitT (_, UndefWr) -> true (* NOTE: tag is not deduced yet, consider writable *)
       | FunT _ -> true
       | RefT (_, t) -> is_all_type_writable t
       | TupleT ts -> List.for_all is_all_type_writable ts
@@ -603,6 +599,7 @@ struct
   let uT_mw = UnitT (NRd, MayWr)
   let uT_r = UnitT (Rd, NeverWr)
   let uT = UnitT (NRd, NeverWr)
+  let uT_undef = UnitT (UndefRd, UndefWr)
 
   let rfT t = RefT (Rf, t)
   let cpT t = RefT (Cp, t)
