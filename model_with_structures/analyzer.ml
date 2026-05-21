@@ -14,7 +14,7 @@ struct
   type in_cap = In | NIn
   type out_cap = Out | NOut
 
-  type mode = in_cap * out_cap
+  type mode = Mode of in_cap * out_cap
 
   type path = VarP of data | DerefP of path | AccessP of path * data
 
@@ -103,9 +103,11 @@ struct
 
   let types_add (types : types) (x : data) (t : atype) =
     (x, t) :: types
-
   let vals_add (vals : vals) (x : data) (id : memid) =
     (x, id) :: vals
+
+  let mode_in (m : mode) : in_cap = match m with Mode (i, _) -> i
+  let mode_out (m : mode) : out_cap = match m with Mode (_, o) -> o
 
   (* - utils *)
 
@@ -349,9 +351,9 @@ struct
   (* TODO: check assignment type matches types separately later ?? *)
   let is_correct_tags (r : read_cap) (w : write_cap)
                       (m : mode) (c : copy_cap) : bool =
-    (snd m != Out || c == Rf) &&
-    (snd m != Out || w == AlwaysWr) &&
-    (r != Rd || fst m == In)
+    (mode_out m != Out || c == Rf) &&
+    (mode_out m != Out || w == AlwaysWr) &&
+    (r != Rd || mode_in m == In)
 
   let tryread (r : read_cap) (v_m : memval)
               (v_r : readval) (v_w : writeval) : value =
@@ -363,10 +365,10 @@ struct
   
   let tryspoil (m : mode) (w : write_cap) (v_m : memval) : memval =
     match m, w with
-      | (_, Out), AlwaysWr -> v_m
-      | (_, Out), MayWr -> v_m
-      | (_, NOut), AlwaysWr -> BotMV
-      | (_, NOut), MayWr -> SmthMV
+      | Mode (_, Out), AlwaysWr -> v_m
+      | Mode (_, Out), MayWr -> v_m
+      | Mode (_, NOut), AlwaysWr -> BotMV
+      | Mode (_, NOut), MayWr -> SmthMV
       | _ -> raise @@ Typing_error "tryspoil: unexpected pair mode + write cap"
 
   let rec valspoil (mem : mem) (v : value) (t : atype)
@@ -607,7 +609,7 @@ struct
   let rfT t = RefT (Rf, t)
   let cpT t = RefT (Cp, t)
 
-  let moded t = ((In, NOut), t)
+  let moded t = (Mode (In, NOut), t)
 
   let defg t = VarD t
 
@@ -868,7 +870,7 @@ struct
           wrS @@ drf @@ v0
         );
         FunD (
-          [((In, Out), rfT @@ uT_aw)],
+          [(Mode (In, Out), rfT @@ uT_aw)],
           wrS @@ drf @@ v0
         )
       ],
@@ -930,10 +932,10 @@ struct
         defg (rfT uT_r_aw);
         FunD (
           [
-            ((NIn, NOut), cpT @@ uT);
-            ((In, NOut), cpT @@ uT_r_aw);
-            ((NIn, Out), rfT @@ uT_aw);
-            ((In, Out), rfT @@ uT_r_aw);
+            (Mode (NIn, NOut), cpT @@ uT);
+            (Mode (In, NOut), cpT @@ uT_r_aw);
+            (Mode (NIn, Out), rfT @@ uT_aw);
+            (Mode (In, Out), rfT @@ uT_r_aw);
           ],
           (rdS @@ drf @@ v1) #.
           (rdS @@ drf @@ v3) #.
@@ -964,10 +966,10 @@ struct
         defg (rfT uT_r_aw);
         FunD (
           [
-            ((NIn, NOut), rfT @@ uT);
-            ((In, NOut), rfT @@ uT_r);
-            ((NIn, Out), rfT @@ uT_aw);
-            ((In, Out), rfT @@ uT_r_aw);
+            (Mode (NIn, NOut), rfT @@ uT);
+            (Mode (In, NOut), rfT @@ uT_r);
+            (Mode (NIn, Out), rfT @@ uT_aw);
+            (Mode (In, Out), rfT @@ uT_r_aw);
           ],
           (rdS @@ drf @@ v1) #.
           (rdS @@ drf @@ v3) #.
@@ -1049,130 +1051,4 @@ struct
     );
     Printf.printf "done!";
     [%expect {| done! |}]
-
-  (* TODO tags, access *)
-  (* let%expect_test "presentation test 2 (complex types), dsl" = *)
-    (* prog_eval_noret ( *)
-      (* let userT = TupleT [uT_r_aw; uT_r_aw; uT_r_aw] in *)
-      (* let dataT =  TupleT [uT_r_aw; uT_r_aw] in *)
-      (* let requestT = TupleT [cpT userT; *)
-                             (* cpT dataT; *)
-                             (* cpT dataT] in *)
-      (* let requestArgsT = TupleT [cpT userT; (* TODO: tags *) *)
-                                 (* cpT dataT; *)
-                                 (* cpT dataT] in *)
-      (* let userE = TupleE [UnitE; UnitE; UnitE] in *)
-      (* let dataE =  TupleE [UnitE; UnitE] in *)
-      (* let requestE = TupleE [rfg0E; rfg1E; rfg2E] in *)
-      (* [ *)
-        (* defg userT userE; *)
-        (* defg dataT dataE; *)
-        (* defg uT_r_aw; (* time *) *)
-        (* defg requestT requestE; *)
-        (* FunD ( (* send *) *)
-          (* [ *)
-            (* (moded @@ requestArgsT) *)
-          (* ], *)
-          (* ( *)
-          (* ( (* TODO access *) *)
-            (* (rdS @@ drf @@ v0) #. *)
-            (* (wrS @@ drf @@ v0) #. *)
-            (* (rdS @@ drf @@ v0) #. *)
-            (* (wrS @@ drf @@ v0) *)
-          (* ) |. *)
-          (* skp) #. *)
-          (* TODO access *)
-          (* (wrS @@ drf @@ v0) #. *)
-          (* (rdS @@ drf @@ v1) *)
-        (* ); *)
-      (* ], *)
-      (* (callS vg4 [pE vg3]) #. *)
-      (* TODO access *)
-      (* (wrS @@ drf @@ vg3) #. *)
-      (* ((rdS @@ drf @@ vg3) |. (rdS @@ drf @@ vg3)) #. *)
-      (* (rdS @@ drf @@ vg3) *)
-    (* ); *)
-    (* Printf.printf "done!"; *)
-    (* [%expect {| done! |}] *)
-
-  (* - complex tests *)
-
-  (* TODO: FIXME: rw tags *)
-  (* NOTE: path access isreversed to intuitive function application
-           by definition *)
-  (* let%expect_test "complex test: send, dsl" = *)
-    (* prog_eval_noret ( *)
-      (* TODO: set optimal ref mods later *)
-      (* let user_utilsT = TupleT [uT_r_aw (* 0 id *); uT_r_aw] in *)
-      (* let user_infoT =  TupleT [uT_r_aw (* 0 name *); uT_r_aw; uT_r_aw] in *)
-      (* let userT = TupleT [cpT user_utilsT (* 0 utils *); cpT user_infoT (* 1 info *)] in *)
-      (* let versionT = TupleT [uT_r_aw (* 0 id *); uT_r_aw; uT_r_aw] in *)
-      (* let utilsT = TupleT [uT_r_aw (* 0 has_version *); uT_r_aw (* 1 id *)] in *)
-      (* let requestT = TupleT [cpT userT (* 0 user *); *)
-                             (* cpT versionT (* 1 version *); *)
-                             (* cpT utilsT (* 2 utils *); *)
-                             (* cpT uT_r_aw (* 3 data *); *)
-                             (* uT_r_aw (* 4 operation_date *)] in *)
-      (* let user_utilsE = TupleE [UnitE (* 0 id *); UnitE] in *)
-      (* let user_infoE =  TupleE [UnitE (* 0 name *); UnitE; UnitE] in *)
-      (* let userE = TupleE [rfg0E (* 0 utils *); rfg1E (* 1 info *)] in *)
-      (* let versionE = TupleE [UnitE (* 0 id *); UnitE; UnitE] in *)
-      (* let utilsE = TupleE [UnitE (* 0 has_version *); UnitE (* 1 id *)] in *)
-      (* let requestE = TupleE [rfg2E (* 0 user *); *)
-                             (* rfg3E (* 1 version *); *)
-                             (* rfg4E (* 2 utils *); *)
-                             (* rfg5E (* 3 data *); *)
-                             (* UnitE (* 4 operation_date *)] in *)
-      (* let get_version_idID = vg7 in *)
-      (* let updated_versionID = vg8 in *)
-      (* let sendID = vg9 in *)
-      (* let send_allID = vg10 in *)
-      (* let get_version_idF = FunD ([moded requestT], *)
-        (* (rdS @@ access 0 @@ drf @@ access 1 v0) |. skp) in *)
-      (* let updated_versionF = FunD ([moded requestT], *)
-        (* (rdS @@ access 0 @@ drf @@ access 2 v0) #. *)
-        (* TODO: read all the substructure ?? *)
-        (* (rdS @@ access 0 @@ drf @@ access 1 v0) #. *)
-        (* (rdS @@ access 1 @@ drf @@ access 1 v0)) in *)
-      (* let sendF = FunD ([moded requestT], *)
-        (* (( *)
-           (* (wrS @@ access 0 @@ drf @@ access 2 v0) #. *)
-           (* (rdS @@ drf @@ access 3 v0) #. *)
-           (* (wrS @@ drf @@ access 3 v0) #. *)
-           (* (rdS @@ access 0 @@ drf @@ access 1 @@ drf @@ access 0 v0) *)
-         (* ) |. skp) #. *)
-         (* (wrS @@ access 4 v0) #. *)
-         (* TODO: read all the substructure ?? *)
-         (* (rdS @@ access 4 v0) (*rdS v0*)) in (* FIXME: TMP, parial read, should be full *) *)
-      (* let send_allF = FunD ([moded requestT], *)
-        (* (wrS @@ access 4 v0) (*wrS v0*) #. (* FIXME: TMP, parial write, should be full *) *)
-        (* (callS sendID [pE v0]) #. *)
-        (* (callS get_version_idID [pE v0]) #. *)
-        (* (callS updated_versionID [pE v0]) #. *)
-        (* TODO: read all the substructure ?? *)
-        (* (wrS @@ access 0 @@ drf @@ access 1 v0) #. *)
-        (* (wrS @@ access 1 @@ drf @@ access 1 v0) #. *)
-        (* --- *)
-        (* ((rdS @@ access 0 @@ drf @@ access 0 @@ drf @@ access 0 v0) |. *)
-         (* (rdS @@ access 0 @@ drf @@ access 1 v0))) in *)
-      (* let varID = vg6 in *)
-      (* [ *)
-        (* defg user_utilsT user_utilsE; *)
-        (* defg user_infoT user_infoE; *)
-        (* defg userT userE; *)
-        (* defg versionT versionE; *)
-        (* defg utilsT utilsE; *)
-        (* defg uT_r_aw; *)
-        (* defg requestT requestE; *)
-        (* get_version_idF; *)
-        (* updated_versionF; *)
-        (* sendF; *)
-        (* send_allF *)
-      (* ], *)
-      (* callS send_allID [pE varID] *)
-    (* ); *)
-    (* Printf.printf "done!"; *)
-    (* [%expect {| done! |}] *)
-
-  (* TODO: version with more optimal modifiers *)
 end

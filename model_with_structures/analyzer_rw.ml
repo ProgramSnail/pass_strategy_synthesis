@@ -22,7 +22,7 @@ struct
   type out_cap = Out | NOut
   [@@deriving gt ~options:{ show }]
 
-  type mode = in_cap * out_cap
+  type mode = Mode of in_cap * out_cap
   [@@deriving gt ~options:{ show }]
 
   type path = VarP of data | DerefP of path | AccessP of path * data
@@ -130,9 +130,11 @@ struct
 
   let types_add (types : types) (x : data) (t : atype) =
     (x, t) :: types
-
   let vals_add (vals : vals) (x : data) (id : memid) =
     (x, id) :: vals
+
+  let mode_in (m : mode) : in_cap = match m with Mode (i, _) -> i
+  let mode_out (m : mode) : out_cap = match m with Mode (_, o) -> o
 
   (* - utils *)
 
@@ -356,9 +358,9 @@ struct
   (* TODO: check assignment type matches types separately later ?? *)
   let is_correct_tags (r : read_cap) (w : write_cap)
                       (m : mode) (c : copy_cap) : bool =
-    (snd m != Out || c == Rf) &&
-    (snd m != Out || w == AlwaysWr || w == UndefWr) &&
-    (r != Rd || fst m == In)
+    (mode_out m != Out || c == Rf) &&
+    (mode_out m != Out || w == AlwaysWr || w == UndefWr) &&
+    (r != Rd || mode_in m == In)
 
   let tryread (r : read_cap) (v_m : memval)
               (v_r : readval) (v_w : writeval) : value =
@@ -371,10 +373,10 @@ struct
   
   let tryspoil (m : mode) (w : write_cap) (v_m : memval) : memval =
     match m, w with
-      | (_, Out), AlwaysWr -> v_m
-      | (_, Out), MayWr -> v_m
-      | (_, NOut), AlwaysWr -> BotMV
-      | (_, NOut), MayWr -> SmthMV
+      | Mode (_, Out), AlwaysWr -> v_m
+      | Mode (_, Out), MayWr -> v_m
+      | Mode (_, NOut), AlwaysWr -> BotMV
+      | Mode (_, NOut), MayWr -> SmthMV
       | _, UndefWr -> raise @@ Cant_deduce_rw_error "tryspoil"
       | _ -> raise @@ Typing_error "tryspoil: unexpected pair mode + write cap"
 
@@ -652,7 +654,7 @@ struct
   let rfT t = RefT (Rf, t)
   let cpT t = RefT (Cp, t)
 
-  let moded t = ((In, NOut), t)
+  let moded t = (Mode (In, NOut), t)
 
   let defg t = VarD t
 
@@ -701,7 +703,7 @@ struct
     ) in
     prog_eval_noret prog';
     print_endline @@ show(prog) prog';
-    [%expect {| ([VarD (RefT (Rf, UnitT (Rd, MayWr))); FunD ([((In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))], ReadS (DerefP (VarP (0))))], CallS (VarP (1001), [PathE (VarP (1000))])) |}]
+    [%expect {| ([VarD (RefT (Rf, UnitT (Rd, MayWr))); FunD ([(Mode (In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))], ReadS (DerefP (VarP (0))))], CallS (VarP (1001), [PathE (VarP (1000))])) |}]
 
   let%expect_test "presentation test 1 (simple types), dsl, rw gen" =
     let prog' = prog_eval (
@@ -762,7 +764,7 @@ struct
     ) in
     prog_eval_noret prog';
     print_endline @@ show(prog) prog';
-    [%expect {| ([VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); FunD ([((In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr))); ((In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))], SeqS (SeqS (ReadS (DerefP (VarP (0))), WriteS (DerefP (VarP (0)))), ReadS (DerefP (VarP (1))))); FunD ([((In, NOut), RefT (Cp, UnitT (NRd, MayWr)))], ChoiceS (WriteS (DerefP (VarP (0))), SkipS)); FunD ([((In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr))); ((In, NOut), RefT (Cp, UnitT (Rd, MayWr)))], SeqS (SeqS (SeqS (WriteS (DerefP (VarP (0))), ChoiceS (WriteS (DerefP (VarP (1))), WriteS (DerefP (VarP (0))))), ReadS (DerefP (VarP (0)))), ReadS (DerefP (VarP (1))))); FunD ([((In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))], ReadS (DerefP (VarP (0))))], SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (CallS (VarP (1005), [PathE (VarP (1000))]), CallS (VarP (1007), [PathE (VarP (1000))])), CallS (VarP (1004), [PathE (VarP (1000)); PathE (VarP (1001))])), CallS (VarP (1007), [PathE (VarP (1001))])), CallS (VarP (1006), [PathE (VarP (1002)); PathE (VarP (1003))])), WriteS (DerefP (VarP (1002)))), CallS (VarP (1005), [PathE (VarP (1002))])), CallS (VarP (1004), [PathE (VarP (1001)); PathE (VarP (1002))])), CallS (VarP (1007), [PathE (VarP (1003))]))) |}]
+    [%expect {| ([VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr))); (Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))], SeqS (SeqS (ReadS (DerefP (VarP (0))), WriteS (DerefP (VarP (0)))), ReadS (DerefP (VarP (1))))); FunD ([(Mode (In, NOut), RefT (Cp, UnitT (NRd, MayWr)))], ChoiceS (WriteS (DerefP (VarP (0))), SkipS)); FunD ([(Mode (In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr))); (Mode (In, NOut), RefT (Cp, UnitT (Rd, MayWr)))], SeqS (SeqS (SeqS (WriteS (DerefP (VarP (0))), ChoiceS (WriteS (DerefP (VarP (1))), WriteS (DerefP (VarP (0))))), ReadS (DerefP (VarP (0)))), ReadS (DerefP (VarP (1))))); FunD ([(Mode (In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))], ReadS (DerefP (VarP (0))))], SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (CallS (VarP (1005), [PathE (VarP (1000))]), CallS (VarP (1007), [PathE (VarP (1000))])), CallS (VarP (1004), [PathE (VarP (1000)); PathE (VarP (1001))])), CallS (VarP (1007), [PathE (VarP (1001))])), CallS (VarP (1006), [PathE (VarP (1002)); PathE (VarP (1003))])), WriteS (DerefP (VarP (1002)))), CallS (VarP (1005), [PathE (VarP (1002))])), CallS (VarP (1004), [PathE (VarP (1001)); PathE (VarP (1002))])), CallS (VarP (1007), [PathE (VarP (1003))]))) |}]
 
   (* TODO *)
 
@@ -993,7 +995,7 @@ struct
           wrS @@ drf @@ v0
         );
         FunD (
-          [((In, Out), rfT @@ uT_aw)],
+          [(Mode (In, Out), rfT @@ uT_aw)],
           wrS @@ drf @@ v0
         )
       ],
@@ -1055,10 +1057,10 @@ struct
         defg (rfT uT_r_aw);
         FunD (
           [
-            ((NIn, NOut), cpT @@ uT);
-            ((In, NOut), cpT @@ uT_r_aw);
-            ((NIn, Out), rfT @@ uT_aw);
-            ((In, Out), rfT @@ uT_r_aw);
+            (Mode (NIn, NOut), cpT @@ uT);
+            (Mode (In, NOut), cpT @@ uT_r_aw);
+            (Mode (NIn, Out), rfT @@ uT_aw);
+            (Mode (In, Out), rfT @@ uT_r_aw);
           ],
           (rdS @@ drf @@ v1) #.
           (rdS @@ drf @@ v3) #.
@@ -1089,10 +1091,10 @@ struct
         defg (rfT uT_r_aw);
         FunD (
           [
-            ((NIn, NOut), rfT @@ uT);
-            ((In, NOut), rfT @@ uT_r);
-            ((NIn, Out), rfT @@ uT_aw);
-            ((In, Out), rfT @@ uT_r_aw);
+            (Mode (NIn, NOut), rfT @@ uT);
+            (Mode (In, NOut), rfT @@ uT_r);
+            (Mode (NIn, Out), rfT @@ uT_aw);
+            (Mode (In, Out), rfT @@ uT_r_aw);
           ],
           (rdS @@ drf @@ v1) #.
           (rdS @@ drf @@ v3) #.
@@ -1210,7 +1212,7 @@ struct
     ) in
     prog_eval_noret prog';
     print_endline @@ show(prog) prog';
-    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))])); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Rf, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, MayWr)])); RefT (Rf, UnitT (Rd, AlwaysWr))]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (ReadS (DerefP (AccessP (VarP (0), 1))), WriteS (DerefP (AccessP (VarP (0), 1)))), ReadS (VarP (0))), WriteS (AccessP (DerefP (AccessP (VarP (0), 0)), 1))), SkipS), WriteS (DerefP (AccessP (VarP (0), 2)))), ReadS (VarP (0))))], SeqS (SeqS (SeqS (CallS (VarP (1001), [PathE (VarP (1000))]), WriteS (DerefP (AccessP (VarP (1000), 2)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 1)), ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 2)))), ReadS (DerefP (AccessP (VarP (1000), 2))))) |}]
+    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))])); FunD ([(Mode (In, NOut), TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Rf, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, MayWr)])); RefT (Rf, UnitT (Rd, AlwaysWr))]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (ReadS (DerefP (AccessP (VarP (0), 1))), WriteS (DerefP (AccessP (VarP (0), 1)))), ReadS (VarP (0))), WriteS (AccessP (DerefP (AccessP (VarP (0), 0)), 1))), SkipS), WriteS (DerefP (AccessP (VarP (0), 2)))), ReadS (VarP (0))))], SeqS (SeqS (SeqS (CallS (VarP (1001), [PathE (VarP (1000))]), WriteS (DerefP (AccessP (VarP (1000), 2)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 1)), ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 2)))), ReadS (DerefP (AccessP (VarP (1000), 2))))) |}]
 
   (* - complex tests *)
 
@@ -1268,5 +1270,5 @@ struct
     ) in
     prog_eval_noret prog';
     print_endline @@ show(prog) prog';
-    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr)); UnitT (Rd, AlwaysWr)])); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))], ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)), SkipS)); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))], SeqS (SeqS (ReadS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0))), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 1)))); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Cp, UnitT (Rd, MayWr)); UnitT (NRd, AlwaysWr)]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (WriteS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (DerefP (AccessP (VarP (0), 3)))), WriteS (DerefP (AccessP (VarP (0), 3)))), ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 1)), 0))), SkipS), WriteS (AccessP (VarP (0), 4))), ReadS (VarP (0)))); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, UnitT (NRd, AlwaysWr)); UnitT (NRd, AlwaysWr)]))], SeqS (SeqS (SeqS (SeqS (SeqS (WriteS (VarP (0)), CallS (VarP (1003), [PathE (VarP (0))])), CallS (VarP (1001), [PathE (VarP (0))])), CallS (VarP (1002), [PathE (VarP (0))])), WriteS (DerefP (AccessP (VarP (0), 1)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 0)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)))))], CallS (VarP (1004), [PathE (VarP (1000))])) |}]
+    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr)); UnitT (Rd, AlwaysWr)])); FunD ([(Mode (In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))], ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)), SkipS)); FunD ([(Mode (In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))], SeqS (SeqS (ReadS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0))), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 1)))); FunD ([(Mode (In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Cp, UnitT (Rd, MayWr)); UnitT (NRd, AlwaysWr)]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (WriteS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (DerefP (AccessP (VarP (0), 3)))), WriteS (DerefP (AccessP (VarP (0), 3)))), ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 1)), 0))), SkipS), WriteS (AccessP (VarP (0), 4))), ReadS (VarP (0)))); FunD ([(Mode (In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, UnitT (NRd, AlwaysWr)); UnitT (NRd, AlwaysWr)]))], SeqS (SeqS (SeqS (SeqS (SeqS (WriteS (VarP (0)), CallS (VarP (1003), [PathE (VarP (0))])), CallS (VarP (1001), [PathE (VarP (0))])), CallS (VarP (1002), [PathE (VarP (0))])), WriteS (DerefP (AccessP (VarP (0), 1)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 0)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)))))], CallS (VarP (1004), [PathE (VarP (1000))])) |}]
 end
