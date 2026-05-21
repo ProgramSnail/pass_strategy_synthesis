@@ -1214,6 +1214,62 @@ struct
 
   (* - complex tests *)
 
+  let%expect_test "complex test: send, dsl" =
+    let prog' = prog_eval (
+      (* TODO: set optimal ref mods later *)
+      let user_utilsT = TupleT [uT_undef (* 0 id *); uT_undef] in
+      let user_infoT =  TupleT [uT_undef (* 0 name *); uT_undef; uT_undef] in
+      let userT = TupleT [cpT user_utilsT (* 0 utils *); cpT user_infoT (* 1 info *)] in
+      let versionT = TupleT [uT_undef (* 0 id *); uT_undef; uT_undef] in
+      let utilsT = TupleT [uT_undef (* 0 has_version *); uT_undef (* 1 id *)] in
+      let requestT = TupleT [cpT userT (* 0 user *);
+                             cpT versionT (* 1 version *);
+                             cpT utilsT (* 2 utils *);
+                             cpT uT_undef (* 3 data *);
+                             uT_undef (* 4 operation_date *)] in
+      let get_version_idID = vg1 in
+      let updated_versionID = vg2 in
+      let sendID = vg3 in
+      let send_allID = vg4 in
+      let get_version_idF = FunD ([moded requestT],
+        (rdS @@ access 0 @@ drf @@ access 1 v0) |. skp) in
+      let updated_versionF = FunD ([moded requestT],
+        (rdS @@ access 0 @@ drf @@ access 2 v0) #.
+        (* TODO: read all the substructure ?? *)
+        (rdS @@ access 0 @@ drf @@ access 1 v0) #.
+        (rdS @@ access 1 @@ drf @@ access 1 v0)) in
+      let sendF = FunD ([moded requestT],
+        ((
+           (wrS @@ access 0 @@ drf @@ access 2 v0) #.
+           (rdS @@ drf @@ access 3 v0) #.
+           (wrS @@ drf @@ access 3 v0) #.
+           (rdS @@ access 0 @@ drf @@ access 1 @@ drf @@ access 0 v0)
+         ) |. skp) #.
+         (wrS @@ access 4 v0) #.
+         (rdS v0)) in
+      let send_allF = FunD ([moded requestT],
+        (wrS v0) #.
+        (callS sendID [pE v0]) #.
+        (callS get_version_idID [pE v0]) #.
+        (callS updated_versionID [pE v0]) #.
+        (wrS @@ drf @@ access 1 v0) #. (* TODO: check, all required substruct ? *)
+        (* --- *)
+        ((rdS @@ access 0 @@ drf @@ access 0 @@ drf @@ access 0 v0) |.
+         (rdS @@ access 0 @@ drf @@ access 1 v0))) in
+      let varID = vg0 in
+      [
+        defg requestT;
+        get_version_idF;
+        updated_versionF;
+        sendF;
+        send_allF
+      ],
+      callS send_allID [pE varID]
+    ) in
+    prog_eval_noret prog';
+    print_endline @@ show(prog) prog';
+    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr)); UnitT (Rd, AlwaysWr)])); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))], ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)), SkipS)); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (NRd, NeverWr); UnitT (NRd, NeverWr); UnitT (NRd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (NRd, NeverWr)])); RefT (Cp, UnitT (NRd, NeverWr)); UnitT (NRd, NeverWr)]))], SeqS (SeqS (ReadS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0))), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 1)))); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)]))])); RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, NeverWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Cp, UnitT (Rd, MayWr)); UnitT (NRd, AlwaysWr)]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (WriteS (AccessP (DerefP (AccessP (VarP (0), 2)), 0)), ReadS (DerefP (AccessP (VarP (0), 3)))), WriteS (DerefP (AccessP (VarP (0), 3)))), ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 1)), 0))), SkipS), WriteS (AccessP (VarP (0), 4))), ReadS (VarP (0)))); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)]))])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (NRd, AlwaysWr); UnitT (NRd, AlwaysWr)])); RefT (Cp, UnitT (NRd, AlwaysWr)); UnitT (NRd, AlwaysWr)]))], SeqS (SeqS (SeqS (SeqS (SeqS (WriteS (VarP (0)), CallS (VarP (1003), [PathE (VarP (0))])), CallS (VarP (1001), [PathE (VarP (0))])), CallS (VarP (1002), [PathE (VarP (0))])), WriteS (DerefP (AccessP (VarP (0), 1)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (DerefP (AccessP (VarP (0), 0)), 0)), 0)), ReadS (AccessP (DerefP (AccessP (VarP (0), 1)), 0)))))], CallS (VarP (1004), [PathE (VarP (1000))])) |}]
+
   (* TODO: FIXME: rw tags *)
   (* NOTE: path access isreversed to intuitive function application
            by definition *)
