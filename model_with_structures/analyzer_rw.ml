@@ -1183,8 +1183,8 @@ struct
                              cpT dataT;
                              cpT uT_undef] in
       let requestArgsT = TupleT [cpT userT;
-                                 cpT dataT;
-                                 cpT uT_undef] in
+                                 rfT dataT;
+                                 rfT uT_undef] in
       [
         defg requestT;
         FunD ( (* send *)
@@ -1210,7 +1210,7 @@ struct
     ) in
     prog_eval_noret prog';
     print_endline @@ show(prog) prog';
-    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))])); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, MayWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (ReadS (DerefP (AccessP (VarP (0), 1))), WriteS (DerefP (AccessP (VarP (0), 1)))), ReadS (VarP (0))), WriteS (AccessP (DerefP (AccessP (VarP (0), 0)), 1))), SkipS), WriteS (DerefP (AccessP (VarP (0), 2)))), ReadS (VarP (0))))], SeqS (SeqS (SeqS (CallS (VarP (1001), [PathE (VarP (1000))]), WriteS (DerefP (AccessP (VarP (1000), 2)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 1)), ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 2)))), ReadS (DerefP (AccessP (VarP (1000), 2))))) |}]
+    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))])); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Rf, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, MayWr)])); RefT (Rf, UnitT (Rd, AlwaysWr))]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (ReadS (DerefP (AccessP (VarP (0), 1))), WriteS (DerefP (AccessP (VarP (0), 1)))), ReadS (VarP (0))), WriteS (AccessP (DerefP (AccessP (VarP (0), 0)), 1))), SkipS), WriteS (DerefP (AccessP (VarP (0), 2)))), ReadS (VarP (0))))], SeqS (SeqS (SeqS (CallS (VarP (1001), [PathE (VarP (1000))]), WriteS (DerefP (AccessP (VarP (1000), 2)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 1)), ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 2)))), ReadS (DerefP (AccessP (VarP (1000), 2))))) |}]
 
   (* - complex tests *)
 
