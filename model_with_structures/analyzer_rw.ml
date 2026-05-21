@@ -1,4 +1,4 @@
-module Functional =
+module FunctionalRW =
 struct
   open GT
 
@@ -535,6 +535,14 @@ struct
 
   (* - function evaluation *)
 
+  let rec replace_rw_undef_with_r_aw (t : atype) : atype = match t with
+    | UnitT (r, w) -> let r' = if r == UndefRd then Rd else r in
+                      let w' = if w == UndefWr then AlwaysWr else w in
+                      UnitT (r', w')
+    | RefT (c, t) -> RefT (c, replace_rw_undef_with_r_aw t)
+    | TupleT ts -> TupleT (List.map replace_rw_undef_with_r_aw ts)
+    | FunT ts -> FunT ts (* NOTE: can't properly deduce *)
+
   (* NOTE: in analyzer rw replaces read & write tags with calculated ones *)
   let rec func_eval (state : state) (d : decl) : decl =
     match d with
@@ -552,7 +560,8 @@ struct
          (0, []) ts in
        (* TODO: FIXME: isure that need reverse ? *)
        FunD (List.rev ts', stmt))
-    | VarD _ -> d
+    (* NOTE: tags for globals not checked and not important in current implementation *)
+    | VarD t -> VarD (replace_rw_undef_with_r_aw t)
 
   (* --- program execution --- *)
 
@@ -676,6 +685,86 @@ struct
                              (v_memval_is (mem_get mem id2) ZeroMV)
                              (v_memval_is (mem_get mem id3) SmthMV);
     [%expect {| 0 1 2 true true true true true true |}]
+
+  (* - simple rw tags gen tests *)
+
+  let%expect_test "simple call with read, dsl, rw gen" =
+    let prog' = prog_eval (
+      [
+        defg (rfT uT_r_mw);
+        FunD (
+          [moded @@ cpT @@ uT_undef],
+          rdS @@ drf @@ v0
+        )
+      ],
+      callS vg1 [pE vg0]
+    ) in
+    prog_eval_noret prog';
+    print_endline @@ show(prog) prog';
+    [%expect {| ([VarD (RefT (Rf, UnitT (Rd, MayWr))); FunD ([((In, NOut), RefT (Cp, UnitT (Rd, NeverWr)))], ReadS (DerefP (VarP (0))))], CallS (VarP (1001), [PathE (VarP (1000))])) |}]
+
+  let%expect_test "presentation test 1 (simple types), dsl, rw gen" =
+    let prog' = prog_eval (
+      [
+        defg (rfT uT_r_aw); (* x *)
+        defg (rfT uT_r_aw); (* y *)
+        defg (rfT uT_r_aw); (* z *)
+        defg (rfT uT_r_aw); (* k *)
+        FunD ( (* f *)
+          [
+            (moded @@ rfT @@ uT_undef);
+            (moded @@ rfT @@ uT_undef);
+          ],
+          (rdS @@ drf @@ v0) #.
+          (wrS @@ drf @@ v0) #.
+          (rdS @@ drf @@ v1)
+        );
+        FunD ( (* w *)
+          [
+            (moded @@ cpT @@ uT_undef);
+          ],
+          (wrS @@ drf @@ v0) |. skp
+        );
+        FunD ( (* g *)
+          [
+            (moded @@ rfT @@ uT_undef);
+            (moded @@ cpT @@ uT_undef);
+          ],
+          (wrS @@ drf @@ v0) #.
+          ((wrS @@ drf @@ v1) |. (wrS @@ drf @@ v0)) #.
+          (rdS @@ drf @@ v0) #.
+          (rdS @@ drf @@ v1)
+        );
+        FunD ( (* r *)
+          [
+            (moded @@ rfT @@ uT_undef);
+          ],
+          (rdS @@ drf @@ v0)
+        )
+      ],
+      let xV = vg0 in
+      let yV = vg1 in
+      let zV = vg2 in
+      let kV = vg3 in
+      let fF = vg4 in
+      let wF = vg5 in
+      let gF = vg6 in
+      let rF = vg7 in
+      (callS wF [pE xV]) #.
+      (callS rF [pE xV]) #.
+      (callS fF [pE xV; pE yV]) #.
+      (callS rF [pE yV]) #.
+      (callS gF [pE zV; pE kV]) #.
+      (wrS @@ drf @@ zV) #.
+      (callS wF [pE zV]) #.
+      (callS fF [pE yV; pE zV]) #.
+      (callS rF [pE kV])
+    ) in
+    prog_eval_noret prog';
+    print_endline @@ show(prog) prog';
+    [%expect {| ([VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); VarD (RefT (Rf, UnitT (Rd, AlwaysWr))); FunD ([((In, NOut), RefT (Rf, UnitT (Rd, AlwaysWr))); ((In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))], SeqS (SeqS (ReadS (DerefP (VarP (0))), WriteS (DerefP (VarP (0)))), ReadS (DerefP (VarP (1))))); FunD ([((In, NOut), RefT (Cp, UnitT (NRd, MayWr)))], ChoiceS (WriteS (DerefP (VarP (0))), SkipS)); FunD ([((In, NOut), RefT (Rf, UnitT (NRd, AlwaysWr))); ((In, NOut), RefT (Cp, UnitT (Rd, MayWr)))], SeqS (SeqS (SeqS (WriteS (DerefP (VarP (0))), ChoiceS (WriteS (DerefP (VarP (1))), WriteS (DerefP (VarP (0))))), ReadS (DerefP (VarP (0)))), ReadS (DerefP (VarP (1))))); FunD ([((In, NOut), RefT (Rf, UnitT (Rd, NeverWr)))], ReadS (DerefP (VarP (0))))], SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (SeqS (CallS (VarP (1005), [PathE (VarP (1000))]), CallS (VarP (1007), [PathE (VarP (1000))])), CallS (VarP (1004), [PathE (VarP (1000)); PathE (VarP (1001))])), CallS (VarP (1007), [PathE (VarP (1001))])), CallS (VarP (1006), [PathE (VarP (1002)); PathE (VarP (1003))])), WriteS (DerefP (VarP (1002)))), CallS (VarP (1005), [PathE (VarP (1002))])), CallS (VarP (1004), [PathE (VarP (1001)); PathE (VarP (1002))])), CallS (VarP (1007), [PathE (VarP (1003))]))) |}]
+
+  (* TODO *)
 
   (* - basic var tests *)
 
@@ -1086,50 +1175,42 @@ struct
     Printf.printf "done!";
     [%expect {| done! |}]
 
-  (* TODO tags, access *)
-  (* let%expect_test "presentation test 2 (complex types), dsl" = *)
-    (* prog_eval_noret ( *)
-      (* let userT = TupleT [uT_r_aw; uT_r_aw; uT_r_aw] in *)
-      (* let dataT =  TupleT [uT_r_aw; uT_r_aw] in *)
-      (* let requestT = TupleT [cpT userT; *)
-                             (* cpT dataT; *)
-                             (* cpT dataT] in *)
-      (* let requestArgsT = TupleT [cpT userT; (* TODO: tags *) *)
-                                 (* cpT dataT; *)
-                                 (* cpT dataT] in *)
-      (* let userE = TupleE [UnitE; UnitE; UnitE] in *)
-      (* let dataE =  TupleE [UnitE; UnitE] in *)
-      (* let requestE = TupleE [rfg0E; rfg1E; rfg2E] in *)
-      (* [ *)
-        (* defg userT userE; *)
-        (* defg dataT dataE; *)
-        (* defg uT_r_aw; (* time *) *)
-        (* defg requestT requestE; *)
-        (* FunD ( (* send *) *)
-          (* [ *)
-            (* (moded @@ requestArgsT) *)
-          (* ], *)
-          (* ( *)
-          (* ( (* TODO access *) *)
-            (* (rdS @@ drf @@ v0) #. *)
-            (* (wrS @@ drf @@ v0) #. *)
-            (* (rdS @@ drf @@ v0) #. *)
-            (* (wrS @@ drf @@ v0) *)
-          (* ) |. *)
-          (* skp) #. *)
-          (* TODO access *)
-          (* (wrS @@ drf @@ v0) #. *)
-          (* (rdS @@ drf @@ v1) *)
-        (* ); *)
-      (* ], *)
-      (* (callS vg4 [pE vg3]) #. *)
-      (* TODO access *)
-      (* (wrS @@ drf @@ vg3) #. *)
-      (* ((rdS @@ drf @@ vg3) |. (rdS @@ drf @@ vg3)) #. *)
-      (* (rdS @@ drf @@ vg3) *)
-    (* ); *)
-    (* Printf.printf "done!"; *)
-    (* [%expect {| done! |}] *)
+  let%expect_test "presentation test 2 (complex types), dsl, rw gen" =
+    let prog' = prog_eval (
+      let userT = TupleT [uT_undef; uT_undef; uT_undef] in
+      let dataT =  TupleT [uT_undef; uT_undef] in
+      let requestT = TupleT [cpT userT;
+                             cpT dataT;
+                             cpT uT_undef] in
+      let requestArgsT = TupleT [cpT userT;
+                                 cpT dataT;
+                                 cpT uT_undef] in
+      [
+        defg requestT;
+        FunD ( (* send *)
+          [
+            (moded @@ requestArgsT)
+          ],
+          ((
+            (rdS @@ drf @@ access 1 @@ v0) #.
+            (wrS @@ drf @@ access 1 @@ v0) #.
+            (rdS v0) #.
+            (wrS @@ access 1 @@ drf @@ access 0 @@ v0)
+          ) |.
+          skp) #.
+          (wrS @@ drf @@ access 2 @@ v0) #.
+          (rdS v0)
+        );
+      ],
+      (callS vg1 [pE vg0]) #.
+      (wrS @@ drf @@ access 2 @@ vg0) #.
+      ((rdS @@ access 1 @@ drf @@ access 0 @@ vg0) |.
+       (rdS @@ access 2 @@ drf @@ access 0 @@ vg0)) #.
+      (rdS @@ drf @@ access 2 @@ vg0)
+    ) in
+    prog_eval_noret prog';
+    print_endline @@ show(prog) prog';
+    [%expect {| ([VarD (TupleT ([RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, TupleT ([UnitT (Rd, AlwaysWr); UnitT (Rd, AlwaysWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))])); FunD ([((In, NOut), TupleT ([RefT (Cp, TupleT ([UnitT (Rd, NeverWr); UnitT (Rd, MayWr); UnitT (Rd, NeverWr)])); RefT (Cp, TupleT ([UnitT (Rd, MayWr); UnitT (Rd, MayWr)])); RefT (Cp, UnitT (Rd, AlwaysWr))]))], SeqS (SeqS (ChoiceS (SeqS (SeqS (SeqS (ReadS (DerefP (AccessP (VarP (0), 1))), WriteS (DerefP (AccessP (VarP (0), 1)))), ReadS (VarP (0))), WriteS (AccessP (DerefP (AccessP (VarP (0), 0)), 1))), SkipS), WriteS (DerefP (AccessP (VarP (0), 2)))), ReadS (VarP (0))))], SeqS (SeqS (SeqS (CallS (VarP (1001), [PathE (VarP (1000))]), WriteS (DerefP (AccessP (VarP (1000), 2)))), ChoiceS (ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 1)), ReadS (AccessP (DerefP (AccessP (VarP (1000), 0)), 2)))), ReadS (DerefP (AccessP (VarP (1000), 2))))) |}]
 
   (* - complex tests *)
 
