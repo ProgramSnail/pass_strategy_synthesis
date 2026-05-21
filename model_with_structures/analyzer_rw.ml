@@ -1,35 +1,48 @@
 module Functional =
 struct
+  open GT
 
   type data = int
+  [@@deriving gt ~options:{ show }]
   type memid = int
+  [@@deriving gt ~options:{ show }]
 
   (* --- syntax --- *)
 
   type read_cap = Rd | NRd | UndefRd
+  [@@deriving gt ~options:{ show }]
 
   type write_cap = AlwaysWr | MayWr | NeverWr | UndefWr
+  [@@deriving gt ~options:{ show }]
   type copy_cap = Cp | Rf
+  [@@deriving gt ~options:{ show }]
 
   type in_cap = In | NIn
+  [@@deriving gt ~options:{ show }]
   type out_cap = Out | NOut
+  [@@deriving gt ~options:{ show }]
 
   type mode = in_cap * out_cap
+  [@@deriving gt ~options:{ show }]
 
   type path = VarP of data | DerefP of path | AccessP of path * data
+  [@@deriving gt ~options:{ show }]
 
   type atype = UnitT of read_cap * write_cap
              | RefT of copy_cap * atype
              | TupleT of atype list
              | FunT of (mode * atype) list (* TODO: declaration id for ease of impl / performance instead (?) *)
+  [@@deriving gt ~options:{ show }]
 
   type mtype = mode * atype
+  [@@deriving gt ~options:{ show }]
 
   type expr = UnitE
             | PathE of path
             (* TODO: extend to include arbitrary path *)
             | RefE of data
             | TupleE of expr list
+  [@@deriving gt ~options:{ show }]
 
   type stmt = SkipS
             | CallS of path * expr list
@@ -37,11 +50,14 @@ struct
             | ReadS of path
             | SeqS of stmt * stmt
             | ChoiceS of stmt * stmt
+  [@@deriving gt ~options:{ show }]
 
   type decl = VarD of (* data * *) atype (* * expr *)
             | FunD of (* data * *) (* (data * *) mtype (* )  *) list * stmt
+  [@@deriving gt ~options:{ show }]
 
   type prog = decl list * stmt
+  [@@deriving gt ~options:{ show }]
 
   (* --- exceptions --- *)
 
@@ -68,26 +84,36 @@ struct
                  (* | TupleDV of deepvalue list *)
 
   type memval = ZeroMV | SmthMV | BotMV (* | TopMV ?? *)
+  [@@deriving gt ~options:{ show }]
   type readval = ZeroRV | OneRV | TopRV
+  [@@deriving gt ~options:{ show }]
   type writeval = ZeroWV | SmthWV | OneWV
+  [@@deriving gt ~options:{ show }]
 
   type value = UnitV of memval * readval * writeval
              | FunV (* of ((* data list * *) stmt) list *)
              | RefV of memid
              | TupleV of value list
+  [@@deriving gt ~options:{ show }]
 
   type revpath = VarRP | DerefRP of revpath | AccessRP of revpath * data
+  [@@deriving gt ~options:{ show }]
 
   type action = ReadA | AlwaysWriteA | MayWriteA
+  [@@deriving gt ~options:{ show }]
 
   (* TODO: any additional difference between rvalue and lvalue now ?? *)
 
   (* --- *)
 
   type mem = value list * memid (* NOTE: memory and first free elem *)
+  [@@deriving gt ~options:{ show }]
   type types = (data * atype) list
+  [@@deriving gt ~options:{ show }]
   type vals = (data * memid) list
+  [@@deriving gt ~options:{ show }]
   type state = mem * types * vals
+  [@@deriving gt ~options:{ show }]
 
   (* --- *)
 
